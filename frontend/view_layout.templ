@@ -165,7 +165,10 @@ templ pageFooter(page Page) {
 		// The credit is a link, not a request: nothing here is fetched from
 		// anywhere, the front end stays offline until someone clicks.
 		<span class="credit">
-			Created by <a href="https://github.com/titpetric">Tit Petric</a>,
+			// The handle is written as an expression because a bare @ opens a
+			// component expression in templ.
+			<a href="https://github.com/titpetric/oida">oida</a>, in-mem telemetry by
+			<a href="https://github.com/titpetric">{ "@titpetric" }</a>,
 			<a href="https://blacksky.digital/products/oida">blacksky.digital</a>
 		</span>
 	</footer>
