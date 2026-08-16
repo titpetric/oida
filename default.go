@@ -40,10 +40,10 @@ func Configure(opts Options) (*Tracer, error) {
 	return tracer, nil
 }
 
-// resolve returns the tracer the options point at: the explicit one when set,
+// Resolve returns the tracer the options point at: the explicit one when set,
 // the process default otherwise. The first resolution of the default configures
-// it from opts.
-func resolve(opts Options) (*Tracer, error) {
+// it from opts. The front end resolves the tracer it serves this way.
+func Resolve(opts Options) (*Tracer, error) {
 	if opts.Tracer != nil {
 		return opts.Tracer, nil
 	}
@@ -68,11 +68,11 @@ func resolve(opts Options) (*Tracer, error) {
 	return tracer, nil
 }
 
-// mustResolve returns the tracer for opts, falling back to the default tracer
+// MustResolve returns the tracer for opts, falling back to the default tracer
 // when the options are invalid. It backs the entry points that cannot report an
 // error.
-func mustResolve(opts Options) *Tracer {
-	tracer, err := resolve(opts)
+func MustResolve(opts Options) *Tracer {
+	tracer, err := Resolve(opts)
 	if err != nil || tracer == nil {
 		return Default()
 	}

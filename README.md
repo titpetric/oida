@@ -9,12 +9,17 @@ Telemetry for Go.
 ## Install
 
 ```bash
-go get github.com/titpetric/oida
+go get github.com/titpetric/oida@latest
 ```
 
 ## Use
 
 ```go
+import (
+	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/frontend"
+)
+
 opts := oida.NewOptions()
 opts.ServiceName = "billing-api"
 
@@ -27,7 +32,7 @@ opts.Tracer = tracer
 r := chi.NewRouter()
 r.Use(oida.TracingMiddleware(opts))
 
-if err := oida.Mount(r, opts); err != nil {
+if err := frontend.Mount(r, opts); err != nil {
 	return err
 }
 ```

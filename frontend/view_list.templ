@@ -1,0 +1,132 @@
+package frontend
+
+import (
+	"strconv"
+
+	"github.com/titpetric/oida"
+)
+
+// List renders the recorded traces held in storage.
+templ List(page Page) {
+	@Layout(page) {
+		<form class="filters" method="get" action={ templ.SafeURL(page.TracesPath()) } data-autosubmit>
+			if page.Filtered() {
+				// The domain is chosen in the masthead; the filter bar carries it
+				// so submitting a filter does not widen back to every host.
+				<input type="hidden" name="host" value={ page.Host }/>
+			}
+			<span class="field grow">
+				<label for="oida-filter">Search</label>
+				<input type="search" name="q" id="oida-filter" value={ page.Query } autocomplete="off"/>
+			</span>
+			for _, field := range page.Fields() {
+				@selectField(field)
+			}
+			<span class="field">
+				<label>&nbsp;</label>
+				<button type="submit">Filter</button>
+			</span>
+			<span class="hint">press <kbd>/</kbd> to search</span>
+		</form>
+		<div class="scroll">
+			<table>
+				<thead>
+					<tr>
+						<th class="c-medium">Trace</th>
+						<th class="num">
+							@sortLink(page, SortAge, "Age")
+						</th>
+						<th class="name">Name</th>
+						<th>Status</th>
+						<th class="num">
+							@sortLink(page, SortDuration, "Duration")
+						</th>
+						<th class="flex">Shape</th>
+						<th class="num c-medium">
+							@sortLink(page, SortSpans, "Spans")
+						</th>
+						<th class="num c-wide">Response</th>
+						<th class="num c-medium">
+							@sortLink(page, SortAllocated, "Allocated")
+						</th>
+						<th class="dim c-wide">Remote</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, trace := range page.Snapshot.Log {
+						@traceRow(page, trace)
+					}
+					if len(page.Snapshot.Log) == 0 {
+						<tr>
+							<td class="empty" colspan="10">
+								<b>No traces</b>
+								if page.Query != "" || page.Kind != "" || page.Status == "error" {
+									Nothing matches this filter.
+									<a href={ templ.SafeURL(page.TracesPath()) }>Clear it</a>
+									to see everything recorded.
+								} else {
+									Send a request through the instrumented router. Still empty?
+									Check that the middleware is registered, that Options.SampleRate is
+									above zero, and that the path is not in Options.IgnorePaths.
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		<p class="note">
+			Showing { strconv.Itoa(len(page.Snapshot.Log)) } of { strconv.Itoa(page.Snapshot.Statistics.WindowSize) } retained traces,
+			out of a { strconv.Itoa(page.Snapshot.Statistics.WindowLimit) } trace window.
+			Shape bars are scaled to the slowest trace on this page ({ durationText(page.Slowest) }) and coloured by span kind.
+		</p>
+	}
+}
+
+// sortLink renders a column header that orders the list by its column. The
+// active column carries the direction, so the header states the sort rather
+// than hiding it in the URL.
+templ sortLink(page Page, key SortKey, label string) {
+	<a href={ templ.SafeURL(page.SortURL(key)) } class={ page.SortClass(key) }>{ label }</a>
+}
+
+// traceRow renders one recorded trace. The shape column is the trace timeline
+// scaled against the slowest row, so a database bound request and an upstream
+// bound request are told apart without opening either.
+templ traceRow(page Page, trace oida.Trace) {
+	<tr
+		class={ "row", templ.KV("failed", trace.Error != "" || trace.State == oida.StateError) }
+		data-href={ page.TraceURL(trace.ID) }
+	>
+		<td class="c-medium">
+			@traceLink(page, trace)
+		</td>
+		<td class="num" title={ trace.StartedAt.Format("2006-01-02 15:04:05.000") }>{ page.Age(trace.StartedAt) }</td>
+		<td class="name" title={ trace.Name }>{ trace.Name }</td>
+		<td>
+			if trace.HTTP != nil && trace.HTTP.Status > 0 {
+				<span class={ statusClass(trace.HTTP.Status) }>{ strconv.Itoa(trace.HTTP.Status) }</span>
+			} else if trace.Error != "" {
+				<span class="status s5xx">fail</span>
+			} else {
+				<span class="status job">job</span>
+			}
+		</td>
+		<td class="num">{ preciseText(trace.Duration) }</td>
+		<td class="flex">
+			<div class="bar plot" title={ shapeTitle(trace) }>
+				for _, segment := range page.Composition(trace) {
+					<span style={ segmentStyle(segment) }></span>
+				}
+			</div>
+		</td>
+		<td class="num c-medium">{ strconv.Itoa(len(trace.Spans)) }</td>
+		<td class="num c-wide">
+			if trace.HTTP != nil {
+				{ strconv.FormatInt(trace.HTTP.ResponseBytes, 10) }
+			}
+		</td>
+		<td class="num c-medium">{ bytesText(trace.Memory.AllocatedBytes) }</td>
+		<td class="dim c-wide">{ remoteText(trace) }</td>
+	</tr>
+}

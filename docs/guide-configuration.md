@@ -208,10 +208,10 @@ if err != nil {
 }
 jobOpts.Tracer = jobTracer
 
-if err := oida.Mount(r, httpOpts); err != nil {
+if err := frontend.Mount(r, httpOpts); err != nil {
 	return err
 }
-if err := oida.Mount(r, jobOpts); err != nil {
+if err := frontend.Mount(r, jobOpts); err != nil {
 	return err
 }
 ```
@@ -240,7 +240,7 @@ func vhost(name string) (http.Handler, error) {
 
 	r := chi.NewRouter()
 	r.Use(oida.TracingMiddleware(opts))
-	if err := oida.Mount(r, opts); err != nil {
+	if err := frontend.Mount(r, opts); err != nil {
 		return nil, err
 	}
 

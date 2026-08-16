@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/frontend"
 )
 
 // Build information, filled in by the linker.
@@ -66,7 +67,7 @@ func run() error {
 	r.Use(middleware.Recoverer)
 	r.Use(oida.TracingMiddleware(opts))
 
-	if err := oida.Mount(r, opts); err != nil {
+	if err := frontend.Mount(r, opts); err != nil {
 		return err
 	}
 

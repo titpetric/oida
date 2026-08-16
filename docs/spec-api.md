@@ -1,9 +1,15 @@
 # Public API
 
-Import path: `github.com/titpetric/oida`.
+Three import paths:
 
-Most services use `NewOptions`, `Configure`, `TracingMiddleware`, `Mount`, and
-`Start`.
+| Package | Import path | Contents |
+| --- | --- | --- |
+| `oida` | `github.com/titpetric/oida` | Tracer, middleware, options, storage, instrumentation |
+| `frontend` | `github.com/titpetric/oida/frontend` | The dashboard: `Handler`, `Mount`, `MountServeMux` |
+| `model` | `github.com/titpetric/oida/model` | Recorded data. Its types are aliased into `oida`, so this import is rarely needed |
+
+Most services use `NewOptions`, `Configure`, `TracingMiddleware`,
+`frontend.Mount`, and `Start`.
 
 ## Setup
 
@@ -12,11 +18,21 @@ func NewOptions() Options
 func New(opts Options) (*Tracer, error)
 func Configure(opts Options) (*Tracer, error)
 func Default() *Tracer
+func Resolve(opts Options) (*Tracer, error)
+func MustResolve(opts Options) *Tracer
 
 func TracingMiddleware(opts Options) func(http.Handler) http.Handler
-func Handler(opts Options) http.Handler
-func Mount(r Router, opts Options) error
-func MountServeMux(mux *http.ServeMux, opts Options) error
+```
+
+The dashboard is served by the `frontend` package:
+
+```go
+package frontend
+
+func Handler(opts oida.Options) http.Handler
+func HandlerFor(tracer *oida.Tracer) http.Handler
+func Mount(r Router, opts oida.Options) error
+func MountServeMux(mux *http.ServeMux, opts oida.Options) error
 ```
 
 `Configure` creates the process-wide tracer. Set `opts.Tracer` to the returned
@@ -32,7 +48,7 @@ if err != nil {
 opts.Tracer = tracer
 ```
 
-`Mount` accepts routers with this method:
+`frontend.Mount` accepts routers with this method:
 
 ```go
 type Router interface {
@@ -40,7 +56,8 @@ type Router interface {
 }
 ```
 
-Use `MountServeMux` with `http.ServeMux`.
+Use `frontend.MountServeMux` with `http.ServeMux`. `HandlerFor` is the shortest
+path from a tracer to a dashboard, and takes its configuration from the tracer.
 
 The middleware skips disabled, ignored, and unsampled requests. Traced HTTP
 requests receive a `Request-Id` header. When `TrustRequestID` is true, a valid
@@ -174,7 +191,7 @@ storage retains traces across restarts; `limit` controls the maximum count and
 
 | Error | Meaning |
 | --- | --- |
-| `ErrNilRouter` | `Mount` or `MountServeMux` received a nil router |
+| `ErrNilRouter` | `frontend.Mount` or `frontend.MountServeMux` received a nil router |
 | `ErrInvalidOptions` | Base error for invalid configuration |
 | `ErrInvalidPath` | `Options.Path` is not absolute |
 | `ErrInvalidSampleRate` | `Options.SampleRate` is outside `[0,1]` or NaN |

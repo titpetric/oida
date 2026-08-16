@@ -1,0 +1,254 @@
+package frontend
+
+import (
+	"strconv"
+
+	"github.com/titpetric/oida"
+)
+
+// Detail renders one trace: what it was, where the time went, and what it did.
+templ Detail(page Page) {
+	@Layout(page) {
+		if page.Trace != nil {
+			<div class="trace-head">
+				<h1>{ page.Trace.Name }</h1>
+				<span class="elapsed">{ preciseText(page.Trace.Duration) }</span>
+				if page.Trace.HTTP != nil && page.Trace.HTTP.Status > 0 {
+					<span class={ statusClass(page.Trace.HTTP.Status) }>{ strconv.Itoa(page.Trace.HTTP.Status) }</span>
+				} else if page.Trace.Error != "" {
+					<span class="status s5xx">fail</span>
+				} else {
+					<span class="status job">job</span>
+				}
+				@traceLink(page, *page.Trace)
+				<span class="stream-status">{ page.Age(page.Trace.StartedAt) }</span>
+			</div>
+			if page.Trace.Error != "" {
+				<div class="error">{ page.Trace.Error }</div>
+			}
+			<div class="live-head">
+				<h2>Transaction</h2>
+			</div>
+			@waves(page)
+			// Where the time went, and the way into the detail behind it. The
+			// legend is the answer on its own, so it is always here; the spans
+			// are the working, and they fold away until they are asked for.
+			<div class="peek">
+				@timelineLegend(page)
+				@peekToggle("spans", len(page.Rows), "spans")
+			</div>
+			<div class="spans">
+				<div class="scroll">
+					<table>
+						<thead>
+							<tr>
+								<th>Kind</th>
+								<th class="num c-medium">Offset</th>
+								<th class="num">Duration</th>
+								<th class="plot">Span of the request</th>
+								<th class="dim c-wide">Source</th>
+								<th class="flex">Name</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, row := range page.Rows {
+								@spanRow(row)
+							}
+							if len(page.Rows) == 0 {
+								<tr><td class="empty" colspan="6"><b>No spans</b>This trace recorded no spans of its own.</td></tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+			if page.Trace.DroppedSpans > 0 {
+				<p class="note">
+					{ strconv.Itoa(page.Trace.DroppedSpans) } spans were dropped: this trace hit Options.MaxSpansPerTrace.
+				</p>
+			}
+			@traceFacts(*page.Trace)
+			<a class="back" href={ templ.SafeURL(page.URL(ViewList)) }>← All traces</a>
+		}
+	}
+}
+
+// timelineFoot renders what sits under the drawing of a trace: the time axis
+// it was drawn against.
+templ timelineFoot(page Page) {
+	<div class="axis">
+		for _, tick := range page.Ticks() {
+			<span style={ offsetStyle(tick.Share) }>{ tick.Label }</span>
+		}
+	</div>
+}
+
+// peekToggle renders the switch that opens a table, and says what is in it
+// while it is shut. It is a column heading and reads as one: the count sits
+// quieter than the word beside it, because the word is what it is and the count
+// is what it happens to be this time.
+//
+// The stylesheet does the opening, so it works with scripting off; the script
+// only remembers the choice, and remembers it for the whole front end rather
+// than for one page.
+templ peekToggle(name string, count int, label string) {
+	<label class="peek-toggle">
+		<span><b>{ strconv.Itoa(count) }</b> { label }</span>
+		<input type="checkbox" data-peek={ name } aria-label={ "Show " + label }/>
+		<i aria-hidden="true"></i>
+	</label>
+}
+
+// timelineLegend renders where the time went, by kind. It is exclusive time,
+// each moment attributed to the innermost span running, which is the question
+// the drawings do not answer and the span table does.
+templ timelineLegend(page Page) {
+	<div class="legend">
+		for _, share := range page.KindShares() {
+			<span>
+				<i style={ kindBackground(share.Kind) }></i>
+				<b>{ share.Kind.String() }</b>
+				{ durationText(share.Duration) }, { percentText(share.Share) }
+			</span>
+		}
+		if len(page.Segments) == 0 {
+			<span>No timed span regions recorded.</span>
+		}
+	</div>
+}
+
+// spanRow renders one span of the trace against the shared time axis.
+templ spanRow(row SpanRow) {
+	<tr class="span-row" data-span={ strconv.Itoa(row.ID) }>
+		<td><span class="kind" style={ kindStyle(row.Kind) }>{ row.Kind.String() }</span></td>
+		<td class="num c-medium">{ durationText(row.Offset) }</td>
+		<td class="num">
+			if row.Open {
+				<span class="stream-status">open</span>
+			} else {
+				{ preciseText(row.Duration) }
+			}
+		</td>
+		<td class="plot">
+			<div class="bar plot">
+				<span style={ rowBarStyle(row) }></span>
+			</div>
+		</td>
+		<td class="dim c-wide">{ row.SourceText() }</td>
+		<td class="flex">
+			<span class="span-name" style={ indentStyle(row.Depth) }>
+				if row.Depth > 0 {
+					<span class="span-tree">{ treeGlyph(row) }</span>
+				}
+				{ row.Name }
+				if len(row.Attributes) > 0 {
+					<details class="attrs">
+						<summary>attributes: { keyList(row.Attributes) }</summary>
+						<table class="attr-table">
+							<tbody>
+								for _, key := range sortedKeys(row.Attributes) {
+									<tr>
+										<th>{ key }</th>
+										<td>
+											if isQueryKey(key) {
+												<code class="query">{ attributeText(row.Attributes[key]) }</code>
+											} else {
+												{ attributeText(row.Attributes[key]) }
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</details>
+				}
+			</span>
+			if row.Error != "" {
+				<span class="error">{ row.Error }</span>
+			}
+		</td>
+	</tr>
+}
+
+// traceFacts renders what is behind the trace as two tables side by side: what
+// was asked for on the left, what it cost this process on the right. They are
+// two questions, and reading one of them meant scrolling past the other while
+// they shared a column. Each table is labels on the left and values on the
+// right, one row per property, so a label is always in the same place.
+templ traceFacts(trace oida.Trace) {
+	<div class="facts">
+		<div>
+			<h3>Request</h3>
+			<dl class="detail">
+				<div>
+					<dt>Started</dt>
+					<dd>{ trace.StartedAt.Format("2006-01-02 15:04:05.000") }</dd>
+				</div>
+				<div>
+					<dt>Last state</dt>
+					<dd>{ trace.State.Label() }</dd>
+				</div>
+				if trace.HTTP != nil {
+					<div>
+						<dt>Method</dt>
+						<dd>{ trace.HTTP.Method } · { trace.HTTP.Protocol }</dd>
+					</div>
+					<div>
+						<dt>URI</dt>
+						<dd>{ trace.HTTP.URI }</dd>
+					</div>
+					if trace.HTTP.Route != "" {
+						<div>
+							<dt>Route</dt>
+							<dd>{ trace.HTTP.Route }</dd>
+						</div>
+					}
+					<div>
+						<dt>Host</dt>
+						<dd>{ trace.HTTP.Host }</dd>
+					</div>
+					<div>
+						<dt>Response</dt>
+						<dd>{ strconv.FormatInt(trace.HTTP.ResponseBytes, 10) } bytes</dd>
+					</div>
+					<div>
+						<dt>Remote</dt>
+						<dd>{ trace.HTTP.RemoteAddress }</dd>
+					</div>
+					if trace.HTTP.UserAgent != "" {
+						<div>
+							<dt>User agent</dt>
+							<dd>{ trace.HTTP.UserAgent }</dd>
+						</div>
+					}
+				}
+			</dl>
+		</div>
+		<div>
+			<h3>System</h3>
+			<dl class="detail">
+				if trace.Service != "" {
+					<div>
+						<dt>Service</dt>
+						<dd>{ trace.Service }</dd>
+					</div>
+				}
+				<div>
+					<dt>Spans</dt>
+					<dd>{ strconv.Itoa(len(trace.Spans)) }</dd>
+				</div>
+				<div>
+					<dt>Heap Δ</dt>
+					<dd>{ signedBytesText(trace.Memory.HeapDelta) }</dd>
+				</div>
+				<div>
+					<dt>Allocated</dt>
+					<dd>{ bytesText(trace.Memory.AllocatedBytes) } · { strconv.FormatUint(trace.Memory.Allocations, 10) } allocs</dd>
+				</div>
+				<div>
+					<dt>GC</dt>
+					<dd>{ strconv.FormatUint(uint64(trace.Memory.GCCycles), 10) } cycles · { durationText(trace.Memory.GCPause) }</dd>
+				</div>
+			</dl>
+		</div>
+	</div>
+}

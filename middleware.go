@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/titpetric/oida/model"
 )
 
 // RequestIDHeader carries the trace identifier on the request and the response.
@@ -14,7 +16,7 @@ const RequestIDHeader = "Request-Id"
 // with any func(http.Handler) http.Handler chain.
 func TracingMiddleware(opts Options) func(http.Handler) http.Handler {
 	opts = opts.WithDefaults()
-	tracer := mustResolve(opts)
+	tracer := MustResolve(opts)
 	sampler := opts.sampler()
 
 	return func(next http.Handler) http.Handler {
@@ -58,7 +60,7 @@ func serveTraced(tracer *Tracer, opts Options, next http.Handler, w http.Respons
 	trace := tracer.begin(id, r.Method+" "+r.URL.Path, info)
 	trace.SetState(StateReading)
 
-	ctx, span := trace.StartSpan(withTrace(r.Context(), trace), r.Method+" "+r.URL.Path, KindHTTP)
+	ctx, span := trace.StartSpan(WithTrace(r.Context(), trace), r.Method+" "+r.URL.Path, KindHTTP)
 	r = r.WithContext(ctx)
 
 	writer := &responseWriter{
@@ -84,7 +86,7 @@ func serveTraced(tracer *Tracer, opts Options, next http.Handler, w http.Respons
 // finishRequest records the response metadata and completes the trace.
 func finishRequest(tracer *Tracer, opts Options, trace *Trace, writer *responseWriter, r *http.Request) {
 	route := routePattern(opts, r)
-	trace.setResponse(writer.status, writer.bytes, route)
+	trace.SetResponse(writer.status, writer.bytes, route)
 	if route != "" {
 		trace.SetName(r.Method + " " + route)
 	}
@@ -97,11 +99,11 @@ func finishRequest(tracer *Tracer, opts Options, trace *Trace, writer *responseW
 // requestID returns the identifier to record the request under.
 func requestID(opts Options, r *http.Request) string {
 	if opts.TrustRequestID {
-		if given := strings.TrimSpace(r.Header.Get(RequestIDHeader)); validID(given) {
+		if given := strings.TrimSpace(r.Header.Get(RequestIDHeader)); model.ValidID(given) {
 			return given
 		}
 	}
-	id, err := newID(opts.now())
+	id, err := model.NewID(opts.now())
 	if err != nil {
 		return ""
 	}

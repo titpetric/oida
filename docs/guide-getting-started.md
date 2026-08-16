@@ -3,7 +3,7 @@
 ## 1. Install
 
 ```bash
-go get github.com/titpetric/oida
+go get github.com/titpetric/oida@latest
 ```
 
 ## 2. chi/v5
@@ -22,6 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/frontend"
 )
 
 func main() {
@@ -54,7 +55,7 @@ func run() error {
 	r.Use(middleware.Recoverer)
 	r.Use(oida.TracingMiddleware(opts))
 
-	if err := oida.Mount(r, opts); err != nil {
+	if err := frontend.Mount(r, opts); err != nil {
 		return err
 	}
 
@@ -79,7 +80,7 @@ Order matters:
   you want the recoverer to catch panics first — oida re-panics after recording,
   so either order records the failure; putting oida inside the recoverer keeps
   the 500 response behaviour of chi.
-- `oida.Mount` must be called on a router that has the middleware registered, or
+- `frontend.Mount` must be called on a router that has the middleware registered, or
   on any router in the same process — the tracer is shared, not the router.
 - Routes registered *before* `r.Use` panic in chi; register middleware first.
 
@@ -92,7 +93,7 @@ The UI does not have to sit on the public router. A separate listener keeps
 
 ```go
 admin := chi.NewRouter()
-if err := oida.Mount(admin, opts); err != nil {
+if err := frontend.Mount(admin, opts); err != nil {
 	return err
 }
 go http.ListenAndServe("127.0.0.1:9090", admin) //nolint:errcheck // admin listener
@@ -125,7 +126,7 @@ if err != nil {
 }
 opts.Tracer = tracer
 
-if err := oida.MountServeMux(mux, opts); err != nil {
+if err := frontend.MountServeMux(mux, opts); err != nil {
 	return err
 }
 

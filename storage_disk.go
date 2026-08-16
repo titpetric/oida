@@ -279,7 +279,7 @@ func (s *StorageDisk) prune() error {
 // traceFile returns the document path of a trace ID, rejecting IDs that are not
 // plain identifiers so a hostile ID cannot escape the folder.
 func (s *StorageDisk) traceFile(id string) (string, error) {
-	if !validID(id) {
+	if !ValidID(id) {
 		return "", fmt.Errorf("oida: invalid trace id %q", id)
 	}
 	return filepath.Join(s.path, id+traceFileSuffix), nil

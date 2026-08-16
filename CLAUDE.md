@@ -4,6 +4,20 @@ In-process telemetry for Go: traces and spans in a ring buffer, with a
 server-side rendered front end at `/debug/oida`. See [README.md](README.md) and
 [docs/](docs/).
 
+## Packages
+
+- `model/` holds the recorded data: `Trace`, `Span`, `Snapshot`, `Stats`. It
+  imports nothing from this project, which is what keeps the other two apart.
+- `oida` (root) records: tracer, middleware, options, storage, instrumentation.
+  It aliases the model types, so a service instruments with one import.
+- `frontend/` renders: templ views, the view model, the plain text and the
+  HTTP handler, mounted with `frontend.Mount`. It reads the model through the
+  root package and never appears in it.
+
+The dependency runs one way, `frontend` to `oida` to `model`. A reference to
+`frontend` from the root package is an import cycle, not an oversight to fix
+later.
+
 ## Verifying changes
 
 Run one command per step. Never chain with `;` or `&&`, and never inline
@@ -57,11 +71,11 @@ by `compose.yml` on <http://localhost:8097>.
 
 ## Conventions
 
-- One struct per file, data models in `model.go`.
+- One struct per file, data models in the `model.go` of their package.
 - Nothing writes to stdout or stderr. Failures return, or go to
   `Options.OnError`.
 - The front end makes no external requests: no webfonts, no CDN, no analytics.
-  Assets live in `public/assets/`, are embedded with `//go:embed all:public`,
+  Assets live in `frontend/assets/`, are embedded with `//go:embed all:assets`,
   and are served at `{Options.Path}/assets/`. Dropping a file in that folder is
   all it takes to serve it.
 - Generated templ output (`view_*_templ.go`) is committed. Regenerate after

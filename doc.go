@@ -15,7 +15,7 @@
 //
 //	r := chi.NewRouter()
 //	r.Use(oida.TracingMiddleware(opts))
-//	if err := oida.Mount(r, opts); err != nil {
+//	if err := frontend.Mount(r, opts); err != nil {
 //		return err
 //	}
 //
@@ -28,6 +28,12 @@
 // Every instrumentation call is nil safe, so instrumented code runs unchanged
 // in processes where oida is disabled, where the request was not sampled, or
 // where no trace is in the context.
+//
+// The project is three packages. This one records: the tracer, the middleware,
+// the options and the storage. Package model holds the recorded data and
+// depends on nothing; the types it defines are aliased here, so instrumenting a
+// service needs this import alone. Package frontend serves the dashboard and is
+// the only one that renders.
 //
 // Nothing in this package writes to stdout or stderr. Storage and rendering
 // failures are reported through Options.OnError.

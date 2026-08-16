@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/titpetric/oida/model"
 )
 
 // Options configures telemetry behaviour, the debug front end and the
@@ -187,12 +189,22 @@ func (o Options) now() time.Time {
 	return o.Clock()
 }
 
-// authorized reports whether r may access the debug front end.
-func (o Options) authorized(r *http.Request) bool {
+// Authorized reports whether r may access the debug front end. The front end
+// asks before it serves anything, including its assets.
+func (o Options) Authorized(r *http.Request) bool {
 	if o.Authorize == nil {
 		return true
 	}
 	return o.Authorize(r)
+}
+
+// traceOptions returns the part of the configuration a recorded trace carries.
+func (o Options) traceOptions() model.TraceOptions {
+	return model.TraceOptions{
+		Service:  o.ServiceName,
+		MaxSpans: o.MaxSpansPerTrace,
+		Clock:    o.Clock,
+	}
 }
 
 // ignored reports whether a request path is excluded from tracing. The debug

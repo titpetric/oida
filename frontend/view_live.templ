@@ -1,0 +1,112 @@
+package frontend
+
+import (
+	"strconv"
+
+	"github.com/titpetric/oida"
+)
+
+// Live renders the feed of traces. When streaming is enabled the section is
+// replaced by the event stream as traces are recorded; the markup is identical
+// either way, because both render liveSection.
+templ Live(page Page) {
+	@Layout(page) {
+		if page.Stream {
+			<div id="oida-live" data-events={ page.EventsURL() }>
+				@liveSection(page)
+			</div>
+		} else {
+			<div id="oida-live">
+				@liveSection(page)
+			</div>
+		}
+	}
+}
+
+// liveSection renders the part of the live view the event stream replaces.
+// Traces in flight and completed traces share one table, newest first: a
+// request appears the moment it starts and stays in place as it finishes.
+templ liveSection(page Page) {
+	<div class="live-head">
+		<h2>Feed</h2>
+		if page.Stream {
+			<span id="oida-stream-status" class="stream-status">connecting</span>
+		} else if page.Refresh > 0 {
+			<span class="stream-status">reloading every { strconv.Itoa(page.Refresh) }s</span>
+		}
+	</div>
+	<div class="scroll">
+		<table>
+			<thead>
+				<tr>
+					<th>State</th>
+					<th class="c-medium">Trace</th>
+					<th class="num">Age</th>
+					<th class="name">Name</th>
+					<th class="num">Duration</th>
+					<th class="flex">Shape</th>
+					<th class="num c-medium">Spans</th>
+					<th class="num c-wide">Allocated</th>
+					<th class="dim c-wide">Remote</th>
+				</tr>
+			</thead>
+			<tbody id="oida-feed">
+				for _, trace := range page.Feed {
+					<tr
+						class={ "row", templ.KV("failed", trace.Error != "" || trace.State == oida.StateError),
+							templ.KV("running", trace.InFlight) }
+						data-key={ trace.ID }
+						data-href={ page.TraceURL(trace.ID) }
+					>
+						<td>
+							if trace.InFlight {
+								<span class="status running" title={ trace.State.Label() }>{ string(trace.State) }</span>
+							} else if trace.HTTP != nil && trace.HTTP.Status > 0 {
+								<span class={ statusClass(trace.HTTP.Status) }>{ strconv.Itoa(trace.HTTP.Status) }</span>
+							} else if trace.Error != "" {
+								<span class="status s5xx">fail</span>
+							} else {
+								<span class="status job">job</span>
+							}
+						</td>
+						<td class="c-medium">
+							@traceLink(page, trace)
+						</td>
+						<td class="num" title={ trace.StartedAt.Format("2006-01-02 15:04:05.000") }>{ page.Age(trace.StartedAt) }</td>
+						<td class="name" title={ trace.Name }>{ trace.Name }</td>
+						<td class="num">{ preciseText(trace.Duration) }</td>
+						<td class="flex">
+							<div class="bar plot" title={ shapeTitle(trace) }>
+								for _, segment := range page.Composition(trace) {
+									<span style={ segmentStyle(segment) }></span>
+								}
+							</div>
+						</td>
+						<td class="num c-medium">{ strconv.Itoa(len(trace.Spans)) }</td>
+						<td class="num c-wide">{ bytesText(trace.Memory.AllocatedBytes) }</td>
+						<td class="dim c-wide">{ remoteText(trace) }</td>
+					</tr>
+				}
+				if len(page.Feed) == 0 {
+					<tr>
+						<td class="empty" colspan="9">
+							<b>Waiting for traces</b>
+							Send a request through the instrumented router. Rows appear here as requests
+							start, and update in place when they finish.
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+	<p class="note">
+		Newest first, { strconv.Itoa(liveFeedRows) } rows. Running traces show their scoreboard state
+		(_ waiting, s starting, R reading, P processing, W writing, K keepalive, C closing, E error)
+		and their elapsed time so far.
+	</p>
+	<h2>Lifetime state time</h2>
+	<div id="oida-state">
+		@stateBar(page.Snapshot.StateTime)
+	</div>
+	<p class="note">Aggregated since process start. Concurrent trace time is cumulative and may exceed uptime.</p>
+}

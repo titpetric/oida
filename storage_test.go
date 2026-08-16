@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/titpetric/oida/model"
 )
 
 // storageFactory builds one storage implementation for the shared suite.
@@ -35,9 +37,9 @@ var storageFactories = []storageFactory{
 func storedTrace(t *testing.T, name string, at time.Time) Trace {
 	t.Helper()
 
-	id, err := newID(at)
+	id, err := model.NewID(at)
 	if err != nil {
-		t.Fatalf("newID: %v", err)
+		t.Fatalf("model.NewID: %v", err)
 	}
 	return Trace{
 		ID:        id,

@@ -15,6 +15,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/titpetric/oida/model"
 )
 
 // Tracer records traces into a ring buffer and serves the debug front end. The
@@ -62,7 +64,7 @@ func New(opts Options) (*Tracer, error) {
 		events:    newBroker(),
 		started:   opts.now(),
 		active:    make(map[string]*Trace),
-		stateTime: make(map[State]time.Duration, len(states)),
+		stateTime: make(map[State]time.Duration),
 		requests:  make(map[string]uint64),
 	}
 	tracer.enabled.Store(opts.Enabled)
@@ -96,13 +98,13 @@ func (t *Tracer) StartTrace(ctx context.Context, name string) (context.Context, 
 	if t == nil || !t.Enabled() {
 		return ctx, nil, ErrDisabled
 	}
-	id, err := newID(t.opts.now())
+	id, err := model.NewID(t.opts.now())
 	if err != nil {
 		return ctx, nil, err
 	}
 	trace := t.begin(id, name, nil)
 	trace.SetState(StateProcessing)
-	ctx, _ = trace.StartSpan(withTrace(ctx, trace), name, KindInternal)
+	ctx, _ = trace.StartSpan(WithTrace(ctx, trace), name, KindInternal)
 	return ctx, trace, nil
 }
 
@@ -122,16 +124,16 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 
 // begin registers a new trace as active.
 func (t *Tracer) begin(id, name string, info *HTTPInfo) *Trace {
-	trace := newTrace(id, name, t.opts)
+	trace := model.NewTrace(id, name, t.opts.traceOptions())
 	trace.HTTP = info
 	if t.opts.TrackMemoryUse {
-		runtime.ReadMemStats(&trace.memStats)
+		trace.TrackMemory()
 	}
 
 	t.mu.Lock()
 	t.total++
 	t.sampled++
-	t.requests[traceHost(*trace)]++
+	t.requests[model.TraceHost(*trace)]++
 	t.active[id] = trace
 	t.mu.Unlock()
 
@@ -144,21 +146,12 @@ func (t *Tracer) Finish(trace *Trace) {
 	if t == nil || trace == nil {
 		return
 	}
-	trace.finish()
+	trace.Finish()
 
-	var after runtime.MemStats
 	if t.opts.TrackMemoryUse {
-		runtime.ReadMemStats(&after)
-		trace.Memory = MemoryUse{
-			HeapDelta:      signedDelta(after.HeapAlloc, trace.memStats.HeapAlloc),
-			AllocatedBytes: delta(after.TotalAlloc, trace.memStats.TotalAlloc),
-			Allocations:    delta(after.Mallocs, trace.memStats.Mallocs),
-			GCCycles:       uint32(delta(uint64(after.NumGC), uint64(trace.memStats.NumGC))),
-			GCPause:        time.Duration(delta(after.PauseTotalNs, trace.memStats.PauseTotalNs)),
-		}
-		trace.memStats = runtime.MemStats{}
+		trace.RecordMemory()
 	}
-	durations := trace.durations()
+	durations := trace.Durations()
 	stored := trace.Clone()
 	failed := stored.Error != "" || stored.State == StateError
 
@@ -197,6 +190,13 @@ func (t *Tracer) Subscribe() (<-chan struct{}, func()) {
 		return nil, func() {}
 	}
 	return t.events.subscribe()
+}
+
+// ReportError forwards a failure to Options.OnError. The front end reports
+// render failures through it, so every failure of one tracer arrives in one
+// place. Nothing is written to stdout or stderr.
+func (t *Tracer) ReportError(err error) {
+	t.onError(err)
 }
 
 // onError reports a recording or storage failure to the configured handler.
@@ -247,7 +247,7 @@ func (t *Tracer) Snapshot() Snapshot {
 
 	for _, trace := range pending {
 		live = append(live, trace.Clone())
-		for state, duration := range trace.durations() {
+		for state, duration := range trace.Durations() {
 			stateTime[state] += duration
 		}
 	}
@@ -300,7 +300,7 @@ func (t *Tracer) Snapshot() Snapshot {
 		Active:     len(live),
 		Errors:     failed,
 		SLA:        sla,
-		StateTime:  stateDurations(stateTime),
+		StateTime:  model.StateDurations(stateTime),
 		Memory: Memory{
 			HeapAlloc:     mem.HeapAlloc,
 			HeapInuse:     mem.HeapInuse,
@@ -316,7 +316,7 @@ func (t *Tracer) Snapshot() Snapshot {
 		Pool:       pool,
 		Live:       live,
 		Log:        log,
-		Statistics: statistics(log, windowLimit, t.opts.TopRequests, requests),
+		Statistics: model.Statistics(log, windowLimit, t.opts.TopRequests, requests),
 	}
 }
 
@@ -394,20 +394,6 @@ func (t *Tracer) Reset() {
 	clear(t.requests)
 }
 
-// Handler returns the debug front end handler of this tracer.
-func (t *Tracer) Handler() http.Handler {
-	opts := t.Options()
-	opts.Tracer = t
-	return newHandler(opts, t)
-}
-
-// Mount registers the debug front end on r under the configured path.
-func (t *Tracer) Mount(r Router) error {
-	opts := t.Options()
-	opts.Tracer = t
-	return Mount(r, opts)
-}
-
 // Middleware records requests handled by next.
 func (t *Tracer) Middleware(next http.Handler) http.Handler {
 	opts := t.Options()
@@ -424,7 +410,7 @@ func (t *Tracer) countUnsampled(host string) {
 		return
 	}
 	if host == "" {
-		host = backgroundHost
+		host = model.BackgroundHost
 	}
 
 	t.mu.Lock()
@@ -432,57 +418,6 @@ func (t *Tracer) countUnsampled(host string) {
 	t.unsampled++
 	t.requests[host]++
 	t.mu.Unlock()
-}
-
-// stateDurations converts accumulated per state time into display order with
-// shares.
-func stateDurations(durations map[State]time.Duration) []StateDuration {
-	var total time.Duration
-	for _, duration := range durations {
-		total += duration
-	}
-	result := make([]StateDuration, 0, len(states))
-	for _, state := range states {
-		duration := durations[state]
-		if duration <= 0 {
-			continue
-		}
-		entry := StateDuration{
-			State:    state,
-			Label:    state.Label(),
-			Duration: duration,
-		}
-		if total > 0 {
-			entry.Share = float64(duration) * 100 / float64(total)
-		}
-		result = append(result, entry)
-	}
-	return result
-}
-
-// delta returns after-before, clamped at zero.
-func delta(after, before uint64) uint64 {
-	if after < before {
-		return 0
-	}
-	return after - before
-}
-
-// signedDelta returns after-before as a signed value, saturating at the int64
-// bounds.
-func signedDelta(after, before uint64) int64 {
-	if after >= before {
-		d := after - before
-		if d > math.MaxInt64 {
-			return math.MaxInt64
-		}
-		return int64(d)
-	}
-	d := before - after
-	if d > math.MaxInt64 {
-		return math.MinInt64
-	}
-	return -int64(d)
 }
 
 // memoryLimit returns the smallest memory limit the process is subject to, or

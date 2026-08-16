@@ -3,6 +3,10 @@
 Request JSON with `?format=json` or `Accept: application/json`. Durations are
 integer nanoseconds and use field names ending in `_ns`.
 
+The Go types below are defined in `github.com/titpetric/oida/model` and aliased
+into `github.com/titpetric/oida`, so `oida.Trace` and `model.Trace` are the same
+type and either import works.
+
 ## Span kinds
 
 ```go
