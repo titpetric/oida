@@ -1,0 +1,15 @@
+services:
+  oida:
+    image: titpetric/oida:latest
+    env_file: .env.docker
+    ports:
+      - "8097:8080"
+    networks:
+      - projects-ingress
+    labels:
+      caddy: oida.localhost
+      caddy.reverse_proxy: "{{upstreams 8080}}"
+
+networks:
+  projects-ingress:
+    external: true

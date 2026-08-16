@@ -1,0 +1,41 @@
+tasks:
+  default:
+    cmds:
+      - go mod tidy
+      - task: templ
+      - goimports -w .
+      - goimports-reviser -set-alias -format -imports-order "std,blanked,general,company,project" ./...
+      - go fmt ./...
+      - task: go:test
+      - task: go:build
+      - task: docker:build
+
+  templ:
+    desc: "Generate templ components"
+    passthru: true
+    cmds:
+      - templ generate
+
+  templ:verify:
+    desc: "Fail when the generated components are out of date"
+    passthru: true
+    cmds:
+      - templ generate
+      - git diff --exit-code -- '*_templ.go'
+
+  lint:
+    passthru: true
+    cmds:
+      - gofsck ./...
+      - go-fsck lint ./...
+
+  gen:architecture:
+    aliases: [gen]
+    desc: "Generate architectural diagrams of the project"
+    passthru: true
+    cmds:
+      - defer: rm -f go-fsck.json
+      - go-fsck extract ./...
+      - go-fsck docs --render imports | plantuml -tsvg -pipe > docs/assets/imports.svg
+      - go-fsck docs --render puml | plantuml -tsvg -pipe > docs/assets/structure.svg
+      - go-ddd-stats -d2 - | d2 --layout elk - docs/assets/size.svg

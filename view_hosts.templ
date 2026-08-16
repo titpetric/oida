@@ -1,0 +1,72 @@
+package oida
+
+import "strconv"
+
+// Hosts renders the landing page: every domain this process serves, and how
+// much traffic each one carries. Picking one narrows every other view to it.
+templ Hosts(page Page) {
+	@Layout(page) {
+		<div class="scroll">
+			<table>
+				<thead>
+					<tr>
+						<th class="flex name">Host</th>
+						<th class="num">Requests</th>
+						<th class="num">Recorded</th>
+						<th class="num">Errors</th>
+						<th class="num c-medium">Routes</th>
+						<th class="num">Share</th>
+						<th class="num">Avg</th>
+						<th class="num c-medium">Max</th>
+						<th class="num c-wide">Avg spans</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, host := range page.Hosts() {
+						<tr
+							class={ "row", templ.KV("failed", host.Errors > 0) }
+							data-href={ page.HostURL(host.Host) }
+						>
+							<td class="flex name" title={ host.Host }>
+								<i class={ hostDot(host) } title={ hostHealth(host) }></i>
+								{ host.Host }
+							</td>
+							<td class="num">{ strconv.FormatUint(host.Requests, 10) }</td>
+							<td class="num">{ strconv.FormatUint(host.Traces, 10) }</td>
+							<td class="num">{ strconv.FormatUint(host.Errors, 10) }</td>
+							<td class="num c-medium">{ strconv.Itoa(host.Routes) }</td>
+							<td class="num">
+								<span class="share">
+									<span class="bar solid"><span style={ shareStyle(host.Share) }></span></span>
+									{ percentText(host.Share) }
+								</span>
+							</td>
+							<td class="num">{ preciseText(host.AverageDuration) }</td>
+							<td class="num c-medium">{ preciseText(host.MaxDuration) }</td>
+							<td class="num c-wide">{ countText(host.AverageSpans) }</td>
+							<td class="num">
+								<a href={ templ.SafeURL(page.HostLiveURL(host.Host)) } class="quiet">live</a>
+							</td>
+						</tr>
+					}
+					if len(page.Hosts()) == 0 {
+						<tr>
+							<td class="empty" colspan="10">
+								<b>No traffic yet</b>
+								Hosts appear here as requests reach the instrumented router.
+								Work that does not arrive over HTTP groups under { backgroundHost }.
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		<p class="note">
+			Requests count every request seen for the lifetime of the process, sampled or not.
+			Recorded, errors and the averages describe the traces still held in the rolling window
+			({ strconv.Itoa(page.Snapshot.Statistics.WindowSize) } of { strconv.Itoa(page.Snapshot.Statistics.WindowLimit) }).
+			Pick a host to narrow the traces, the feed and the statistics to it.
+		</p>
+	}
+}

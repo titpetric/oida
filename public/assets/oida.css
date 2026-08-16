@@ -1,0 +1,1689 @@
+/* oida — flight recorder console.
+   Dark first, monospace throughout, hairlines instead of boxes. Chrome stays
+   neutral so the only saturated ink on the page is the span kind. */
+
+:root {
+  color-scheme: dark light;
+
+  --font: ui-monospace, "SFMono-Regular", "SF Mono", "JetBrains Mono",
+    "IBM Plex Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+  --ink-0: #07090c;
+  --ink-1: #0b0f14;
+  --ink-2: #10161d;
+  --ink-3: #161f28;
+  --line: #1c2630;
+  --line-2: #2a3844;
+  --text: #d5dee7;
+  --text-dim: #8394a3;
+  --text-faint: #5a6b79;
+
+  /* One accent, held under 80% saturation, used for state and action only. */
+  --signal: #e0a44f;
+  --signal-ink: #07090c;
+  --signal-wash: rgba(224, 164, 79, 0.12);
+  --ok: #57b894;
+  --warn: #d9a441;
+  --bad: #e06c6c;
+  --bad-wash: rgba(224, 108, 108, 0.1);
+
+  /* Menus float above the page and are opaque: raised surface, top highlight. */
+  --menu: #141b24;
+  --menu-edge: rgba(255, 255, 255, 0.06);
+
+  /* One corner radius for every rectangle on the page. */
+  --radius: 2px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ink-0: #f7f5f0;
+    --ink-1: #fffdf9;
+    --ink-2: #f1eee7;
+    --ink-3: #e8e4db;
+    --line: #ddd8cc;
+    --line-2: #c3bcab;
+    --text: #23201a;
+    --text-dim: #5d574a;
+    --text-faint: #857e6e;
+
+    --menu: #ffffff;
+    --menu-edge: rgba(255, 255, 255, 0.9);
+
+    --signal: #9a5d0d;
+    --signal-ink: #fffdf9;
+    --signal-wash: rgba(154, 93, 13, 0.1);
+    --ok: #1c6f56;
+    --warn: #7d5800;
+    --bad: #a63232;
+    --bad-wash: rgba(166, 50, 50, 0.08);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Everything on the page is sized in rem, so the root is the one dial for
+   scale. 125% of the reader's own base size: bigger than a devtool usually
+   ships, and still theirs to override. */
+html {
+  font-size: 125%;
+  background: var(--ink-0);
+}
+
+body {
+  position: relative;
+  margin: 0;
+  padding: 1.25rem 1.5rem 3rem;
+  min-height: 100vh;
+  background: var(--ink-0);
+  color: var(--text);
+  font: 400 0.8125rem/1.55 var(--font);
+  font-variant-numeric: tabular-nums slashed-zero;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Grain and scanlines: atmosphere without a single external request. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.016) 0 1px,
+      transparent 1px 3px
+    ),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='0.35'/></svg>");
+}
+
+@media (prefers-color-scheme: light) {
+  body::after {
+    opacity: 0.25;
+    mix-blend-mode: multiply;
+  }
+}
+
+/* Layer order, once and in one place. Anything that opens a menu has to clear
+   the grain overlay, or the menu renders textured and half transparent.
+     1  page content
+     2  sticky table headers
+     9  grain and scanline overlay
+    15  filter bar, whose selects open downward
+    20  masthead, whose domain switcher opens over everything
+*/
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+form.filters {
+  z-index: 15;
+}
+
+a {
+  color: var(--signal);
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+/* The masthead outranks the grain overlay, so the menu it opens is a solid
+   surface rather than a textured one. */
+header.top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--line-2);
+  z-index: 20;
+}
+
+header.top h1 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+header.top h1 a {
+  color: var(--text);
+}
+
+/* The domain in view, and the switch between domains. A disclosure, so it
+   needs no script and closes on Escape like the browser expects. */
+details.domain {
+  display: inline-block;
+  position: relative;
+  margin-left: 0.9rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--line-2);
+  vertical-align: baseline;
+}
+
+details.domain summary {
+  display: inline-block;
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  list-style: none;
+}
+
+details.domain summary::marker,
+details.domain summary::-webkit-details-marker {
+  display: none;
+}
+
+details.domain summary::after {
+  content: " ▾";
+  color: var(--text-faint);
+}
+
+details.domain summary:hover,
+details[open].domain summary {
+  color: var(--text);
+}
+
+details.domain summary.filtered {
+  color: var(--signal);
+}
+
+.domain-menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 16rem;
+  padding: 0.25rem 0;
+  background: var(--menu);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 0 var(--menu-edge) inset,
+    0 18px 36px rgba(0, 0, 0, 0.55),
+    0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.domain-menu a {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.3rem 0.8rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.domain-menu a:hover {
+  background: var(--ink-2);
+  text-decoration: none;
+}
+
+.domain-menu a.active {
+  color: var(--signal);
+}
+
+.domain-menu a span {
+  color: var(--text-faint);
+}
+
+/* Process facts are separated by rules, not by a row of middle dots. */
+header.top .env {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+header.top .env span + span {
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--line);
+}
+
+/* The value is the part worth reading; the label around it is scaffolding. */
+header.top .env b {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* ------------------------------------------------------------------ metrics */
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+
+.metrics div {
+  padding: 0.7rem 1rem;
+  border-right: 1px solid var(--line);
+}
+
+.metrics div:last-child {
+  border-right: none;
+}
+
+.metrics b {
+  display: block;
+  color: var(--text-faint);
+  font-size: 0.63rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.metrics span {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.metrics small {
+  color: var(--text-faint);
+  font-size: 0.7rem;
+}
+
+/* --------------------------------------------------------------------- nav */
+
+nav.tabs {
+  display: flex;
+  gap: 1.4rem;
+  margin: 0.9rem 0 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+nav.tabs a {
+  position: relative;
+  padding: 0.35rem 0 0.5rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+nav.tabs a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+nav.tabs a.active {
+  color: var(--signal);
+}
+
+nav.tabs a.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--signal);
+}
+
+nav.tabs .spacer {
+  flex: 1;
+}
+
+nav.tabs .raw {
+  color: var(--text-faint);
+  letter-spacing: 0.12em;
+}
+
+/* ----------------------------------------------------------------- filters */
+
+form.filters {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin: 0.9rem 0;
+  position: relative;
+}
+
+/* Labels sit above their control, never inside it as a placeholder. */
+form.filters .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+form.filters .field.grow {
+  flex: 1;
+  min-width: 14rem;
+  max-width: 26rem;
+}
+
+form.filters label {
+  color: var(--text-faint);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------ select control
+
+   A button, a hidden input and a list. The native select is kept only in the
+   noscript fallback, because its open menu is drawn by the platform and cannot
+   be made to match anything around it.
+   ------------------------------------------------------------------------- */
+
+.select {
+  position: relative;
+}
+
+.select-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  min-width: 9rem;
+  width: 100%;
+  padding: 0.3rem 0.55rem;
+  /* asset: is rewritten to the mount path, because this sheet is served from
+     {Path}/assets/ and also inlined into a document at {Path}, where a
+     relative URL would resolve one directory too high. */
+  background:
+    var(--ink-2) url("asset:input-select.svg") no-repeat right 0.55rem center;
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select-value {
+  padding-right: 1.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-button:hover {
+  border-color: var(--text-faint);
+}
+
+.select[data-open] .select-button {
+  border-color: var(--signal);
+}
+
+.select-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  min-width: 100%;
+  max-height: 17rem;
+  margin: 0;
+  padding: 0.2rem 0;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--menu);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 0 var(--menu-edge) inset,
+    0 18px 36px rgba(0, 0, 0, 0.55),
+    0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.select-menu[hidden] {
+  display: none;
+}
+
+.select-menu li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.select-menu li:hover,
+.select-menu li:focus,
+.select-menu li.active {
+  background: var(--ink-2);
+  outline: none;
+}
+
+.select-menu li.selected {
+  color: var(--signal);
+}
+
+.select-menu li.selected::after {
+  content: "✓";
+  color: var(--signal);
+}
+
+.select-menu li .note {
+  color: var(--text-faint);
+}
+
+form.filters input,
+form.filters select,
+form.filters button {
+  background: var(--ink-2);
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.55rem;
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+form.filters input {
+  width: 100%;
+}
+
+/* Only the submit button is the signal colour. The select buttons are inputs,
+   and inputs do not shout. */
+form.filters button[type="submit"] {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--signal-ink);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+
+/* Tactile feedback: the control moves under the press. */
+form.filters button:active,
+button.copy:active {
+  transform: translateY(1px);
+}
+
+form.filters .hint {
+  color: var(--text-faint);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+form.filters kbd {
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: var(--radius);
+  padding: 0 0.3em;
+  color: var(--text-dim);
+}
+
+/* ------------------------------------------------------------------ tables */
+
+.scroll {
+  overflow-x: auto;
+  border-top: 1px solid var(--line-2);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  padding: 0.42rem 0.9rem 0.42rem 0;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ink-0);
+  color: var(--text-faint);
+  font-size: 0.63rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line-2);
+}
+
+tbody tr {
+  animation: row-in 0.28s ease-out both;
+}
+
+tbody tr:hover td {
+  background: var(--ink-2);
+}
+
+/* The whole row is the target, so it says so. */
+tbody tr.row {
+  cursor: pointer;
+}
+
+tbody tr.row:hover td:first-child {
+  box-shadow: inset 2px 0 0 var(--signal);
+}
+
+tbody tr.failed td {
+  background: var(--bad-wash);
+}
+
+/* Health at a glance. A real state, one per row, not decoration. */
+.dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-faint);
+  vertical-align: 0.05em;
+}
+
+.dot.ok {
+  background: var(--ok);
+}
+
+.dot.warn {
+  background: var(--warn);
+}
+
+.dot.bad {
+  background: var(--bad);
+}
+
+td.empty {
+  color: var(--text-dim);
+  text-align: center;
+  padding: 2.5rem 1rem;
+  white-space: normal;
+}
+
+td.empty b {
+  display: block;
+  color: var(--text);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+/* Names are the one unbounded thing in a row: a route, a host, a span. They
+   take a fluid share of the window and lose their tail rather than pushing the
+   numbers off the edge. */
+td.name,
+th.name {
+  max-width: clamp(9ch, 22vw, 46ch);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Numbers right-align against their header so magnitudes stack; identifiers
+   and free text stay left. */
+th.num,
+td.num {
+  text-align: right;
+  padding-right: 1.1rem;
+}
+
+td.num {
+  color: var(--text);
+}
+
+th.dim,
+td.dim {
+  color: var(--text-dim);
+}
+
+/* Sortable headers carry their own state: the arrow says which way, so the
+   direction is never a guess. */
+th a.sort {
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+th a.sort:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+th a.sort::after {
+  content: " ↕";
+  opacity: 0.35;
+}
+
+th a.sort.active {
+  color: var(--signal);
+}
+
+th a.sort.active.desc::after {
+  content: " ↓";
+  opacity: 1;
+}
+
+th a.sort.active.asc::after {
+  content: " ↑";
+  opacity: 1;
+}
+
+/* SLA reads as a status, not as a number in a row of numbers. */
+.metrics .sla.ok {
+  color: var(--ok);
+}
+
+.metrics .sla.warn {
+  color: var(--warn);
+}
+
+.metrics .sla.bad {
+  color: var(--bad);
+}
+
+/* Amber is the signal colour: tabs, actions, hover. Row links are text, so a
+   table of 20 rows does not read as 20 alerts. */
+tbody td a {
+  color: var(--text);
+}
+
+tbody td a:hover {
+  color: var(--signal);
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-1px);
+  }
+}
+
+/* -------------------------------------------------------------- identifiers */
+
+code,
+.mono {
+  font-family: var(--font);
+  font-size: 0.92em;
+}
+
+code {
+  color: var(--text-dim);
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0 0.3em;
+}
+
+.tid {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.tid a {
+  user-select: all;
+  letter-spacing: 0.02em;
+}
+
+.tid .prefix {
+  color: var(--text-faint);
+}
+
+button.copy {
+  background: none;
+  border: none;
+  padding: 0 0.15rem;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+tr:hover button.copy,
+button.copy:focus-visible,
+button.copy.done {
+  opacity: 1;
+}
+
+button.copy:hover {
+  color: var(--signal);
+}
+
+button.copy.done {
+  color: var(--ok);
+}
+
+/* ------------------------------------------------------------------ status */
+
+.status {
+  display: inline-block;
+  min-width: 3.2em;
+  padding: 0 0.4em;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.status.s2xx {
+  color: var(--ok);
+}
+
+.status.s3xx {
+  color: var(--signal);
+}
+
+.status.s4xx {
+  color: var(--warn);
+}
+
+.status.s5xx {
+  color: var(--bad);
+  background: var(--bad-wash);
+}
+
+.status.job {
+  color: var(--text-faint);
+}
+
+/* A trace still running: the row is tinted and its state pill breathes, so a
+   long request is visible against the completed ones around it. */
+.status.running {
+  color: var(--signal);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+tr.running td {
+  background: var(--signal-wash);
+}
+
+/* -------------------------------------------------------------------- kinds */
+
+.kind {
+  display: inline-block;
+  min-width: 5.4em;
+  padding: 0 0.45em;
+  border-radius: var(--radius);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------- bars */
+
+.bar {
+  position: relative;
+  display: flex;
+  height: 0.5rem;
+  min-width: 8rem;
+  background: var(--ink-3);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.bar span {
+  height: 100%;
+  animation: bar-grow 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  transform-origin: left center;
+}
+
+.bar.solid span {
+  background: var(--signal);
+}
+
+.bar.plot {
+  position: relative;
+  display: block;
+  min-width: 14rem;
+}
+
+.bar.plot span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* ----------------------------------------------------------------- drawing */
+
+/* The one drawing of a trace. A canvas and nothing else: everything inside it
+   is painted by waves.js, and with scripting off the box stays empty and the
+   span table below carries the trace on its own. */
+.waves {
+  height: 8rem;
+  padding: 4px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.waves canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The axis closes the drawing above it: tight to it, and clear of whatever
+   comes next, which since the span table lost its heading is the table. */
+.axis {
+  position: relative;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+  margin-bottom: 1rem;
+  color: var(--text-faint);
+  font-size: 0.65rem;
+}
+
+.axis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.axis span::before {
+  content: "";
+  position: absolute;
+  top: -0.25rem;
+  left: 50%;
+  width: 1px;
+  height: 0.2rem;
+  background: var(--line-2);
+}
+
+.axis span:first-child {
+  transform: none;
+}
+
+.axis span:first-child::before {
+  left: 0;
+}
+
+.axis span:last-child {
+  transform: translateX(-100%);
+}
+
+.axis span:last-child::before {
+  left: auto;
+  right: 0;
+}
+
+/* ------------------------------------------------------------------ legend */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.2rem;
+  margin: 0.7rem 0 1.4rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: var(--radius);
+}
+
+.legend b {
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------- spans */
+
+.span-name {
+  display: inline-block;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.span-tree {
+  color: var(--line-2);
+  margin-right: 0.35rem;
+  user-select: none;
+}
+
+/* A span row is a name. Attributes fold away behind their own key list, and a
+   statement is shown, because a database span is mostly its query. */
+code.query {
+  display: inline-block;
+  margin: 0.25rem 0 0 1.2em;
+  max-width: 60ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  color: var(--text-dim);
+}
+
+/* The key list sits on the span name line: a span reads as one sentence, and
+   the values are one click below it. */
+details.attrs {
+  display: inline;
+  margin-left: 0.6em;
+}
+
+details.attrs summary {
+  display: inline;
+  width: fit-content;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+details.attrs summary::marker,
+details.attrs summary::-webkit-details-marker {
+  display: none;
+}
+
+details.attrs summary::before {
+  content: "( ";
+}
+
+details.attrs summary::after {
+  content: " )";
+}
+
+details.attrs summary:hover,
+details.attrs[open] summary {
+  color: var(--text-dim);
+}
+
+/* Expanded attributes are a table: keys line up, values wrap, and a statement
+   gets a code block wide enough to read. */
+/* A table that opens on demand, behind a bar carrying the summary of what is
+   in it. The switch is a checkbox, so the stylesheet can do the opening on its
+   own: with scripting off it still works, it just forgets.
+
+   The fold is a grid row going from 0fr to 1fr, which is the one way to
+   animate to a height nobody knows in advance. The row is what moves, so the
+   table inside it is never resized and never reflows on the way. */
+.peek {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+}
+
+.peek .legend {
+  margin: 0.7rem 0;
+}
+
+.spans {
+  display: grid;
+  grid-template-rows: 0fr;
+}
+
+.spans > .scroll {
+  min-height: 0;
+  overflow: hidden;
+  border-top: none;
+}
+
+body:has(.peek input[data-peek]:checked) .spans {
+  grid-template-rows: 1fr;
+}
+
+body:has(.peek input[data-peek]:checked) .spans > .scroll {
+  overflow-x: auto;
+}
+
+/* Opening is the feedback that the switch took the click, and it is also what
+   keeps the page from jumping under the reader. */
+@media (prefers-reduced-motion: no-preference) {
+  .spans {
+    transition: grid-template-rows 0.28s ease;
+  }
+}
+
+/* It is a column heading, so it is set like the other column headings: small,
+   uppercase, widely spaced. */
+.peek-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  /* Always against the right edge, whether the heading beside it is there or
+     not: the switch is in one place on every table it is on. */
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.63rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* The count is the part that changes from trace to trace, so it sits quieter
+   than the word it counts: the same way the masthead sets its facts. */
+.peek-toggle b {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.peek-toggle:hover {
+  color: var(--text);
+}
+
+.peek-toggle:hover b {
+  color: var(--text-dim);
+}
+
+/* The checkbox is the state and the focus target, so it stays in the page
+   rather than being display:none, and the switch beside it is what is seen. */
+.peek-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.peek-toggle i {
+  position: relative;
+  display: block;
+  align-self: center;
+  width: 1.7rem;
+  height: 0.85rem;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--ink-3);
+}
+
+.peek-toggle i::after {
+  content: "";
+  position: absolute;
+  top: 0.13rem;
+  left: 0.15rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.peek-toggle input:checked + i {
+  border-color: var(--signal);
+  background: var(--signal-wash);
+}
+
+.peek-toggle input:checked + i::after {
+  transform: translateX(0.8rem);
+  background: var(--signal);
+}
+
+.peek-toggle input:focus-visible + i {
+  outline: 1px solid var(--signal);
+  outline-offset: 2px;
+}
+
+/* The knob moving is the feedback that the switch took the click. */
+@media (prefers-reduced-motion: no-preference) {
+  .peek-toggle i::after {
+    transition: transform 0.12s ease, background 0.12s ease;
+  }
+}
+
+.attr-table {
+  width: auto;
+  margin: 0.35rem 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.attr-table th,
+.attr-table td {
+  padding: 0.2rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.74rem;
+  vertical-align: top;
+}
+
+.attr-table th {
+  position: static;
+  background: var(--ink-2);
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  text-transform: none;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.attr-table tr:last-child th,
+.attr-table tr:last-child td {
+  border-bottom: none;
+}
+
+.attr-table td {
+  color: var(--text);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 70ch;
+}
+
+.attr-table code.query {
+  display: block;
+  margin: 0;
+  padding: 0.15rem 0.4rem;
+  max-width: none;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.attr {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0 0.35em;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  max-width: 46rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The "=" lives in the markup, not in a ::before, so copying a chip yields
+   key=value rather than keyvalue. */
+.attr b {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.error {
+  display: block;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-left: 2px solid var(--bad);
+  background: var(--bad-wash);
+  color: var(--bad);
+  white-space: normal;
+}
+
+/* -------------------------------------------------------------- state bars */
+
+.state-bar {
+  display: flex;
+  height: 0.6rem;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--ink-3);
+}
+
+.state-bar span {
+  height: 100%;
+  animation: bar-grow 0.4s ease-out both;
+  transform-origin: left center;
+}
+
+.state-waiting { background: #4a5a68; }
+.state-starting { background: #35c9d8; }
+.state-reading { background: #4aa3ff; }
+.state-processing { background: #b07bff; }
+.state-writing { background: #3ecf8e; }
+.state-keepalive { background: #f0b429; }
+.state-closing { background: #7d8b99; }
+.state-error { background: #ff6b6b; }
+
+/* --------------------------------------------------------------- live view */
+
+.live-head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 1.4rem 0 0.5rem;
+}
+
+.stream-status {
+  color: var(--text-faint);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.stream-status::before {
+  content: "";
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+  vertical-align: 0.05em;
+  background: var(--text-faint);
+}
+
+.stream-status.live {
+  color: var(--ok);
+}
+
+/* The only animated dot on the page, and it carries real state: the stream is
+   open. Opacity, not a neon glow. */
+.stream-status.live::before {
+  background: var(--ok);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.stream-status.down {
+  color: var(--warn);
+}
+
+.stream-status.down::before {
+  background: var(--warn);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Only the arriving row is marked, because only the arriving row is new. The
+   rest of the feed is merged in place and never repaints. */
+tbody tr.fresh td {
+  animation: fresh 1.2s ease-out;
+}
+
+@keyframes fresh {
+  from {
+    background: var(--signal-wash);
+  }
+}
+
+/* ---------------------------------------------------------------- headings */
+
+h2 {
+  margin: 1.6rem 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+h2::after {
+  content: "";
+  display: inline-block;
+  width: 2.5rem;
+  height: 1px;
+  margin-left: 0.7rem;
+  vertical-align: middle;
+  background: var(--line-2);
+}
+
+.live-head h2 {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ detail */
+
+.trace-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin: 1.2rem 0 0.2rem;
+}
+
+.trace-head h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.trace-head .elapsed {
+  color: var(--signal);
+  font-size: 1.15rem;
+}
+
+.back {
+  display: inline-block;
+  margin-top: 0.6rem;
+  color: var(--text-faint);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Two tables side by side: what was asked for on the left, what it cost this
+   process on the right. They are separate questions and one of them is the only
+   thing on the page that is not about the request at all. Below the medium
+   viewport they stack, because a two column table in half a phone is a mess. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  align-items: start;
+  gap: 1rem;
+}
+
+.facts h3 {
+  margin: 1rem 0 0;
+  color: var(--text-faint);
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* The request facts read as a two column table: labels down the left, values
+   down the right, one row per property. As a grid of cards the label of a value
+   could be above it or beside it depending on how the row wrapped, and reading
+   the request meant hunting. Here the eye runs down one column. */
+dl.detail {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0;
+  margin: 1rem 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Each pair is a row of the grid, not a box of its own. */
+dl.detail div {
+  display: contents;
+}
+
+dl.detail dt,
+dl.detail dd {
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+
+dl.detail dt {
+  display: flex;
+  align-items: center;
+  background: var(--ink-2);
+  border-right: 1px solid var(--line);
+  color: var(--text-faint);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+dl.detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+dl.detail div:last-child dt,
+dl.detail div:last-child dd {
+  border-bottom: none;
+}
+
+/* ------------------------------------------------------------------ meters */
+
+.share {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.share .bar {
+  min-width: 4.5rem;
+}
+
+/* ------------------------------------------------------------------- notes */
+
+p.note,
+footer {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+}
+
+p.note {
+  margin: 0.7rem 0;
+}
+
+footer {
+  margin-top: 2.5rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+footer .formats a {
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+footer .formats a:hover {
+  color: var(--signal);
+}
+
+/* The credit closes the row on the right, quiet enough that the note beside it
+   is still the first thing read. */
+footer .credit {
+  margin-left: auto;
+}
+
+footer .credit a {
+  color: var(--text-dim);
+}
+
+footer .credit a:hover {
+  color: var(--signal);
+}
+
+/* ---------------------------------------------------------------- viewports
+
+   Three tiers. The layout is always full width: there is no max-width, because
+   a trace table is worth every pixel it is given. What changes is how many
+   columns survive.
+
+     wide    >= 1280px  every column, the console as designed
+     medium   720-1279  memory and network detail drop out
+     narrow    < 720px  identity, timing and shape only
+
+   Columns are marked with a c-* class on both the th and the td, so a hidden
+   column disappears cleanly instead of leaving a stray header. Nothing here
+   depends on JavaScript.
+   ------------------------------------------------------------------------- */
+
+/* The flex column absorbs the slack, so wide screens stretch the data, not the
+   gaps between columns. One per table. */
+th.flex,
+td.flex {
+  width: 100%;
+  padding-right: 1.2rem;
+}
+
+/* The span plot is a fixed instrument, not a stretchy one: past ~300px the
+   extra width buys no precision, and the span names deserve the room. */
+th.plot,
+td.plot {
+  width: 15%;
+  min-width: 140px;
+  max-width: 300px;
+  padding-right: 1.4rem;
+}
+
+td.plot .bar.plot {
+  width: 100%;
+  min-width: 0;
+}
+
+/* --- medium: below 1280px ------------------------------------------------ */
+
+@media (max-width: 1279px) {
+  body {
+    padding: 1.1rem 1.1rem 2.5rem;
+  }
+
+  .c-wide {
+    display: none;
+  }
+
+  th,
+  td {
+    padding-right: 0.7rem;
+  }
+
+  /* Six tiles across 1024px squeezes every value onto two lines. Three tiles
+     per row keeps each reading as one number. */
+  .metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .metrics div:nth-child(3n) {
+    border-right: none;
+  }
+
+  .metrics div:nth-child(n + 4) {
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* --- narrow: below 720px ------------------------------------------------- */
+
+@media (max-width: 719px) {
+  body {
+    padding: 0.9rem 0.8rem 2rem;
+    font-size: 0.78rem;
+  }
+
+  .c-medium {
+    display: none;
+  }
+
+  header.top {
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  header.top h1 {
+    font-size: 0.85rem;
+    letter-spacing: 0.18em;
+  }
+
+  /* Rules between process facts turn into a plain wrapped list. */
+  header.top .env {
+    gap: 0.5rem;
+  }
+
+  header.top .env span + span {
+    padding-left: 0.5rem;
+    border-left: none;
+  }
+
+  .metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .metrics div {
+    padding: 0.55rem 0.7rem;
+  }
+
+  .metrics div:nth-child(2n) {
+    border-right: none;
+  }
+
+  .metrics div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+
+  nav.tabs {
+    gap: 1rem;
+  }
+
+  /* Filters stack: each control gets the full width rather than a cramped
+     row of half-visible selects. */
+  form.filters {
+    gap: 0.5rem;
+  }
+
+  form.filters .field,
+  form.filters .field.grow {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  form.filters .hint {
+    display: none;
+  }
+
+  .bar.plot {
+    min-width: 5rem;
+  }
+
+  .kind {
+    min-width: 0;
+  }
+
+  dl.detail {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  .trace-head {
+    gap: 0.5rem;
+  }
+
+  .trace-head h1,
+  .trace-head .elapsed {
+    font-size: 1rem;
+  }
+
+  footer {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

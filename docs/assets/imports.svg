@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="156px" preserveAspectRatio="none" style="width:534px;height:156px;" version="1.1" viewBox="0 0 534 156" width="534px" zoomAndPan="magnify"><defs><filter height="300%" id="fnnc4rsg2gghn" width="300%" x="-1" y="-1"><feGaussianBlur result="blurOut" stdDeviation="2.0"/><feColorMatrix in="blurOut" result="blurOut2" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .4 0"/><feOffset dx="4.0" dy="4.0" in="blurOut2" result="blurOut3"/><feBlend in="SourceGraphic" in2="blurOut3" mode="normal"/></filter></defs><g><!--MD5=[f5f20f91cb82bfada79f86d119930434]
+entity github.com/titpetric/oida/cmd/oida--><rect fill="#FEFECE" filter="url(#fnnc4rsg2gghn)" height="39.0679" style="stroke: #A80036; stroke-width: 1.5;" width="257" x="6" y="7.86"/><rect fill="#FEFECE" height="5" style="stroke: #A80036; stroke-width: 1.5;" width="10" x="1" y="12.86"/><rect fill="#FEFECE" height="5" style="stroke: #A80036; stroke-width: 1.5;" width="10" x="1" y="36.9279"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="237" x="16" y="32.8259">github.com/titpetric/oida/cmd/oida</text><!--MD5=[cb89c2de525b4259b4507a1f1f85aaf3]
+entity github.com/titpetric/oida--><rect fill="#FEFECE" filter="url(#fnnc4rsg2gghn)" height="39.0679" style="stroke: #A80036; stroke-width: 1.5;" width="189" x="178" y="106.93"/><rect fill="#FEFECE" height="5" style="stroke: #A80036; stroke-width: 1.5;" width="10" x="173" y="111.93"/><rect fill="#FEFECE" height="5" style="stroke: #A80036; stroke-width: 1.5;" width="10" x="173" y="135.9979"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="169" x="188" y="131.8959">github.com/titpetric/oida</text><!--MD5=[24b07b63b660c6048c040b65d0ada9db]
+entity github.com/titpetric/oida/tests--><rect fill="#FEFECE" filter="url(#fnnc4rsg2gghn)" height="39.0679" style="stroke: #A80036; stroke-width: 1.5;" width="226" x="297.5" y="7.86"/><rect fill="#FEFECE" height="5" style="stroke: #A80036; stroke-width: 1.5;" width="10" x="292.5" y="12.86"/><rect fill="#FEFECE" height="5" style="stroke: #A80036; stroke-width: 1.5;" width="10" x="292.5" y="36.9279"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="206" x="307.5" y="32.8259">github.com/titpetric/oida/tests</text><!--MD5=[8252876edc8357d6dc53cdaadfd02002]
+link github.com/titpetric/oida/cmd/oida to github.com/titpetric/oida--><path d="M161.44,47.34 C180.43,60.71 206.31,78.91 228.3,94.38 " fill="none" id="github.com/titpetric/oida/cmd/oida-&gt;github.com/titpetric/oida" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="none" points="232.06,88.46,244.39,105.7,224.01,99.92,232.06,88.46" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[8766a200835968c50a1a2db74dffdcbc]
+link github.com/titpetric/oida/tests to github.com/titpetric/oida--><path d="M383.56,47.34 C364.57,60.71 338.69,78.91 316.7,94.38 " fill="none" id="github.com/titpetric/oida/tests-&gt;github.com/titpetric/oida" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="none" points="320.99,99.92,300.61,105.7,312.94,88.46,320.99,99.92" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[0cf4dcaab8acddb70904bdcb8b78f5ce]
+@startuml
+[github.com/titpetric/oida/cmd/oida] - -|> [github.com/titpetric/oida]
+[github.com/titpetric/oida/tests] - -|> [github.com/titpetric/oida]
+@enduml
+
+PlantUML version 1.2020.02(Sun Mar 01 11:22:07 CET 2020)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Java Version: 25.0.3+9-2-26.04.2-Ubuntu
+Operating System: Linux
+Default Encoding: UTF-8
+Language: en
+Country: US
+--></g></svg>
