@@ -84,6 +84,8 @@ type Options struct {
 	// Tracer is the recorder used by TracingMiddleware, Handler and Mount. A
 	// nil tracer resolves the process default.
 	Tracer *Tracer `yaml:"-"`
+
+	initialized bool
 }
 
 // DefaultPath is the default mount path of the debug front end.
@@ -107,30 +109,32 @@ func NewOptions() Options {
 			"/metrics",
 			"/favicon.ico",
 		},
+		initialized: true,
 	}
 }
 
-// WithDefaults returns a copy of the options with zero values replaced by their
-// defaults. It is applied before validation, so a zero Options is usable.
+// WithDefaults returns a usable copy of the options. Options created by
+// NewOptions preserve explicit zero values; an uninitialized Options receives
+// the numeric defaults for backward compatibility.
 func (o Options) WithDefaults() Options {
 	defaults := NewOptions()
 	if o.Path == "" {
 		o.Path = defaults.Path
 	}
 	o.Path = strings.TrimSuffix(o.Path, "/")
-	if o.RingBufferSize == 0 {
+	if !o.initialized && o.RingBufferSize == 0 {
 		o.RingBufferSize = defaults.RingBufferSize
 	}
-	if o.TopRequests == 0 {
+	if !o.initialized && o.TopRequests == 0 {
 		o.TopRequests = defaults.TopRequests
 	}
-	if o.MaxSpansPerTrace == 0 {
+	if !o.initialized && o.MaxSpansPerTrace == 0 {
 		o.MaxSpansPerTrace = defaults.MaxSpansPerTrace
 	}
-	if o.SampleRate == 0 && o.Sampler == nil {
+	if !o.initialized && o.SampleRate == 0 && o.Sampler == nil {
 		o.SampleRate = defaults.SampleRate
 	}
-	if o.RefreshInterval == 0 {
+	if !o.initialized && o.RefreshInterval == 0 {
 		o.RefreshInterval = defaults.RefreshInterval
 	}
 	if o.IgnorePaths == nil {
@@ -139,6 +143,7 @@ func (o Options) WithDefaults() Options {
 	if o.Clock == nil {
 		o.Clock = time.Now
 	}
+	o.initialized = true
 	return o
 }
 

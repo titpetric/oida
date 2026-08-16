@@ -156,18 +156,19 @@ Use `r.URL.Redacted()` — it strips userinfo credentials.
 ### 5.4 Cache lookups
 
 ```go
-ctx, span := oida.Start(ctx, "cache: user", oida.KindCache)
+parent := ctx
+_, span := oida.Start(parent, "cache: user", oida.KindCache)
 value, hit := c.Get(key)
 span.SetAttribute("hit", hit)
 span.End()
 
 if !hit {
-	value, err = loadUser(ctx, key)   // its own database span, sibling of the cache span
+	value, err = loadUser(parent, key)
 }
 ```
 
 End the cache span before the fallback so the timeline shows cache and database
-as separate segments rather than nested.
+as separate sibling segments rather than nested.
 
 ### 5.5 Concurrent work
 
@@ -181,9 +182,9 @@ defer span.End()
 g, gctx := errgroup.WithContext(ctx)
 for _, id := range ids {
 	g.Go(func() error {
-		_, s := oida.Start(gctx, "load user", oida.KindDatabase)
+		ctx, s := oida.Start(gctx, "load user", oida.KindDatabase)
 		defer s.End()
-		return load(gctx, id)
+		return load(ctx, id)
 	})
 }
 return g.Wait()

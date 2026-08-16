@@ -1,17 +1,8 @@
 # Screenshots
 
 What `/debug/oida` looks like in a running service. Every shot below is the demo
-in [cmd/oida/](../cmd/oida/) under load, captured at 1440px in the dark theme.
-Light is not an afterthought: both are driven by `prefers-color-scheme` from one
-set of custom properties, and every view is designed in both.
-
-Regenerate all of it from a running instance:
-
-```bash
-atkins
-docker compose up -d --force-recreate --wait
-scripts/demo.sh              # or: scripts/demo.sh light
-```
+under load, captured at 1440px in the dark theme. The dashboard also supports a
+light theme.
 
 ## The masthead
 
@@ -25,10 +16,10 @@ the wordmark narrows every view below it to one domain.
 ## Hosts
 
 The landing page. One row per domain this process has served, with the share of
-traffic it carries, its average and worst response time, and how many spans a
-trace records there. Picking a host filters everything else.
+retained traces it carries, its average and worst response time, and how many
+spans a trace records there. Picking a host filters everything else.
 
-![The host overview: one row per domain with traffic share and timings](assets/hosts.png)
+![The host overview: one row per domain with retained trace share and timings](assets/hosts.png)
 
 ## Traces
 
@@ -83,15 +74,3 @@ process on the right. Labels down the left of each, values down the right, one
 row per property.
 
 ![The request and system fact tables, and the page footer](assets/detail-footer.png)
-
-## How the shots are made
-
-[scripts/demo.sh](../scripts/demo.sh) seeds the running service with traffic
-from a few domains, picks the `/report` trace, which is the one with a fan out
-worth looking at, and asks [scripts/shot.js](../scripts/shot.js) for one PNG per
-component. Components, not viewports: the shots are clipped to the elements
-named in the manifest, so a screenshot never carries half of the thing below it.
-
-For looking at a page while working on it, use
-[scripts/chromium.sh](../scripts/chromium.sh) instead. It is one command and it
-writes to `/tmp`.

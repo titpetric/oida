@@ -113,6 +113,20 @@ func TestMiddlewareSampling(t *testing.T) {
 	}
 }
 
+func TestMiddlewareZeroSampleRate(t *testing.T) {
+	handler, tracer := newTestServer(t, func(o *Options) { o.SampleRate = 0 })
+
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users/1", nil))
+
+	if traces := tracer.Traces(); len(traces) != 0 {
+		t.Fatalf("recorded %d requests at a zero sample rate", len(traces))
+	}
+	snapshot := tracer.Snapshot()
+	if snapshot.Total != 1 || snapshot.Sampled != 0 || snapshot.Dropped != 1 {
+		t.Fatalf("unexpected counters: total %d sampled %d dropped %d", snapshot.Total, snapshot.Sampled, snapshot.Dropped)
+	}
+}
+
 func TestHandlerAuthorization(t *testing.T) {
 	handler, _ := newTestServer(t, func(o *Options) {
 		o.Authorize = func(r *http.Request) bool { return r.Header.Get("X-Admin") == "yes" }

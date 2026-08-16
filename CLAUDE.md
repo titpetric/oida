@@ -57,8 +57,7 @@ by `compose.yml` on <http://localhost:8097>.
 
 ## Conventions
 
-- One struct per file, data models in `model.go`. See
-  [docs/conventions.md](docs/conventions.md).
+- One struct per file, data models in `model.go`.
 - Nothing writes to stdout or stderr. Failures return, or go to
   `Options.OnError`.
 - The front end makes no external requests: no webfonts, no CDN, no analytics.

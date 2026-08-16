@@ -123,18 +123,17 @@ opts.Storage = storage
 `NewStorageDisk` creates the folder, verifies it is writable, and prunes the
 oldest documents past the limit on every save. With no path it uses a folder
 under `os.TempDir()`. Documents are JSON, one per trace, named after the trace
-ID — readable with `jq`, and cheap to ship elsewhere if you want to:
+ID and readable with `jq`:
 
 ```bash
 jq '.spans[] | select(.kind == "database") | {name, duration_ns}' /var/lib/myservice/traces/*.json
 ```
 
 Add `StorageDisk.Prune(ctx, maxAge)` to a ticker if you want an age bound as
-well as a count bound. Writes are `O(1)`; reads scan the folder, so keep the
-limit within a few thousand documents unless you enjoy `readdir`.
+well as a count bound. Keep the limit within a few thousand documents when the
+dashboard needs to list disk-backed traces frequently.
 
-Anything satisfying `oida.Storage` works — the interface is six methods, and
-the tracer never holds a lock while calling it.
+Anything satisfying `oida.Storage` can provide retention.
 
 ## 3. Sampling
 
@@ -181,9 +180,8 @@ opts.Sampler = oida.SamplerFunc(func(r *http.Request) bool {
 })
 ```
 
-Sampling is decided *before* the trace is allocated, so an unsampled request
-costs one interface call and nothing else. `oida.Start` inside an unsampled
-request returns a nil span.
+An unsampled request does not create a trace or spans. `oida.Start` inside an
+unsampled request returns a nil span.
 
 ## 4. Multiple tracers
 
@@ -340,9 +338,9 @@ keep their default rather than becoming zero.
 | `SampleRate` outside `[0,1]` or NaN | `ErrInvalidSampleRate` |
 | `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace` or `RefreshInterval` negative | `ErrInvalidOptions` |
 
-`Options.WithDefaults() Options` fills zero values and is applied before
-validation, so a zero `Options{}` is valid and behaves like `NewOptions()`
-except for `Enabled`, which is explicitly defaulted to true.
+Start with `NewOptions()` before applying overrides. This keeps defaults for
+fields you do not set while preserving meaningful zero values such as
+`SampleRate = 0`, `RingBufferSize = 0`, and `RefreshInterval = 0`.
 
 ## 7. Turning it off
 

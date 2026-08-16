@@ -6,9 +6,6 @@
 go get github.com/titpetric/oida
 ```
 
-oida depends only on `github.com/a-h/templ` (the templ runtime). It does not
-depend on chi; the router integration is a structural interface.
-
 ## 2. chi/v5
 
 The complete wiring is three calls: configure the tracer, add the middleware,
@@ -258,7 +255,7 @@ tracer, err := oida.New(oida.NewOptions())
 
 ```bash
 curl -s localhost:8080/users/1 -o /dev/null -D - | grep -i request-id
-curl -s -H 'Accept: application/json' localhost:8080/debug/oida | jq '.log[0].name'
+curl -s -H 'Accept: application/json' localhost:8080/debug/oida/traces | jq '.[0].name'
 curl -s localhost:8080/debug/oida/stats            # plain text, curl user agent
 ```
 

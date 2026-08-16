@@ -128,6 +128,18 @@ func TestOptionsDefaultsAndValidation(t *testing.T) {
 		t.Fatalf("path is %q, want the trailing slash trimmed", trimmed.Path)
 	}
 
+	zeroes := NewOptions()
+	zeroes.RingBufferSize = 0
+	zeroes.TopRequests = 0
+	zeroes.MaxSpansPerTrace = 0
+	zeroes.SampleRate = 0
+	zeroes.RefreshInterval = 0
+	zeroes = zeroes.WithDefaults()
+	if zeroes.RingBufferSize != 0 || zeroes.TopRequests != 0 || zeroes.MaxSpansPerTrace != 0 ||
+		zeroes.SampleRate != 0 || zeroes.RefreshInterval != 0 {
+		t.Fatalf("explicit zero values were replaced: %+v", zeroes)
+	}
+
 	if !opts.ignored(DefaultPath + "/stats") {
 		t.Error("the front end path is traced")
 	}
