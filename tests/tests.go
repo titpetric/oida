@@ -40,7 +40,7 @@ func NewServerWithTracer(t testing.TB) (http.Handler, *oida.Tracer) {
 	opts.Path = Path
 	opts.Storage = oida.NewStorageMemory(64)
 	opts.RingBufferSize = 64
-	opts.SampleRate = 1
+	opts.SampleRate = 100
 	opts.RefreshInterval = 0
 	opts.OnError = func(err error) { t.Errorf("oida: %v", err) }
 	opts.RouteFunc = func(r *http.Request) string {

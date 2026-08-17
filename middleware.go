@@ -110,13 +110,14 @@ func requestID(opts Options, r *http.Request) string {
 	return id
 }
 
-// routePattern returns the routed pattern of the request, preferring the
-// configured RouteFunc and falling back to the pattern set by http.ServeMux.
+// routePattern returns the routed pattern of the request. A configured
+// RouteFunc decides on its own, including when it returns nothing: a service
+// mounting a catch-all knows that pattern is not worth grouping by, and the
+// fallback would put it back. Without one, the pattern the router recorded on
+// the request is used.
 func routePattern(opts Options, r *http.Request) string {
 	if opts.RouteFunc != nil {
-		if route := opts.RouteFunc(r); route != "" {
-			return route
-		}
+		return opts.RouteFunc(r)
 	}
 	if r.Pattern != "" {
 		if _, pattern, ok := strings.Cut(r.Pattern, " "); ok {

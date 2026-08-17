@@ -93,14 +93,14 @@ func TestMiddlewareRecordsPanic(t *testing.T) {
 }
 
 func TestMiddlewareSampling(t *testing.T) {
-	handler, tracer := newTestServer(t, func(o *Options) { o.SampleRate = 0.25 })
+	handler, tracer := newTestServer(t, func(o *Options) { o.SampleRate = 25 })
 
 	for range 8 {
 		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users/1", nil))
 	}
 
 	if traces := tracer.Traces(); len(traces) != 2 {
-		t.Fatalf("recorded %d of 8 requests at a 0.25 sample rate, want 2", len(traces))
+		t.Fatalf("recorded %d of 8 requests at a 25%% sample rate, want 2", len(traces))
 	}
 	snapshot := tracer.Snapshot()
 	if snapshot.Total != 8 || snapshot.Sampled != 2 || snapshot.Dropped != 6 {

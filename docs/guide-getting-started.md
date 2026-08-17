@@ -36,7 +36,7 @@ func run() error {
 	opts.ServiceName = "billing-api"
 	opts.Path = "/debug/oida"
 	opts.RingBufferSize = 500
-	opts.SampleRate = 1
+	opts.SampleRate = 100
 	opts.RouteFunc = func(r *http.Request) string {
 		if route := chi.RouteContext(r.Context()); route != nil {
 			return route.RoutePattern()

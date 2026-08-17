@@ -7,7 +7,7 @@ sensible values when you upgrade.
 ```go
 opts := oida.NewOptions()
 opts.ServiceName = "billing-api"
-opts.SampleRate = 0.25
+opts.SampleRate = 25
 ```
 
 ## 1. Reference
@@ -45,7 +45,7 @@ type Options struct {
 | `RingBufferSize` | `200` | Completed traces retained. 0 disables retention (live view still works). |
 | `TopRequests` | `20` | Rows in the statistics view. |
 | `MaxSpansPerTrace` | `1000` | Spans recorded per trace; further spans are counted in `DroppedSpans` and dropped. 0 means unlimited. |
-| `SampleRate` | `1` | Fraction of requests traced, `[0,1]`. |
+| `SampleRate` | `100` | Percentage of requests traced, `[0,100]`. |
 | `TrackMemoryUse` | `true` | Read `runtime.MemStats` around each trace. |
 | `TrustRequestID` | `false` | Reuse a client-supplied `Request-Id` header instead of generating one. Only enable behind a trusted proxy. |
 | `IgnorePaths` | `["/healthz", "/readyz", "/metrics", "/favicon.ico"]` | Exact paths and `/prefix/*` patterns never traced. |
@@ -53,7 +53,7 @@ type Options struct {
 | `LiveStream` | `true` | Serve the live view over server sent events, so traces appear as they are recorded. False falls back to the meta refresh and 404s the stream route. |
 | `Sampler` | nil | Overrides `SampleRate` entirely when set. |
 | `Storage` | nil | Retention backend. Nil builds `NewStorageMemory(RingBufferSize)`. |
-| `RouteFunc` | nil | Returns the routed pattern of a request, so statistics group by route. Nil falls back to `http.Request.Pattern`. |
+| `RouteFunc` | nil | Returns the routed pattern of a request, so statistics group by route. It decides on its own: an empty result means group by path. Nil falls back to `http.Request.Pattern`. |
 | `OnError` | nil | Receives storage and rendering failures. Nil discards them — the package never prints. |
 | `Authorize` | nil | Access check for the UI. Nil means "allow" — set it before exposing the route on a public listener. |
 | `Clock` | `time.Now` | Time source. Tests inject a deterministic clock. |
@@ -139,12 +139,13 @@ Anything satisfying `oida.Storage` can provide retention.
 
 ### 3.1 Rate sampling
 
-`SampleRate` uses a deterministic counter, not randomness: at 0.25 every fourth
-request is traced. That makes tests reproducible and avoids clustering.
+`SampleRate` is a percentage and uses a deterministic counter, not randomness:
+at 25 every fourth request is traced. That makes tests reproducible and avoids
+clustering.
 
 ```go
-opts.SampleRate = 0.1    // 1 in 10
-opts.SampleRate = 1      // everything (default)
+opts.SampleRate = 10     // 1 in 10
+opts.SampleRate = 100    // everything (default)
 opts.SampleRate = 0      // nothing; the UI still serves, the log stays empty
 ```
 
@@ -174,7 +175,7 @@ opts.Sampler = oida.SamplerFunc(func(r *http.Request) bool {
 Combining a rate with an override:
 
 ```go
-rate := oida.NewRateSampler(0.05)
+rate := oida.NewRateSampler(5)
 opts.Sampler = oida.SamplerFunc(func(r *http.Request) bool {
 	return r.Header.Get("X-Debug") == "1" || rate.Sample(r)
 })
@@ -301,7 +302,7 @@ oida:
   ring_buffer_size: 500
   top_requests: 20
   max_spans_per_trace: 1000
-  sample_rate: 0.25
+  sample_rate: 25
   track_memory_use: true
   trust_request_id: false
   refresh_interval: 5
@@ -335,7 +336,7 @@ keep their default rather than becoming zero.
 | Condition | Error |
 | --- | --- |
 | `Path` empty or not starting with `/` | `ErrInvalidPath` |
-| `SampleRate` outside `[0,1]` or NaN | `ErrInvalidSampleRate` |
+| `SampleRate` outside `[0,100]` or NaN | `ErrInvalidSampleRate` |
 | `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace` or `RefreshInterval` negative | `ErrInvalidOptions` |
 
 Start with `NewOptions()` before applying overrides. This keeps defaults for

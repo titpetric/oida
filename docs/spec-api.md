@@ -194,7 +194,7 @@ storage retains traces across restarts; `limit` controls the maximum count and
 | `ErrNilRouter` | `frontend.Mount` or `frontend.MountServeMux` received a nil router |
 | `ErrInvalidOptions` | Base error for invalid configuration |
 | `ErrInvalidPath` | `Options.Path` is not absolute |
-| `ErrInvalidSampleRate` | `Options.SampleRate` is outside `[0,1]` or NaN |
+| `ErrInvalidSampleRate` | `Options.SampleRate` is outside `[0,100]` or NaN |
 | `ErrTraceNotFound` | A storage lookup did not find the trace |
 | `ErrDisabled` | `StartTrace` was called on a disabled tracer |
 

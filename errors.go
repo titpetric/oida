@@ -15,8 +15,9 @@ var (
 	// ErrInvalidPath is returned when Options.Path is not an absolute path.
 	ErrInvalidPath = fmt.Errorf("%w: path must be an absolute path", ErrInvalidOptions)
 
-	// ErrInvalidSampleRate is returned when Options.SampleRate is outside [0,1].
-	ErrInvalidSampleRate = fmt.Errorf("%w: sample rate must be between 0 and 1", ErrInvalidOptions)
+	// ErrInvalidSampleRate is returned when Options.SampleRate is outside
+	// [0,100].
+	ErrInvalidSampleRate = fmt.Errorf("%w: sample rate must be between 0 and 100", ErrInvalidOptions)
 
 	// ErrTraceNotFound is returned when a trace ID is not in the ring buffer.
 	ErrTraceNotFound = errors.New("oida: trace not found")

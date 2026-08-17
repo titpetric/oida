@@ -19,8 +19,8 @@ func (f SamplerFunc) Sample(r *http.Request) bool {
 	return f(r)
 }
 
-// rateSampler samples a fixed fraction of requests using a counter rather than
-// randomness, so the decision sequence is deterministic and testable.
+// rateSampler samples a fixed percentage of requests using a counter rather
+// than randomness, so the decision sequence is deterministic and testable.
 type rateSampler struct {
 	// every is the sampling period: one request in every N is traced. Zero
 	// disables sampling entirely.
@@ -31,16 +31,16 @@ type rateSampler struct {
 
 var _ Sampler = (*rateSampler)(nil)
 
-// NewRateSampler returns a sampler tracing the given fraction of requests. A
-// rate of 1 or more traces everything, a rate of 0 or less traces nothing.
+// NewRateSampler returns a sampler tracing the given percentage of requests. A
+// rate of 100 or more traces everything, a rate of 0 or less traces nothing.
 func NewRateSampler(rate float64) Sampler {
 	switch {
-	case rate >= 1:
+	case rate >= 100:
 		return &rateSampler{every: 1}
 	case rate <= 0:
 		return &rateSampler{every: 0}
 	default:
-		every := uint64(1/rate + 0.5)
+		every := uint64(100/rate + 0.5)
 		if every < 1 {
 			every = 1
 		}

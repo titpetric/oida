@@ -32,8 +32,8 @@ type Options struct {
 	// spans are counted in Trace.DroppedSpans. Zero means unlimited.
 	MaxSpansPerTrace int `yaml:"max_spans_per_trace"`
 
-	// SampleRate is the fraction of requests traced, between 0 and 1. It is
-	// ignored when Sampler is set.
+	// SampleRate is the percentage of requests traced, between 0 and 100. It
+	// is ignored when Sampler is set.
 	SampleRate float64 `yaml:"sample_rate"`
 
 	// TrackMemoryUse records process-wide allocation changes for each trace.
@@ -69,7 +69,10 @@ type Options struct {
 	//		return chi.RouteContext(r.Context()).RoutePattern()
 	//	}
 	//
-	// A nil function falls back to the pattern set by http.ServeMux.
+	// The function decides on its own: returning an empty string means the
+	// request has no route worth grouping by, and it groups by path instead.
+	// A nil function falls back to the pattern the router recorded on the
+	// request, which is what http.ServeMux and chi both set.
 	RouteFunc func(r *http.Request) string `yaml:"-"`
 
 	// OnError receives storage and recording errors. The package never writes
@@ -101,7 +104,7 @@ func NewOptions() Options {
 		RingBufferSize:   200,
 		TopRequests:      20,
 		MaxSpansPerTrace: 1000,
-		SampleRate:       1,
+		SampleRate:       100,
 		TrackMemoryUse:   true,
 		RefreshInterval:  5,
 		LiveStream:       true,
@@ -155,7 +158,7 @@ func (o Options) Validate() error {
 	if o.Path == "" || !strings.HasPrefix(o.Path, "/") {
 		return ErrInvalidPath
 	}
-	if math.IsNaN(o.SampleRate) || o.SampleRate < 0 || o.SampleRate > 1 {
+	if math.IsNaN(o.SampleRate) || o.SampleRate < 0 || o.SampleRate > 100 {
 		return ErrInvalidSampleRate
 	}
 	if o.RingBufferSize < 0 {

@@ -4,7 +4,7 @@ import "testing"
 
 func TestOptionsDefaultsAndValidation(t *testing.T) {
 	opts := Options{}.WithDefaults()
-	if opts.Path != DefaultPath || opts.RingBufferSize != 200 || opts.SampleRate != 1 || opts.Clock == nil {
+	if opts.Path != DefaultPath || opts.RingBufferSize != 200 || opts.SampleRate != 100 || opts.Clock == nil {
 		t.Fatalf("unexpected defaults: %+v", opts)
 	}
 	if err := opts.Validate(); err != nil {

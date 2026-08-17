@@ -58,7 +58,7 @@ func TestMountValidation(t *testing.T) {
 	}
 
 	opts = oida.NewOptions()
-	opts.SampleRate = 2
+	opts.SampleRate = 200
 	if err := Mount(&stubRouter{}, opts); !errors.Is(err, oida.ErrInvalidSampleRate) {
 		t.Fatalf("invalid sample rate returned %v, want oida.ErrInvalidSampleRate", err)
 	}
