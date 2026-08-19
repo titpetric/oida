@@ -8,8 +8,7 @@ go get github.com/titpetric/oida@latest
 
 ## 2. chi/v5
 
-The complete wiring is three calls: configure the tracer, add the middleware,
-mount the UI.
+The complete wiring is three calls: configure the tracer, add the middleware, mount the UI.
 
 ```go
 package main
@@ -75,21 +74,15 @@ func run() error {
 
 Order matters:
 
-- `oida.TracingMiddleware` goes **after** `middleware.RealIP` (so the remote
-  address is the real one) and **after** `middleware.Recoverer` is registered if
-  you want the recoverer to catch panics first — oida re-panics after recording,
-  so either order records the failure; putting oida inside the recoverer keeps
-  the 500 response behaviour of chi.
-- `frontend.Mount` must be called on a router that has the middleware registered, or
-  on any router in the same process — the tracer is shared, not the router.
+- `oida.TracingMiddleware` goes **after** `middleware.RealIP` (so the remote address is the real one) and **after** `middleware.Recoverer` is registered if you want the recoverer to catch panics first — oida re-panics after recording, so either order records the failure; putting oida inside the recoverer keeps the 500 response behaviour of chi.
+- `frontend.Mount` must be called on a router that has the middleware registered, or on any router in the same process — the tracer is shared, not the router.
 - Routes registered *before* `r.Use` panic in chi; register middleware first.
 
 Visit `http://localhost:8080/debug/oida`.
 
 ### 2.1 Mounting on a separate admin listener
 
-The UI does not have to sit on the public router. A separate listener keeps
-`/debug/oida` off the internet entirely:
+The UI does not have to sit on the public router. A separate listener keeps `/debug/oida` off the internet entirely:
 
 ```go
 admin := chi.NewRouter()
@@ -99,15 +92,11 @@ if err := frontend.Mount(admin, opts); err != nil {
 go http.ListenAndServe("127.0.0.1:9090", admin) //nolint:errcheck // admin listener
 ```
 
-Both routers talk to the same `opts.Tracer`, so the public router records and
-the admin router displays.
+Both routers talk to the same `opts.Tracer`, so the public router records and the admin router displays.
 
 ### 2.2 Route patterns in statistics
 
-`Options.RouteFunc` above is what makes statistics group `/users/1` and
-`/users/2` under `GET /users/{id}`: the middleware calls it *after* the handler
-ran, when chi's route context knows the matched pattern. Leave it out and every
-distinct URI becomes its own row.
+`Options.RouteFunc` above is what makes statistics group `/users/1` and `/users/2` under `GET /users/{id}`: the middleware calls it *after* the handler ran, when chi's route context knows the matched pattern. Leave it out and every distinct URI becomes its own row.
 
 With `net/http` you do not need it — oida reads `http.Request.Pattern`.
 
@@ -134,13 +123,11 @@ handler := oida.TracingMiddleware(opts)(mux)
 return http.ListenAndServe(":8080", handler)
 ```
 
-`MountServeMux` registers both `/debug/oida` and `/debug/oida/`, because
-`ServeMux` treats those as different patterns.
+`MountServeMux` registers both `/debug/oida` and `/debug/oida/`, because `ServeMux` treats those as different patterns.
 
 ## 4. Protecting the endpoint
 
-`Options.Authorize` gates the whole UI. Requests that fail it get a 404, so the
-endpoint's existence is not advertised:
+`Options.Authorize` gates the whole UI. Requests that fail it get a 404, so the endpoint's existence is not advertised:
 
 ```go
 opts.Authorize = func(r *http.Request) bool {
@@ -218,14 +205,11 @@ func (w *Worker) tick(ctx context.Context) error {
 }
 ```
 
-`Observe` creates the trace, runs the function, records the returned error and
-pushes the trace into the same ring buffer, so background work shows up in the
-same UI as requests.
+`Observe` creates the trace, runs the function, records the returned error and pushes the trace into the same ring buffer, so background work shows up in the same UI as requests.
 
 ## 7. In tests
 
-`github.com/titpetric/oida/tests` hands you a chi router with the middleware,
-the front end and memory storage already wired, plus a few instrumented routes:
+`github.com/titpetric/oida/tests` hands you a chi router with the middleware, the front end and memory storage already wired, plus a few instrumented routes:
 
 ```go
 func TestUsers(t *testing.T) {
@@ -240,13 +224,9 @@ func TestUsers(t *testing.T) {
 }
 ```
 
-`tests.NewServerWithTracer(t)` returns the tracer alongside the handler when you
-want to assert on the recorded traces themselves. Both fail the test on any
-`OnError` callback, so a broken storage backend shows up as a test failure
-rather than silence.
+`tests.NewServerWithTracer(t)` returns the tracer alongside the handler when you want to assert on the recorded traces themselves. Both fail the test on any `OnError` callback, so a broken storage backend shows up as a test failure rather than silence.
 
-For your own service, build an explicit tracer instead of `Default()` so
-packages can run in parallel:
+For your own service, build an explicit tracer instead of `Default()` so packages can run in parallel:
 
 ```go
 tracer, err := oida.New(oida.NewOptions())
@@ -260,7 +240,4 @@ curl -s -H 'Accept: application/json' localhost:8080/debug/oida/traces | jq '.[0
 curl -s localhost:8080/debug/oida/stats            # plain text, curl user agent
 ```
 
-If the log is empty, check in order: the middleware is registered, the sampler
-is not rejecting everything (`SampleRate`), the tracer is shared between the
-middleware and the handler (`opts.Tracer`), and the request path is not in
-`IgnorePaths`.
+If the log is empty, check in order: the middleware is registered, the sampler is not rejecting everything (`SampleRate`), the tracer is shared between the middleware and the handler (`opts.Tracer`), and the request path is not in `IgnorePaths`.

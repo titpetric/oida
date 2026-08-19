@@ -1,8 +1,6 @@
 # oida
 
-`oida` records traces and spans inside a Go service and provides a dashboard at
-`/debug/oida`. Use it to inspect slow requests, failed operations, nested work,
-memory use, and background jobs without running a separate telemetry service.
+`oida` records traces and spans inside a Go service and provides a dashboard at `/debug/oida`. Use it to inspect slow requests, failed operations, nested work, memory use, and background jobs without running a separate telemetry service.
 
 Telemetry for Go.
 
@@ -59,15 +57,15 @@ Open `http://localhost:8080/debug/oida`.
 
 ## Documentation
 
-| Guide | Contents |
-| --- | --- |
+| Guide                                            | Contents                                                    |
+|--------------------------------------------------|-------------------------------------------------------------|
 | [Getting started](docs/guide-getting-started.md) | `chi/v5`, `net/http`, endpoint protection, and verification |
-| [Instrumentation](docs/guide-instrumentation.md) | Spans, errors, SQL, HTTP, cache, and concurrent work |
-| [Configuration](docs/guide-configuration.md) | Options, sampling, retention, sizing, and YAML |
-| [Public API](docs/spec-api.md) | Supported functions, methods, storage, and errors |
-| [Data returned by oida](docs/spec-model.md) | Trace, span, snapshot, and statistics fields |
-| [Using the dashboard](docs/spec-frontend.md) | Views, filters, JSON, plain text, and access control |
-| [Screenshots](docs/screenshots.md) | Dashboard views |
+| [Instrumentation](docs/guide-instrumentation.md) | Spans, errors, SQL, HTTP, cache, and concurrent work        |
+| [Configuration](docs/guide-configuration.md)     | Options, sampling, retention, sizing, and YAML              |
+| [Public API](docs/spec-api.md)                   | Supported functions, methods, storage, and errors           |
+| [Data returned by oida](docs/spec-model.md)      | Trace, span, snapshot, and statistics fields                |
+| [Using the dashboard](docs/spec-frontend.md)     | Views, filters, JSON, plain text, and access control        |
+| [Screenshots](docs/screenshots.md)               | Dashboard views                                             |
 
 ## License
 

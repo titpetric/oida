@@ -2,14 +2,13 @@
 
 Three import paths:
 
-| Package | Import path | Contents |
-| --- | --- | --- |
-| `oida` | `github.com/titpetric/oida` | Tracer, middleware, options, storage, instrumentation |
-| `frontend` | `github.com/titpetric/oida/frontend` | The dashboard: `Handler`, `Mount`, `MountServeMux` |
-| `model` | `github.com/titpetric/oida/model` | Recorded data. Its types are aliased into `oida`, so this import is rarely needed |
+| Package    | Import path                          | Contents                                                                          |
+|------------|--------------------------------------|-----------------------------------------------------------------------------------|
+| `oida`     | `github.com/titpetric/oida`          | Tracer, middleware, options, storage, instrumentation                             |
+| `frontend` | `github.com/titpetric/oida/frontend` | The dashboard: `Handler`, `Mount`, `MountServeMux`                                |
+| `model`    | `github.com/titpetric/oida/model`    | Recorded data. Its types are aliased into `oida`, so this import is rarely needed |
 
-Most services use `NewOptions`, `Configure`, `TracingMiddleware`,
-`frontend.Mount`, and `Start`.
+Most services use `NewOptions`, `Configure`, `TracingMiddleware`, `frontend.Mount`, and `Start`.
 
 ## Setup
 
@@ -35,9 +34,7 @@ func Mount(r Router, opts oida.Options) error
 func MountServeMux(mux *http.ServeMux, opts oida.Options) error
 ```
 
-`Configure` creates the process-wide tracer. Set `opts.Tracer` to the returned
-value before wiring middleware and the dashboard so every entry point uses the
-same tracer.
+`Configure` creates the process-wide tracer. Set `opts.Tracer` to the returned value before wiring middleware and the dashboard so every entry point uses the same tracer.
 
 ```go
 opts := oida.NewOptions()
@@ -56,13 +53,9 @@ type Router interface {
 }
 ```
 
-Use `frontend.MountServeMux` with `http.ServeMux`. `HandlerFor` is the shortest
-path from a tracer to a dashboard, and takes its configuration from the tracer.
+Use `frontend.MountServeMux` with `http.ServeMux`. `HandlerFor` is the shortest path from a tracer to a dashboard, and takes its configuration from the tracer.
 
-The middleware skips disabled, ignored, and unsampled requests. Traced HTTP
-requests receive a `Request-Id` header. When `TrustRequestID` is true, a valid
-client-supplied trace ID is reused. Panics are recorded and then passed on to
-the application's recovery middleware.
+The middleware skips disabled, ignored, and unsampled requests. Traced HTTP requests receive a `Request-Id` header. When `TrustRequestID` is true, a valid client-supplied trace ID is reused. Panics are recorded and then passed on to the application's recovery middleware.
 
 ## Instrumentation
 
@@ -89,20 +82,16 @@ defer span.End()
 rows, err := db.QueryContext(ctx, query)
 ```
 
-`StartSpan` is for leaf work that does not create child spans. `Do` records the
-returned error, ends the span, and returns the same error.
+`StartSpan` is for leaf work that does not create child spans. `Do` records the returned error, ends the span, and returns the same error.
 
-`StartAuto` reads the span name from a symbol, so `storage.UserStorage.GetUsers`
-does not have to be spelled out:
+`StartAuto` reads the span name from a symbol, so `storage.UserStorage.GetUsers` does not have to be spelled out:
 
 ```go
 ctx, span := oida.StartAuto(ctx, s.GetUsers)
 defer span.End()
 ```
 
-The name comes from reflection and the runtime symbol table. It does not survive
-a stripped binary and reads oddly for anonymous functions, so use `Start` where
-either matters.
+The name comes from reflection and the runtime symbol table. It does not survive a stripped binary and reads oddly for anonymous functions, so use `Start` where either matters.
 
 `StartRequest` is `Start` for a handler holding an `*http.Request`:
 
@@ -111,8 +100,7 @@ r, span := oida.StartRequest(r, "user.Handler")
 defer span.End()
 ```
 
-`CaptureError` records an error on the innermost span in a context, without
-holding the span:
+`CaptureError` records an error on the innermost span in a context, without holding the span:
 
 ```go
 if err := store.Save(ctx, u); err != nil {
@@ -121,8 +109,7 @@ if err := store.Save(ctx, u); err != nil {
 }
 ```
 
-When the context has no trace, these functions return nil spans, return the
-request unchanged, and record nothing. Span and trace methods are nil-safe.
+When the context has no trace, these functions return nil spans, return the request unchanged, and record nothing. Span and trace methods are nil-safe.
 
 ### Span methods
 
@@ -159,8 +146,7 @@ err := tracer.Observe(ctx, "refresh search index", func(ctx context.Context) err
 })
 ```
 
-Use `StartTrace` when the caller needs control over completion, and always call
-`Finish`.
+Use `StartTrace` when the caller needs control over completion, and always call `Finish`.
 
 ## Reading and controlling a tracer
 
@@ -177,9 +163,7 @@ func (t *Tracer) Reset()
 func (t *Tracer) Subscribe() (<-chan struct{}, func())
 ```
 
-`Traces` and `Live` return newest first. `Trace` searches retained and active
-traces. `Reset` clears retained traces and counters but leaves active traces
-running. `Subscribe` can notify another view when trace activity changes.
+`Traces` and `Live` return newest first. `Trace` searches retained and active traces. `Reset` clears retained traces and counters but leaves active traces running. `Subscribe` can notify another view when trace activity changes.
 
 ## Sampling
 
@@ -193,9 +177,7 @@ type SamplerFunc func(r *http.Request) bool
 func NewRateSampler(rate float64) Sampler
 ```
 
-Set `Options.SampleRate` for rate sampling or `Options.Sampler` for custom
-rules. A rate of zero records no HTTP requests; a rate of one records all of
-them.
+Set `Options.SampleRate` for rate sampling or `Options.Sampler` for custom rules. A rate of zero records no HTTP requests; a rate of one records all of them.
 
 ## Retention
 
@@ -215,31 +197,26 @@ func (s *StorageDisk) Path() string
 func (s *StorageDisk) Prune(ctx context.Context, maxAge time.Duration) error
 ```
 
-Memory storage retains up to `size` traces. A size of zero retains none. Disk
-storage retains traces across restarts; `limit` controls the maximum count and
-`Prune` applies an age limit.
+Memory storage retains up to `size` traces. A size of zero retains none. Disk storage retains traces across restarts; `limit` controls the maximum count and `Prune` applies an age limit.
 
 ## Errors
 
-| Error | Meaning |
-| --- | --- |
-| `ErrNilRouter` | `frontend.Mount` or `frontend.MountServeMux` received a nil router |
-| `ErrInvalidOptions` | Base error for invalid configuration |
-| `ErrInvalidPath` | `Options.Path` is not absolute |
-| `ErrInvalidSampleRate` | `Options.SampleRate` is outside `[0,100]` or NaN |
-| `ErrTraceNotFound` | A storage lookup did not find the trace |
-| `ErrDisabled` | `StartTrace` was called on a disabled tracer |
+| Error                  | Meaning                                                            |
+|------------------------|--------------------------------------------------------------------|
+| `ErrNilRouter`         | `frontend.Mount` or `frontend.MountServeMux` received a nil router |
+| `ErrInvalidOptions`    | Base error for invalid configuration                               |
+| `ErrInvalidPath`       | `Options.Path` is not absolute                                     |
+| `ErrInvalidSampleRate` | `Options.SampleRate` is outside `[0,100]` or NaN                   |
+| `ErrTraceNotFound`     | A storage lookup did not find the trace                            |
+| `ErrDisabled`          | `StartTrace` was called on a disabled tracer                       |
 
-Negative `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace`, or
-`RefreshInterval` values wrap `ErrInvalidOptions`.
+Negative `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace`, or `RefreshInterval` values wrap `ErrInvalidOptions`.
 
-Storage and dashboard errors are sent to `Options.OnError` when it is set.
-`Observe` still runs its function without tracing when the tracer is disabled.
+Storage and dashboard errors are sent to `Options.OnError` when it is set. `Observe` still runs its function without tracing when the tracer is disabled.
 
 ## Test server
 
-The `github.com/titpetric/oida/tests` package provides an instrumented HTTP
-server with sample success, failure, cache, database, and external-call routes.
+The `github.com/titpetric/oida/tests` package provides an instrumented HTTP server with sample success, failure, cache, database, and external-call routes.
 
 ```go
 func NewServer(t testing.TB) http.Handler
