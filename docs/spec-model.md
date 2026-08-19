@@ -1,11 +1,8 @@
 # Data returned by oida
 
-Request JSON with `?format=json` or `Accept: application/json`. Durations are
-integer nanoseconds and use field names ending in `_ns`.
+Request JSON with `?format=json` or `Accept: application/json`. Durations are integer nanoseconds and use field names ending in `_ns`.
 
-The Go types below are defined in `github.com/titpetric/oida/model` and aliased
-into `github.com/titpetric/oida`, so `oida.Trace` and `model.Trace` are the same
-type and either import works.
+The Go types below are defined in `github.com/titpetric/oida/model` and aliased into `github.com/titpetric/oida`, so `oida.Trace` and `model.Trace` are the same type and either import works.
 
 ## Span kinds
 
@@ -42,9 +39,7 @@ type Span struct {
 }
 ```
 
-Span IDs start at 1 within each trace. `ParentID` is zero for a root span.
-For active traces, `Duration` is the elapsed time when the trace was read.
-`Error` contains the latest error recorded on the span.
+Span IDs start at 1 within each trace. `ParentID` is zero for a root span. For active traces, `Duration` is the elapsed time when the trace was read. `Error` contains the latest error recorded on the span.
 
 ## Trace
 
@@ -68,9 +63,7 @@ type Trace struct {
 }
 ```
 
-For HTTP traces, `Name` is the method and routed pattern when available, such
-as `GET /users/{id}`. Background traces use the name passed to `StartTrace` or
-`Observe`. `InFlight` is true when the trace was still running when read.
+For HTTP traces, `Name` is the method and routed pattern when available, such as `GET /users/{id}`. Background traces use the name passed to `StartTrace` or `Observe`. `InFlight` is true when the trace was still running when read.
 
 ### HTTP fields
 
@@ -88,8 +81,7 @@ type HTTPInfo struct {
 }
 ```
 
-`Route` is the routed pattern supplied by `Options.RouteFunc` or
-`http.Request.Pattern`. Statistics prefer it over the raw URI.
+`Route` is the routed pattern supplied by `Options.RouteFunc` or `http.Request.Pattern`. Statistics prefer it over the raw URI.
 
 ### Per-trace memory fields
 
@@ -103,14 +95,11 @@ type MemoryUse struct {
 }
 ```
 
-These fields are populated when `Options.TrackMemoryUse` is true. They describe
-process-wide changes observed while the trace ran, so concurrent traces can
-overlap.
+These fields are populated when `Options.TrackMemoryUse` is true. They describe process-wide changes observed while the trace ran, so concurrent traces can overlap.
 
 ## Snapshot
 
-`Tracer.Snapshot()` returns process information, counters, active traces,
-retained traces, and statistics:
+`Tracer.Snapshot()` returns process information, counters, active traces, retained traces, and statistics:
 
 ```go
 type Snapshot struct {
@@ -122,11 +111,11 @@ type Snapshot struct {
 	GOMAXPROCS int           `json:"gomaxprocs"`
 	Goroutines int           `json:"goroutines"`
 
-	Total   uint64 `json:"total_requests"`
-	Sampled uint64 `json:"sampled_traces"`
-	Dropped uint64 `json:"dropped_traces"`
-	Active  int    `json:"active_traces"`
-	Errors  uint64 `json:"failed_traces"`
+	Total   uint64  `json:"total_requests"`
+	Sampled uint64  `json:"sampled_traces"`
+	Dropped uint64  `json:"dropped_traces"`
+	Active  int     `json:"active_traces"`
+	Errors  uint64  `json:"failed_traces"`
 	SLA     float64 `json:"sla_percent"`
 
 	StateTime []StateDuration `json:"state_time"`
@@ -208,5 +197,4 @@ type HostStat struct {
 }
 ```
 
-`Top` groups retained traces by host and routed name. `Hosts` combines lifetime
-request counts with statistics from the retained trace window.
+`Top` groups retained traces by host and routed name. `Hosts` combines lifetime request counts with statistics from the retained trace window.
