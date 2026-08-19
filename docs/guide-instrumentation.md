@@ -33,6 +33,19 @@ span.SetAttribute("args", len(args))
 span.SetAttribute("rows", rows)
 ```
 
+`StartAuto` derives the name from a symbol, which keeps it in step with a rename
+and costs nothing to type:
+
+```go
+func (s *UserStorage) GetUsers(ctx context.Context) ([]User, error) {
+	ctx, span := oida.StartAuto(ctx, s.GetUsers)   // storage.UserStorage.GetUsers
+	defer span.End()
+```
+
+The name is read through reflection and the runtime symbol table, so it does not
+survive a stripped binary and reads oddly for an anonymous function. Use `Start`
+with a literal where either matters.
+
 ## 3. Kinds
 
 Pass a `Kind` as the third argument. It drives the colour in the timeline and
@@ -76,6 +89,15 @@ if err != nil && !errors.Is(err, sql.ErrNoRows) {
 	span.RecordError(err)
 }
 ```
+
+Code that does not hold the span, such as an error path several calls below the
+one that started it, records through the context instead:
+
+```go
+oida.CaptureError(ctx, err)
+```
+
+It finds the innermost span in `ctx` and does nothing when there is none.
 
 ## 5. Patterns
 

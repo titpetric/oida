@@ -69,7 +69,10 @@ the application's recovery middleware.
 ```go
 func Start(ctx context.Context, name string, kind ...Kind) (context.Context, *Span)
 func StartSpan(ctx context.Context, name string, kind ...Kind) *Span
+func StartAuto(ctx context.Context, symbol any, kind ...Kind) (context.Context, *Span)
+func StartRequest(r *http.Request, name string, kind ...Kind) (*http.Request, *Span)
 func Do(ctx context.Context, name string, fn func(context.Context) error, kind ...Kind) error
+func CaptureError(ctx context.Context, err error)
 
 func TraceFromContext(ctx context.Context) *Trace
 func SpanFromContext(ctx context.Context) *Span
@@ -89,8 +92,37 @@ rows, err := db.QueryContext(ctx, query)
 `StartSpan` is for leaf work that does not create child spans. `Do` records the
 returned error, ends the span, and returns the same error.
 
-When the context has no trace, these functions return nil spans. Span and trace
-methods are nil-safe.
+`StartAuto` reads the span name from a symbol, so `storage.UserStorage.GetUsers`
+does not have to be spelled out:
+
+```go
+ctx, span := oida.StartAuto(ctx, s.GetUsers)
+defer span.End()
+```
+
+The name comes from reflection and the runtime symbol table. It does not survive
+a stripped binary and reads oddly for anonymous functions, so use `Start` where
+either matters.
+
+`StartRequest` is `Start` for a handler holding an `*http.Request`:
+
+```go
+r, span := oida.StartRequest(r, "user.Handler")
+defer span.End()
+```
+
+`CaptureError` records an error on the innermost span in a context, without
+holding the span:
+
+```go
+if err := store.Save(ctx, u); err != nil {
+	oida.CaptureError(ctx, err)
+	return err
+}
+```
+
+When the context has no trace, these functions return nil spans, return the
+request unchanged, and record nothing. Span and trace methods are nil-safe.
 
 ### Span methods
 
