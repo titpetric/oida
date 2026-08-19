@@ -21,7 +21,7 @@ func TestSymbolName(t *testing.T) {
 		{"method value names the method", storage.Get, "oida.userStorage.Get"},
 		{"package function keeps its package", http.NewRequest, "http.NewRequest"},
 		{"interface method names the concrete type", http.DefaultClient.Get, "http.Client.Get"},
-		{"exported function of this package", CaptureError, "oida.CaptureError"},
+		{"exported function of this package", RecordError, "oida.RecordError"},
 		{"builtin type", 32, "int"},
 		{"a string passes through", "user.service.Login", "user.service.Login"},
 		{"a path keeps its last element", "github.com/titpetric/oida/user.Login", "user.Login"},

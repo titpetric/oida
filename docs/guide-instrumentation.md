@@ -78,10 +78,10 @@ if err != nil && !errors.Is(err, sql.ErrNoRows) {
 }
 ```
 
-Code that does not hold the span, such as an error path several calls below the one that started it, records through the context instead:
+Code that does not hold the span, such as an error path several calls below the one that started it, calls the package function of the same name and records through the context:
 
 ```go
-oida.CaptureError(ctx, err)
+oida.RecordError(ctx, err)
 ```
 
 It finds the innermost span in `ctx` and does nothing when there is none.

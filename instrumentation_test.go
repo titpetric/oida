@@ -21,11 +21,11 @@ func startTestTrace(t *testing.T) (context.Context, *Trace) {
 	return ctx, trace
 }
 
-func TestCaptureError(t *testing.T) {
+func TestRecordError(t *testing.T) {
 	ctx, trace := startTestTrace(t)
 
 	ctx, span := Start(ctx, "save user")
-	CaptureError(ctx, errors.New("disk full"))
+	RecordError(ctx, errors.New("disk full"))
 	span.End()
 
 	if !span.Failed() {
@@ -36,13 +36,13 @@ func TestCaptureError(t *testing.T) {
 	}
 }
 
-func TestCaptureErrorIsNilSafe(t *testing.T) {
+func TestRecordErrorIsNilSafe(t *testing.T) {
 	ctx, _ := startTestTrace(t)
 
 	// A nil error is not a failure, and a context without a span has nothing
 	// to record onto. Neither may panic.
-	CaptureError(ctx, nil)
-	CaptureError(context.Background(), errors.New("nowhere to go"))
+	RecordError(ctx, nil)
+	RecordError(context.Background(), errors.New("nowhere to go"))
 }
 
 func TestStartRequest(t *testing.T) {

@@ -65,7 +65,7 @@ func StartSpan(ctx context.Context, name string, kind ...Kind) *Span
 func StartAuto(ctx context.Context, symbol any, kind ...Kind) (context.Context, *Span)
 func StartRequest(r *http.Request, name string, kind ...Kind) (*http.Request, *Span)
 func Do(ctx context.Context, name string, fn func(context.Context) error, kind ...Kind) error
-func CaptureError(ctx context.Context, err error)
+func RecordError(ctx context.Context, err error)
 
 func TraceFromContext(ctx context.Context) *Trace
 func SpanFromContext(ctx context.Context) *Span
@@ -100,11 +100,11 @@ r, span := oida.StartRequest(r, "user.Handler")
 defer span.End()
 ```
 
-`CaptureError` records an error on the innermost span in a context, without holding the span:
+`RecordError` records an error on the innermost span in a context, without holding the span:
 
 ```go
 if err := store.Save(ctx, u); err != nil {
-	oida.CaptureError(ctx, err)
+	oida.RecordError(ctx, err)
 	return err
 }
 ```
