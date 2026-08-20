@@ -1,6 +1,6 @@
 module github.com/titpetric/oida
 
-go 1.27rc1
+go 1.27.0
 
 require (
 	github.com/a-h/templ v0.3.1020
