@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"strconv"
 	"sync"
@@ -27,8 +28,12 @@ type Span struct {
 
 	// mu is a pointer so span values can be copied into snapshots without
 	// copying a lock. It is nil on inert copies.
-	mu    *sync.Mutex
+	mu *sync.Mutex
+
 	trace *Trace
+
+	// err is the value behind Error, so Err returns what was recorded.
+	err   error
 	ended bool
 }
 
@@ -63,10 +68,11 @@ func (s *Span) RecordError(err error) {
 		return
 	}
 	s.lock()
+	s.err = err
 	s.Error = err.Error()
 	trace := s.trace
 	s.unlock()
-	trace.Fail(err)
+	trace.RecordError(err)
 }
 
 // SetAttribute records a key/value pair on the span.
@@ -116,14 +122,22 @@ func (s *Span) SetName(name string) {
 	s.Name = name
 }
 
-// Failed reports whether an error was recorded on the span.
-func (s *Span) Failed() bool {
+// Err returns the error recorded on the span, or nil. A span decoded from JSON
+// kept the message and not the value, and reports an error carrying it.
+func (s *Span) Err() error {
 	if s == nil {
-		return false
+		return nil
 	}
 	s.lock()
 	defer s.unlock()
-	return s.Error != ""
+	switch {
+	case s.err != nil:
+		return s.err
+	case s.Error != "":
+		return errors.New(s.Error)
+	default:
+		return nil
+	}
 }
 
 // Ended reports whether the span was ended.

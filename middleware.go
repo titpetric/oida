@@ -40,7 +40,7 @@ func TracingMiddleware(opts Options) func(http.Handler) http.Handler {
 
 // serveTraced records one request.
 func serveTraced(tracer *Tracer, opts Options, next http.Handler, w http.ResponseWriter, r *http.Request) {
-	id := requestID(opts, r)
+	id := requestID(r, opts)
 	if id == "" {
 		next.ServeHTTP(w, r)
 		return
@@ -85,19 +85,19 @@ func serveTraced(tracer *Tracer, opts Options, next http.Handler, w http.Respons
 
 // finishRequest records the response metadata and completes the trace.
 func finishRequest(tracer *Tracer, opts Options, trace *Trace, writer *responseWriter, r *http.Request) {
-	route := routePattern(opts, r)
+	route := routePattern(r, opts)
 	trace.SetResponse(writer.status, writer.bytes, route)
 	if route != "" {
 		trace.SetName(r.Method + " " + route)
 	}
-	if writer.status >= http.StatusInternalServerError && !trace.Failed() {
-		trace.Fail(fmt.Errorf("http %d", writer.status))
+	if writer.status >= http.StatusInternalServerError && trace.Err() == nil {
+		trace.RecordError(fmt.Errorf("http %d", writer.status))
 	}
 	tracer.Finish(trace)
 }
 
 // requestID returns the identifier to record the request under.
-func requestID(opts Options, r *http.Request) string {
+func requestID(r *http.Request, opts Options) string {
 	if opts.TrustRequestID {
 		if given := strings.TrimSpace(r.Header.Get(RequestIDHeader)); model.ValidID(given) {
 			return given
@@ -115,7 +115,7 @@ func requestID(opts Options, r *http.Request) string {
 // mounting a catch-all knows that pattern is not worth grouping by, and the
 // fallback would put it back. Without one, the pattern the router recorded on
 // the request is used.
-func routePattern(opts Options, r *http.Request) string {
+func routePattern(r *http.Request, opts Options) string {
 	if opts.RouteFunc != nil {
 		return opts.RouteFunc(r)
 	}

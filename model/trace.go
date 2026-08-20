@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"errors"
+	"maps"
 	"math"
 	"runtime"
 	"sync"
@@ -26,13 +28,20 @@ type Trace struct {
 	HTTP   *HTTPInfo `json:"http,omitempty"`
 	Memory MemoryUse `json:"memory"`
 
+	// Attributes is what the transaction recorded about itself, such as the
+	// memory limit it ran under.
+	Attributes Attributes `json:"attributes,omitempty"`
+
 	Spans        []*Span `json:"spans,omitempty"`
 	DroppedSpans int     `json:"dropped_spans,omitempty"`
 
 	// mu is a pointer so trace values can be copied into snapshots without
 	// copying a lock. It is nil on inert copies.
-	mu        *sync.Mutex
-	clock     func() time.Time
+	mu    *sync.Mutex
+	clock func() time.Time
+
+	// err is the value behind Error, so Err returns what was recorded.
+	err       error
 	maxSpans  int
 	sequence  int
 	changedAt time.Time
@@ -137,13 +146,16 @@ func (t *Trace) SetState(state State) {
 	t.UpdatedAt = now
 }
 
-// Fail records a trace level error and marks the trace as failed.
-func (t *Trace) Fail(err error) {
+// RecordError records an error on the trace and moves it to StateError. It is
+// what Span.RecordError calls after recording on the span. A nil error is
+// ignored.
+func (t *Trace) RecordError(err error) {
 	if t == nil || err == nil {
 		return
 	}
 	t.lock()
 	defer t.unlock()
+	t.err = err
 	t.Error = err.Error()
 	now := t.time()
 	t.stateTime[t.State] += now.Sub(t.changedAt)
@@ -160,6 +172,44 @@ func (t *Trace) SetName(name string) {
 	t.lock()
 	defer t.unlock()
 	t.Name = name
+}
+
+// SetAttribute records a key/value pair on the trace. Use it for what holds for
+// the whole transaction; what holds for one operation belongs on its span.
+func (t *Trace) SetAttribute(key string, value any) {
+	if t == nil || key == "" {
+		return
+	}
+	t.lock()
+	defer t.unlock()
+	if t.Attributes == nil {
+		t.Attributes = make(Attributes, 4)
+	}
+	t.Attributes[key] = value
+}
+
+// SetAttributes records several key/value pairs on the trace.
+func (t *Trace) SetAttributes(attributes Attributes) {
+	if t == nil || len(attributes) == 0 {
+		return
+	}
+	t.lock()
+	defer t.unlock()
+	if t.Attributes == nil {
+		t.Attributes = make(Attributes, len(attributes))
+	}
+	maps.Copy(t.Attributes, attributes)
+}
+
+// Attribute returns an attribute of the trace, and whether it was recorded.
+func (t *Trace) Attribute(key string) (any, bool) {
+	if t == nil {
+		return nil, false
+	}
+	t.lock()
+	defer t.unlock()
+	value, ok := t.Attributes[key]
+	return value, ok
 }
 
 // SetResponse records the response metadata of an HTTP trace.
@@ -180,14 +230,22 @@ func (t *Trace) SetResponse(status int, bytes int64, route string) {
 	t.UpdatedAt = t.time()
 }
 
-// Failed reports whether the trace recorded an error.
-func (t *Trace) Failed() bool {
+// Err returns the error recorded on the trace, or nil. A trace decoded from
+// JSON kept the message and not the value, and reports an error carrying it.
+func (t *Trace) Err() error {
 	if t == nil {
-		return false
+		return nil
 	}
 	t.lock()
 	defer t.unlock()
-	return t.Error != "" || t.State == StateError
+	switch {
+	case t.err != nil:
+		return t.err
+	case t.Error != "":
+		return errors.New(t.Error)
+	default:
+		return nil
+	}
 }
 
 // SpanCount returns the number of recorded spans.
@@ -276,6 +334,9 @@ func (t *Trace) Clone() Trace {
 	if t.HTTP != nil {
 		info := *t.HTTP
 		copied.HTTP = &info
+	}
+	if t.Attributes != nil {
+		copied.Attributes = maps.Clone(t.Attributes)
 	}
 	if len(t.Spans) > 0 {
 		copied.Spans = make([]*Span, 0, len(t.Spans))

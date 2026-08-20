@@ -3,6 +3,7 @@ package oida
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,15 +25,17 @@ func startTestTrace(t *testing.T) (context.Context, *Trace) {
 func TestRecordError(t *testing.T) {
 	ctx, trace := startTestTrace(t)
 
+	want := errors.New("disk full")
 	ctx, span := Start(ctx, "save user")
-	RecordError(ctx, errors.New("disk full"))
+	RecordError(ctx, fmt.Errorf("save user: %w", want))
 	span.End()
 
-	if !span.Failed() {
-		t.Fatal("span did not record the error")
+	// The recorded value carries to both, so a wrapped error still unwraps.
+	if err := span.Err(); !errors.Is(err, want) {
+		t.Fatalf("span error %v, want %v", err, want)
 	}
-	if !trace.Failed() {
-		t.Fatal("trace was not marked failed")
+	if err := trace.Err(); !errors.Is(err, want) {
+		t.Fatalf("trace error %v, want %v", err, want)
 	}
 }
 

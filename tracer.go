@@ -118,7 +118,7 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 	defer t.Finish(trace)
 
 	err = fn(traced)
-	trace.Fail(err)
+	trace.RecordError(err)
 	return err
 }
 
@@ -176,15 +176,15 @@ func (t *Tracer) Finish(trace *Trace) {
 }
 
 // Subscribe returns a channel notified whenever a trace starts or completes,
-// and a function releasing it. Notifications are coalesced: a burst of traces
-// wakes a subscriber once, so a slow consumer cannot slow down recording. The
-// live view streams from this.
+// and a function releasing it. The live view streams from this.
 //
 //	events, cancel := tracer.Subscribe()
 //	defer cancel()
 //	for range events {
 //		render(tracer.Live())
 //	}
+//
+// Notifications are coalesced, so a slow consumer cannot slow down recording.
 func (t *Tracer) Subscribe() (<-chan struct{}, func()) {
 	if t == nil {
 		return nil, func() {}

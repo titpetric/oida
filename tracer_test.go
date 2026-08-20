@@ -143,7 +143,7 @@ func TestNilSafety(t *testing.T) {
 	if TraceID(ctx) != "" || TraceFromContext(ctx) != nil {
 		t.Fatal("context gained a trace")
 	}
-	if span.Elapsed() != 0 || span.Failed() || span.Ended() {
+	if span.Elapsed() != 0 || span.Err() != nil || span.Ended() {
 		t.Fatal("nil span reported state")
 	}
 }
