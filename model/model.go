@@ -12,6 +12,8 @@ import (
 // timeline.
 type Kind string
 
+// The kinds the front end colours and groups by. A value outside this set is
+// still valid.
 const (
 	KindInternal Kind = "internal"
 	KindHTTP     Kind = "http"
@@ -62,6 +64,8 @@ func (k Kind) String() string {
 // follow the convention used by servers such as lighttpd.
 type State string
 
+// The states a trace moves through, from waiting for work to the error it
+// ended on.
 const (
 	StateWaiting    State = "_"
 	StateStarting   State = "s"
@@ -109,7 +113,7 @@ func (s State) Label() string {
 	}
 }
 
-// Attributes is a set of key/value pairs recorded on a span.
+// Attributes is a set of key/value pairs recorded on a trace or on a span.
 type Attributes map[string]any
 
 // HTTPInfo describes the request a trace was created for.

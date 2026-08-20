@@ -12,7 +12,7 @@ type (
 	// Span is one timed operation within a trace.
 	Span = model.Span
 
-	// Attributes is a set of key/value pairs recorded on a span.
+	// Attributes is a set of key/value pairs recorded on a trace or a span.
 	Attributes = model.Attributes
 
 	// Kind classifies the work a span measured.
@@ -60,6 +60,13 @@ const (
 	KindQueue    = model.KindQueue
 )
 
+// Well known attribute keys. The set is open; these are the ones the front end
+// renders as sizes.
+const (
+	AttrMemoryLimit = model.AttrMemoryLimit
+	AttrMemoryUsage = model.AttrMemoryUsage
+)
+
 // Scoreboard states of a trace in flight.
 const (
 	StateWaiting    = model.StateWaiting
@@ -80,6 +87,11 @@ const BackgroundHost = model.BackgroundHost
 // so they group under BackgroundHost rather than an empty string.
 func TraceHost(trace Trace) string {
 	return model.TraceHost(trace)
+}
+
+// IsBytes reports whether an attribute key holds a size in bytes.
+func IsBytes(key string) bool {
+	return model.IsBytes(key)
 }
 
 // ValidID reports whether id looks like a trace identifier this package
