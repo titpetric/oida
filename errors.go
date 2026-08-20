@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+// The errors this package returns. Every configuration failure wraps
+// ErrInvalidOptions, so a caller can test for the class or for the case.
 var (
 	// ErrNilRouter is returned when Mount is called without a router.
 	ErrNilRouter = errors.New("oida: router is nil")

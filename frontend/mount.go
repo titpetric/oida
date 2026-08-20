@@ -20,6 +20,9 @@ type Router interface {
 //	if err := frontend.Mount(r, opts); err != nil {
 //		return err
 //	}
+//
+// It returns an error when r is nil, when opts do not validate, or when the
+// tracer they name cannot be resolved.
 func Mount(r Router, opts oida.Options) error {
 	if r == nil {
 		return oida.ErrNilRouter

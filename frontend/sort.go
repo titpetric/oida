@@ -9,6 +9,7 @@ import (
 // SortKey names a column the trace list can be ordered by.
 type SortKey string
 
+// The columns the trace list can be ordered by.
 const (
 	SortAge       SortKey = "age"
 	SortDuration  SortKey = "duration"

@@ -67,6 +67,8 @@ func TraceID(ctx context.Context) string {
 //
 //	ctx, span := oida.Start(ctx, "SELECT users", oida.KindDatabase)
 //	defer span.End()
+//
+// The kind is optional and defaults to KindInternal.
 func Start(ctx context.Context, name string, kind ...Kind) (context.Context, *Span) {
 	return TraceFromContext(ctx).StartSpan(ctx, name, kind...)
 }
