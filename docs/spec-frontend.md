@@ -49,12 +49,15 @@ A trace detail page shows:
 - Trace ID, name, status, duration, service, and start time
 - The timing and overlap of recorded spans
 - Time grouped by span kind
-- The span tree with names, offsets, durations, source locations, and errors
+- The span tree with names, offsets, durations, and errors, plus source locations when `Span.SetSource` recorded them
 - Span attributes, including statements recorded as `query`, `sql`, `statement`, or `cql`
+- Transaction attributes recorded on the trace, keys read as labels and byte-valued keys read as sizes
 - HTTP request and response details when the trace came from a request
 - Heap delta, allocated bytes, allocations, GC cycles, and GC pause
 
-Memory values are process-wide observations. Concurrent traces can overlap, so use them to identify trends rather than as isolated accounting.
+Memory values under System are process-wide observations. Concurrent traces can overlap, so use them to identify trends rather than as isolated accounting.
+
+A trace that recorded `memory_limit` shows it under Transaction, and shows what it used of it as a share once it also recorded `memory_usage`. When its spans recorded `memory_usage`, the span table gains a memory column, each reading drawn against the largest one in the trace. The column is the memory curve of the request, and the row where the curve steps is the span that allocated. How close the request came to its limit is one number, and it is in the Transaction table rather than in every row. Both attributes are optional, and a Go service records neither by default; see [the instrumentation guide](guide-instrumentation.md).
 
 ## Statistics
 

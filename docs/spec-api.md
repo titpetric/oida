@@ -121,7 +121,7 @@ func (s *Span) SetAttribute(key string, value any)
 func (s *Span) SetAttributes(attributes Attributes)
 func (s *Span) SetName(name string)
 func (s *Span) SetSource(filename string, line int)
-func (s *Span) Failed() bool
+func (s *Span) Err() error
 func (s *Span) Ended() bool
 func (s *Span) Elapsed() time.Duration
 func (s *Span) Context(ctx context.Context) context.Context
@@ -129,6 +129,34 @@ func (s *Span) Trace() *Trace
 ```
 
 `End` is idempotent. `RecordError` marks both the span and trace as failed.
+
+### Trace methods
+
+The trace API matches the span API where the two mean the same thing:
+
+```go
+func (t *Trace) RecordError(err error)
+func (t *Trace) Err() error
+func (t *Trace) SetAttribute(key string, value any)
+func (t *Trace) SetAttributes(attributes Attributes)
+func (t *Trace) Attribute(key string) (any, bool)
+func (t *Trace) SetName(name string)
+func (t *Trace) SetState(state State)
+func (t *Trace) SpanCount() int
+func (t *Trace) Elapsed() time.Duration
+```
+
+`RecordError` records the error and moves the trace to `StateError`; a nil error is ignored. `Err` returns the error that was recorded, the value itself, so `errors.Is` and `errors.As` work on it:
+
+```go
+if err := trace.Err(); errors.Is(err, context.Canceled) {
+	// the caller went away before the work finished
+}
+```
+
+`Span.RecordError` records on the span and then on its trace, so an error recorded anywhere in a transaction is readable from both. A trace or span decoded from JSON kept the message and not the value, and reports an error carrying that message.
+
+Trace attributes are for what holds for the whole transaction, such as the memory limit it ran under. What holds for one operation belongs on the span that measured it. See [the data model](spec-model.md#attributes) for the keys the front end knows.
 
 ## Background work
 

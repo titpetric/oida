@@ -36,12 +36,12 @@ The shape of a single wave is not data. Its extent, its colour and how loud it r
 
 ## One trace: the spans
 
-Under the drawing sits a bar carrying the legend and a count, and behind the count a switch. Shut, which is how it opens, the bar is the answer: where the time went, by kind. Thrown, it folds out every span the trace recorded, in tree order: kind, offset from the start of the request, duration, a bar against the shared time axis, the source location that opened it, and the name. Attributes fold out per span, and a recorded error is printed where it happened. The choice is remembered for the whole front end, so a reader who wants the spans shut has them shut on every trace they open.
+Under the drawing sits a bar carrying the legend and a count, and behind the count a switch. Shut, which is how it opens, the bar is the answer: where the time went, by kind. Thrown, it folds out every span the trace recorded, in tree order: kind, offset from the start of the request, duration, a bar against the shared time axis, and the name. Two columns appear when the trace has them, and are not drawn when it does not: the memory in use when each span finished, drawn against the largest reading of the trace, and the source location that opened the span. The demo above reports memory on most of its spans and not on `shard 0`, so the column has a gap and the reading below it steps by two spans' worth. Attributes fold out per span, and a recorded error is printed where it happened. The choice is remembered for the whole front end, so a reader who wants the spans shut has them shut on every trace they open.
 
-![The legend bar and the span table folded out from behind it](assets/detail-spans.png)
+![The legend bar and the span table folded out from behind it, one row per span with its memory reading](assets/detail-spans.png)
 
 ## One trace: the request
 
-Two tables side by side: what was asked for on the left, what it cost this process on the right. Labels down the left of each, values down the right, one row per property.
+Tables side by side: the request details on the left, the request cost on the right. Labels down the left of each, values down the right, one row per property. Between them sits what the transaction recorded about itself, here the memory limit it ran under and what it used of it. A trace that recorded no attributes of its own shows the two tables and no gap where the third would be.
 
-![The request and system fact tables, and the page footer](assets/detail-footer.png)
+![The request, transaction and system fact tables, and the page footer](assets/detail-footer.png)

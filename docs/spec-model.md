@@ -55,8 +55,9 @@ type Trace struct {
 	Error     string        `json:"error,omitempty"`
 	InFlight  bool          `json:"in_flight,omitempty"`
 
-	HTTP   *HTTPInfo `json:"http,omitempty"`
-	Memory MemoryUse `json:"memory"`
+	HTTP       *HTTPInfo  `json:"http,omitempty"`
+	Memory     MemoryUse  `json:"memory"`
+	Attributes Attributes `json:"attributes,omitempty"`
 
 	Spans        []*Span `json:"spans,omitempty"`
 	DroppedSpans int     `json:"dropped_spans,omitempty"`
@@ -64,6 +65,23 @@ type Trace struct {
 ```
 
 For HTTP traces, `Name` is the method and routed pattern when available, such as `GET /users/{id}`. Background traces use the name passed to `StartTrace` or `Observe`. `InFlight` is true when the trace was still running when read.
+
+### Attributes
+
+`Attributes` is a `map[string]any`, recorded on a trace with `Trace.SetAttribute` and on a span with `Span.SetAttribute`. What holds for the whole transaction belongs on the trace, what holds for one operation belongs on the span that measured it.
+
+The set of keys is open. These are the keys the front end understands, and renders as sizes rather than as bare integers:
+
+```go
+const (
+	AttrMemoryLimit = "memory_limit" // bytes, on the trace
+	AttrMemoryUsage = "memory_usage" // bytes, on the trace and on its spans
+)
+```
+
+`memory_limit` is the ceiling the transaction ran under. `memory_usage` is the memory in use when a span or a trace finished, so the readings across the spans of a trace are the memory curve of the request, and the span where the curve steps is the span that allocated. A runtime that charges allocations to the request, such as an interpreter, reports both; the Go runtime reports neither, because there the heap belongs to the process. `MemoryUse` covers what Go can say.
+
+`Attributes.Int64(key)` reads a numeric value as an integer whatever type it arrived as, so a number that came back through JSON as a float, or over a wire as a decimal string, still reads as one. It reports false for a missing key and for a value that is not a number. `IsBytes(key)` reports whether a key holds a size in bytes.
 
 ### HTTP fields
 

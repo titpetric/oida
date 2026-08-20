@@ -204,22 +204,51 @@ Concurrent siblings overlap in the timeline; the segment sweep attributes each s
 span.SetSource("internal/billing/repo.go", 42)
 ```
 
-Optional. The span table shows `file:L42` when set. Do not compute it with `runtime.Caller` on hot paths — it is not free.
+Optional, and nothing in oida sets it for you: the file and line are whatever the caller passes, normally the repo-relative path and the line of the `Start` call. The span table gains a Source column showing `file:L42` when a trace has any, and omits the column when it has none. Do not compute it with `runtime.Caller` on hot paths — it is not free.
 
 ## 6. Trace-level operations
 
 ```go
 trace := oida.TraceFromContext(ctx)
 trace.SetState(oida.StateProcessing)
-trace.Fail(err)
+trace.RecordError(err)
 id := oida.TraceID(ctx) // the ULID, also in the Request-Id header
 ```
+
+`RecordError` and `Err` mean on a trace what they mean on a span, and a span records on both: an error recorded anywhere in a transaction is readable from the transaction. The value is what comes back, so `errors.Is` still works on it.
 
 Putting the trace ID into your logs is the cheapest possible correlation:
 
 ```go
 slog.ErrorContext(ctx, "charge failed", "err", err, "trace", oida.TraceID(ctx))
 ```
+
+A trace carries attributes of its own, for what holds for the whole transaction rather than for one operation inside it:
+
+```go
+trace.SetAttribute(oida.AttrMemoryLimit, limit)          // bytes, int64
+trace.SetAttributes(oida.Attributes{"tenant": tenantID}) // several at once
+```
+
+The detail view renders them as a table beside the request, keys read as labels, and byte-valued keys read as sizes.
+
+### 6.1 Memory
+
+Two keys are known to the front end:
+
+| Key            | On             | Meaning                                  |
+|----------------|----------------|------------------------------------------|
+| `memory_limit` | trace          | the ceiling the transaction ran under    |
+| `memory_usage` | trace and span | memory in use when it finished, in bytes |
+
+Recorded per span, `memory_usage` is the memory curve of the request: the span table draws each reading against the largest one in the trace, and the span where the curve steps is the span that allocated.
+
+```go
+span.SetAttribute(oida.AttrMemoryUsage, runtimeUsage())
+span.End()
+```
+
+This is worth recording when the runtime can charge allocations to one request, which an interpreter can and Go cannot: in Go the heap belongs to the process, and what oida can say about it is in `Trace.Memory` instead. Both keys are optional and independent — a runtime that knows the usage but not the limit records the usage.
 
 ## 7. What not to instrument
 
