@@ -143,7 +143,7 @@ func List(page Page) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			for _, trace := range page.Snapshot.Log {
-				templ_7745c5c3_Err = traceRow(page, trace).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = traceRow(trace, page).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -327,7 +327,7 @@ func sortLink(page Page, key SortKey, label string) templ.Component {
 // traceRow renders one recorded trace. The shape column is the trace timeline
 // scaled against the slowest row, so a database bound request and an upstream
 // bound request are told apart without opening either.
-func traceRow(page Page, trace oida.Trace) templ.Component {
+func traceRow(trace oida.Trace, page Page) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -383,7 +383,7 @@ func traceRow(page Page, trace oida.Trace) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = traceLink(page, trace).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = traceLink(trace, page).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -558,9 +558,9 @@ func traceRow(page Page, trace oida.Trace) templ.Component {
 		}
 		if trace.HTTP != nil {
 			var templ_7745c5c3_Var31 string
-			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(trace.HTTP.ResponseBytes, 10))
+			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(signedBytesText(trace.HTTP.ResponseBytes))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `frontend/view_list.templ`, Line: 126, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `frontend/view_list.templ`, Line: 126, Col: 47}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {

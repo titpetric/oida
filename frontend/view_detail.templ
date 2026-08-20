@@ -20,7 +20,7 @@ templ Detail(page Page) {
 				} else {
 					<span class="status job">job</span>
 				}
-				@traceLink(page, *page.Trace)
+				@traceLink(*page.Trace, page)
 				<span class="stream-status">{ page.Age(page.Trace.StartedAt) }</span>
 			</div>
 			if page.Trace.Error != "" {
@@ -45,17 +45,22 @@ templ Detail(page Page) {
 								<th>Kind</th>
 								<th class="num c-medium">Offset</th>
 								<th class="num">Duration</th>
+								if page.Memory.Spans {
+									<th class="c-wide">Memory in use</th>
+								}
 								<th class="plot">Span of the request</th>
-								<th class="dim c-wide">Source</th>
+								if page.Sources {
+									<th class="dim c-wide">Source</th>
+								}
 								<th class="flex">Name</th>
 							</tr>
 						</thead>
 						<tbody>
 							for _, row := range page.Rows {
-								@spanRow(row)
+								@spanRow(page, row)
 							}
 							if len(page.Rows) == 0 {
-								<tr><td class="empty" colspan="6"><b>No spans</b>This trace recorded no spans of its own.</td></tr>
+								<tr><td class="empty" colspan={ spanColumns(page) }><b>No spans</b>This trace recorded no spans of its own.</td></tr>
 							}
 						</tbody>
 					</table>
@@ -66,7 +71,7 @@ templ Detail(page Page) {
 					{ strconv.Itoa(page.Trace.DroppedSpans) } spans were dropped: this trace hit Options.MaxSpansPerTrace.
 				</p>
 			}
-			@traceFacts(*page.Trace)
+			@traceFacts(*page.Trace, page.Memory)
 			<a class="back" href={ templ.SafeURL(page.URL(ViewList)) }>← All traces</a>
 		}
 	}
@@ -116,8 +121,9 @@ templ timelineLegend(page Page) {
 	</div>
 }
 
-// spanRow renders one span of the trace against the shared time axis.
-templ spanRow(row SpanRow) {
+// spanRow renders one span of the trace against the shared time axis. The
+// memory and source columns are drawn only when the trace recorded them.
+templ spanRow(page Page, row SpanRow) {
 	<tr class="span-row" data-span={ strconv.Itoa(row.ID) }>
 		<td><span class="kind" style={ kindStyle(row.Kind) }>{ row.Kind.String() }</span></td>
 		<td class="num c-medium">{ durationText(row.Offset) }</td>
@@ -128,12 +134,24 @@ templ spanRow(row SpanRow) {
 				{ preciseText(row.Duration) }
 			}
 		</td>
+		if page.Memory.Spans {
+			<td class="c-wide">
+				if row.HasMemory {
+					<span class="share">
+						<span class="bar solid"><span style={ shareStyle(page.Memory.ShareOf(row.Memory)) }></span></span>
+						{ memoryText(row) }
+					</span>
+				}
+			</td>
+		}
 		<td class="plot">
 			<div class="bar plot">
 				<span style={ rowBarStyle(row) }></span>
 			</div>
 		</td>
-		<td class="dim c-wide">{ row.SourceText() }</td>
+		if page.Sources {
+			<td class="dim c-wide">{ row.SourceText() }</td>
+		}
 		<td class="flex">
 			<span class="span-name" style={ indentStyle(row.Depth) }>
 				if row.Depth > 0 {
@@ -152,7 +170,7 @@ templ spanRow(row SpanRow) {
 											if isQueryKey(key) {
 												<code class="query">{ attributeText(row.Attributes[key]) }</code>
 											} else {
-												{ attributeText(row.Attributes[key]) }
+												{ attributeValue(row.Attributes, key) }
 											}
 										</td>
 									</tr>
@@ -169,12 +187,11 @@ templ spanRow(row SpanRow) {
 	</tr>
 }
 
-// traceFacts renders what is behind the trace as two tables side by side: what
-// was asked for on the left, what it cost this process on the right. They are
-// two questions, and reading one of them meant scrolling past the other while
-// they shared a column. Each table is labels on the left and values on the
-// right, one row per property, so a label is always in the same place.
-templ traceFacts(trace oida.Trace) {
+// traceFacts renders what is behind the trace as tables side by side: the
+// request details, what the transaction recorded about itself, and the request
+// cost. Each is labels on the left and values on the right, one row per
+// property, so a label is always in the same place.
+templ traceFacts(trace oida.Trace, memory MemoryBudget) {
 	<div class="facts">
 		<div>
 			<h3>Request</h3>
@@ -208,7 +225,7 @@ templ traceFacts(trace oida.Trace) {
 					</div>
 					<div>
 						<dt>Response</dt>
-						<dd>{ strconv.FormatInt(trace.HTTP.ResponseBytes, 10) } bytes</dd>
+						<dd>{ signedBytesText(trace.HTTP.ResponseBytes) }</dd>
 					</div>
 					<div>
 						<dt>Remote</dt>
@@ -223,6 +240,38 @@ templ traceFacts(trace oida.Trace) {
 				}
 			</dl>
 		</div>
+		// What the transaction recorded about itself. A Go service records
+		// nothing here and the table is not drawn.
+		if len(trace.Attributes) > 0 {
+			<div>
+				<h3>Transaction</h3>
+				<dl class="detail">
+					for _, key := range sortedKeys(trace.Attributes) {
+						<div>
+							<dt>{ attributeLabel(key) }</dt>
+							<dd>{ attributeValue(trace.Attributes, key) }</dd>
+						</div>
+					}
+					if memory.HasLimit && memory.HasUsed && memory.Limit > 0 {
+						<div>
+							<dt>Of limit</dt>
+							<dd>
+								<span class="share">
+									<span class="bar solid"><span style={ shareStyle(memory.Share) }></span></span>
+									{ percentText(memory.Share) }
+								</span>
+							</dd>
+						</div>
+					}
+					if memory.Spans && !memory.HasUsed {
+						<div>
+							<dt>Peak in spans</dt>
+							<dd>{ signedBytesText(memory.Peak) }</dd>
+						</div>
+					}
+				</dl>
+			</div>
+		}
 		<div>
 			<h3>System</h3>
 			<dl class="detail">

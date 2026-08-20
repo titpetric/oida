@@ -184,6 +184,60 @@ func attributeText(value any) string {
 	}
 }
 
+// attributeValue renders one attribute in the unit its key implies: a memory
+// limit recorded as 1048576 reads as a megabyte. The exact figure is in the
+// JSON.
+func attributeValue(attributes oida.Attributes, key string) string {
+	if oida.IsBytes(key) {
+		if size, ok := attributes.Int64(key); ok {
+			return signedBytesText(size)
+		}
+	}
+	return attributeText(attributes[key])
+}
+
+// attributeLabel renders an attribute key as a row label: "memory_limit" reads
+// as "Memory limit". Unknown keys read the same way.
+func attributeLabel(key string) string {
+	label := strings.ReplaceAll(key, "_", " ")
+	if label == "" {
+		return key
+	}
+	return strings.ToUpper(label[:1]) + label[1:]
+}
+
+// spanColumns is the width of the span table, for the row that says there are
+// no spans in it. Memory and source are drawn only when recorded.
+func spanColumns(page Page) string {
+	columns := 5
+	if page.Memory.Spans {
+		columns++
+	}
+	if page.Sources {
+		columns++
+	}
+	return strconv.Itoa(columns)
+}
+
+// hasSources reports whether any span recorded where it was started.
+func hasSources(rows []SpanRow) bool {
+	for _, row := range rows {
+		if row.SourceText() != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// memoryText renders a span memory reading, or nothing when the span reported
+// none.
+func memoryText(row SpanRow) string {
+	if !row.HasMemory {
+		return ""
+	}
+	return signedBytesText(row.Memory)
+}
+
 // sortedKeys returns the attribute keys in a stable order, so a rendered span
 // does not reshuffle between refreshes.
 func sortedKeys(attributes oida.Attributes) []string {
@@ -253,6 +307,11 @@ func matches(trace oida.Trace, query string) bool {
 	if trace.HTTP != nil {
 		if contains(trace.HTTP.URI, query) || contains(trace.HTTP.Route, query) ||
 			contains(trace.HTTP.Host, query) || contains(trace.HTTP.RemoteAddress, query) {
+			return true
+		}
+	}
+	for key, value := range trace.Attributes {
+		if contains(key, query) || contains(attributeText(value), query) {
 			return true
 		}
 	}

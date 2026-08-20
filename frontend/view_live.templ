@@ -70,7 +70,7 @@ templ liveSection(page Page) {
 							}
 						</td>
 						<td class="c-medium">
-							@traceLink(page, trace)
+							@traceLink(trace, page)
 						</td>
 						<td class="num" title={ trace.StartedAt.Format("2006-01-02 15:04:05.000") }>{ page.Age(trace.StartedAt) }</td>
 						<td class="name" title={ trace.Name }>{ trace.Name }</td>

@@ -152,6 +152,95 @@ func TestHandlerRendersSpanAttributes(t *testing.T) {
 	}
 }
 
+func TestHandlerRendersTransactionMemory(t *testing.T) {
+	tracer, clock := newTestTracer(t, nil)
+
+	err := tracer.Observe(t.Context(), "GET /report", func(ctx context.Context) error {
+		trace := oida.TraceFromContext(ctx)
+		trace.SetAttribute(oida.AttrMemoryLimit, int64(1<<20))
+		trace.SetAttribute("tenant_id", "acme-eu")
+
+		_, db := oida.Start(ctx, "SELECT users", oida.KindDatabase)
+		db.SetAttribute(oida.AttrMemoryUsage, int64(10<<10))
+		clock.Advance(3 * time.Millisecond)
+		db.End()
+
+		_, render := oida.Start(ctx, "render report.html", oida.KindTemplate)
+		render.SetAttribute(oida.AttrMemoryUsage, int64(20<<10))
+		clock.Advance(time.Millisecond)
+		render.End()
+
+		trace.SetAttribute(oida.AttrMemoryUsage, int64(20<<10))
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Observe: %v", err)
+	}
+
+	trace := tracer.Traces()[0]
+	body := request(t, HandlerFor(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
+
+	for _, want := range []string{
+		"<h3>Transaction</h3>",
+		"Memory limit", // the key read as a label
+		"1.0 MiB",      // the value read as a size
+		"Memory usage",
+		"20.0 KiB",
+		"1.95%",         // the share of the limit
+		"Memory in use", // the per span column
+
+		// The set of keys is open: a custom one is a row like any other.
+		"Tenant id", "acme-eu",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("detail view misses %q", want)
+		}
+	}
+
+	// Once in the memory column, once in the attributes of that span.
+	if got := strings.Count(body, "10.0 KiB"); got != 2 {
+		t.Errorf("the first reading is rendered %d times, want 2", got)
+	}
+}
+
+func TestHandlerOmitsColumnsWithoutData(t *testing.T) {
+	_, handler, trace := renderedTracer(t)
+
+	body := request(t, handler, oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
+	if strings.Contains(body, "Memory in use") {
+		t.Error("the memory column is drawn for spans that reported no memory")
+	}
+	if strings.Contains(body, ">Source<") {
+		t.Error("the source column is drawn for spans that recorded no source")
+	}
+	if strings.Contains(body, "<h3>Transaction</h3>") {
+		t.Error("the transaction table is drawn for a trace with no attributes")
+	}
+}
+
+func TestHandlerRendersSourceColumn(t *testing.T) {
+	tracer, clock := newTestTracer(t, nil)
+
+	err := tracer.Observe(t.Context(), "GET /report", func(ctx context.Context) error {
+		_, db := oida.Start(ctx, "SELECT users", oida.KindDatabase)
+		db.SetSource("internal/billing/repo.go", 42)
+		clock.Advance(2 * time.Millisecond)
+		db.End()
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Observe: %v", err)
+	}
+
+	trace := tracer.Traces()[0]
+	body := request(t, HandlerFor(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
+	for _, want := range []string{">Source<", "internal/billing/repo.go:L42"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("detail view misses %q", want)
+		}
+	}
+}
+
 func TestHandlerDrawsTheTrace(t *testing.T) {
 	_, handler, trace := renderedTracer(t)
 	detail := oida.DefaultPath + "/trace/" + trace.ID

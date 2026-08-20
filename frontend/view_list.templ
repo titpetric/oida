@@ -54,7 +54,7 @@ templ List(page Page) {
 				</thead>
 				<tbody>
 					for _, trace := range page.Snapshot.Log {
-						@traceRow(page, trace)
+						@traceRow(trace, page)
 					}
 					if len(page.Snapshot.Log) == 0 {
 						<tr>
@@ -93,13 +93,13 @@ templ sortLink(page Page, key SortKey, label string) {
 // traceRow renders one recorded trace. The shape column is the trace timeline
 // scaled against the slowest row, so a database bound request and an upstream
 // bound request are told apart without opening either.
-templ traceRow(page Page, trace oida.Trace) {
+templ traceRow(trace oida.Trace, page Page) {
 	<tr
 		class={ "row", templ.KV("failed", trace.Error != "" || trace.State == oida.StateError) }
 		data-href={ page.TraceURL(trace.ID) }
 	>
 		<td class="c-medium">
-			@traceLink(page, trace)
+			@traceLink(trace, page)
 		</td>
 		<td class="num" title={ trace.StartedAt.Format("2006-01-02 15:04:05.000") }>{ page.Age(trace.StartedAt) }</td>
 		<td class="name" title={ trace.Name }>{ trace.Name }</td>
@@ -123,7 +123,7 @@ templ traceRow(page Page, trace oida.Trace) {
 		<td class="num c-medium">{ strconv.Itoa(len(trace.Spans)) }</td>
 		<td class="num c-wide">
 			if trace.HTTP != nil {
-				{ strconv.FormatInt(trace.HTTP.ResponseBytes, 10) }
+				{ signedBytesText(trace.HTTP.ResponseBytes) }
 			}
 		</td>
 		<td class="num c-medium">{ bytesText(trace.Memory.AllocatedBytes) }</td>

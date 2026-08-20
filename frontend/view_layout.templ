@@ -176,7 +176,7 @@ templ pageFooter(page Page) {
 
 // traceLink renders a trace identifier: a health dot, the tail of the id, which
 // is what tells rows apart, and the full value one click away.
-templ traceLink(page Page, trace oida.Trace) {
+templ traceLink(trace oida.Trace, page Page) {
 	<span class="tid">
 		<i class={ traceDot(trace) }></i>
 		<a href={ templ.SafeURL(page.TraceURL(trace.ID)) } title={ trace.ID }>{ shortID(trace.ID) }</a>

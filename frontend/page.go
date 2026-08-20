@@ -41,6 +41,12 @@ type Page struct {
 	Trace    *oida.Trace
 	Rows     []SpanRow
 	Segments []Segment
+
+	// Memory is the memory the detail view trace reported, read once because
+	// every row of the span table draws against it. Sources reports whether any
+	// of its spans recorded a source location.
+	Memory  MemoryBudget
+	Sources bool
 }
 
 // limitOptions are the row counts offered on the trace list.

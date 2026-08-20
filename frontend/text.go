@@ -151,6 +151,17 @@ func writeDetailText(w io.Writer, page Page) {
 	}
 	fmt.Fprintln(w)
 
+	if len(trace.Attributes) > 0 {
+		fmt.Fprintln(w, "Transaction:")
+		for _, key := range sortedKeys(trace.Attributes) {
+			fmt.Fprintf(w, "%-20s %s\n", key, attributeValue(trace.Attributes, key))
+		}
+		if page.Memory.HasLimit && page.Memory.HasUsed && page.Memory.Limit > 0 {
+			fmt.Fprintf(w, "%-20s %s\n", "of limit", percentText(page.Memory.Share))
+		}
+		fmt.Fprintln(w)
+	}
+
 	fmt.Fprintln(w, "Timeline:")
 	for _, segment := range page.Segments {
 		fmt.Fprintf(w, "%-12s at %-13s %-13s %6.2f%%\n",
@@ -167,8 +178,8 @@ func writeDetailText(w io.Writer, page Page) {
 		fmt.Fprintf(w, "%-13s %-13s %-15s %-30s %s%s\n",
 			row.Kind, durationText(row.Offset), duration, row.SourceText(),
 			strings.Repeat("  ", min(row.Depth, 12)), row.Name)
-		for key, value := range row.Attributes {
-			fmt.Fprintf(w, "%s%s = %s\n", strings.Repeat(" ", 74), key, attributeText(value))
+		for _, key := range sortedKeys(row.Attributes) {
+			fmt.Fprintf(w, "%s%s = %s\n", strings.Repeat(" ", 74), key, attributeValue(row.Attributes, key))
 		}
 		if row.Error != "" {
 			fmt.Fprintf(w, "%s! %s\n", strings.Repeat(" ", 74), row.Error)

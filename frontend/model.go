@@ -9,6 +9,7 @@ import (
 // View identifies one rendered page of the debug front end.
 type View string
 
+// The pages the front end serves. Page.URL builds a link to any of them.
 const (
 	// ViewHosts is the landing page: which domains this process serves, and
 	// how much traffic each one carries. Everything else is a drill down.
@@ -121,4 +122,62 @@ type SpanRow struct {
 	Share       float64       `json:"share_percent"`
 	Open        bool          `json:"open,omitempty"`
 	Last        bool          `json:"-"`
+
+	// Memory is the memory_usage the span reported, and HasMemory whether it
+	// reported one. Zero bytes in use and no reading are different answers.
+	Memory    int64 `json:"memory_usage_bytes,omitempty"`
+	HasMemory bool  `json:"-"`
+}
+
+// MemoryBudget is the memory_limit and memory_usage a trace recorded, read off
+// the trace and off its spans. Every part of it is optional.
+type MemoryBudget struct {
+	// Limit is the ceiling the transaction ran under, Used what it had in use
+	// when it finished, and Share the second as a percentage of the first.
+	Limit int64   `json:"limit_bytes,omitempty"`
+	Used  int64   `json:"used_bytes,omitempty"`
+	Share float64 `json:"used_percent,omitempty"`
+
+	HasLimit bool `json:"-"`
+	HasUsed  bool `json:"-"`
+
+	// Peak is the largest reading any span reported, and Spans whether any of
+	// them did. The per span bars are drawn against the peak and not against
+	// the limit, which would draw a whole trace as identical slivers.
+	Peak  int64 `json:"peak_bytes,omitempty"`
+	Spans bool  `json:"-"`
+}
+
+// TraceMemory reads the memory a trace reported, from its attributes and from
+// the rows flattened out of its spans.
+func TraceMemory(trace oida.Trace, rows []SpanRow) MemoryBudget {
+	budget := MemoryBudget{}
+	budget.Limit, budget.HasLimit = trace.Attributes.Int64(oida.AttrMemoryLimit)
+	budget.Used, budget.HasUsed = trace.Attributes.Int64(oida.AttrMemoryUsage)
+
+	for _, row := range rows {
+		if !row.HasMemory {
+			continue
+		}
+		budget.Spans = true
+		budget.Peak = max(budget.Peak, row.Memory)
+	}
+
+	if budget.HasLimit && budget.Limit > 0 && budget.HasUsed {
+		budget.Share = float64(budget.Used) * 100 / float64(budget.Limit)
+	}
+	return budget
+}
+
+// Known reports whether the trace recorded any memory at all.
+func (b MemoryBudget) Known() bool {
+	return b.HasLimit || b.HasUsed || b.Spans
+}
+
+// ShareOf returns a reading as a percentage of the largest one in the trace.
+func (b MemoryBudget) ShareOf(size int64) float64 {
+	if b.Peak <= 0 || size <= 0 {
+		return 0
+	}
+	return float64(size) * 100 / float64(b.Peak)
 }

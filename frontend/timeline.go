@@ -123,6 +123,7 @@ func Rows(trace oida.Trace) []SpanRow {
 				Open:   span.Duration == 0,
 				Last:   i == len(siblings)-1,
 			}
+			row.Memory, row.HasMemory = span.Attributes.Int64(oida.AttrMemoryUsage)
 			if total > 0 {
 				row.OffsetShare = share(row.Offset, total)
 				row.Share = share(span.Duration, total)
@@ -152,6 +153,7 @@ func Rows(trace oida.Trace) []SpanRow {
 				Open:   span.Duration == 0,
 				Last:   true,
 			}
+			row.Memory, row.HasMemory = span.Attributes.Int64(oida.AttrMemoryUsage)
 			if total > 0 {
 				row.OffsetShare = share(row.Offset, total)
 				row.Share = share(span.Duration, total)

@@ -1389,10 +1389,10 @@ h2::after {
   text-transform: uppercase;
 }
 
-/* Two tables side by side: what was asked for on the left, what it cost this
-   process on the right. They are separate questions and one of them is the only
-   thing on the page that is not about the request at all. Below the medium
-   viewport they stack, because a two column table in half a phone is a mess. */
+/* Tables side by side: request details on the left, request cost on the right,
+   and the transaction attributes between them when the trace recorded any.
+   Below the medium viewport they stack, because a two column table in half a
+   phone is a mess. */
 .facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
