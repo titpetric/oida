@@ -66,6 +66,7 @@ func run() error {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(oida.TracingMiddleware(opts))
+	r.Use(trackMemory)
 
 	if err := frontend.Mount(r, opts); err != nil {
 		return err
@@ -102,8 +103,8 @@ func run() error {
 
 // index renders the landing page.
 func index(w http.ResponseWriter, r *http.Request) {
-	_, span := oida.Start(r.Context(), "render index", oida.KindTemplate)
-	defer span.End()
+	ctx, span := oida.Start(r.Context(), "render index", oida.KindTemplate)
+	defer endSpan(ctx, span)
 
 	fmt.Fprintln(w, "oida example · try /users/42, /report, /debug/oida")
 }
@@ -111,7 +112,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 // getUser reads a user through a cache and a database lookup.
 func getUser(w http.ResponseWriter, r *http.Request) {
 	ctx, span := oida.Start(r.Context(), "getUser")
-	defer span.End()
+	defer endSpan(ctx, span)
 
 	id := chi.URLParam(r, "id")
 	span.SetAttribute("user_id", id)
@@ -133,7 +134,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 // lookupCache records a cache span that misses two times out of three.
 func lookupCache(ctx context.Context, id string) (string, bool) {
 	_, span := oida.Start(ctx, "cache: user", oida.KindCache)
-	defer span.End()
+	defer endSpan(ctx, span)
 
 	hit := rand.IntN(3) == 0
 	span.SetAttribute("key", "user:"+id)
@@ -148,7 +149,7 @@ func lookupCache(ctx context.Context, id string) (string, bool) {
 // loadUser records a database span.
 func loadUser(ctx context.Context, id string) (string, error) {
 	ctx, span := oida.Start(ctx, "SELECT users", oida.KindDatabase)
-	defer span.End()
+	defer endSpan(ctx, span)
 
 	span.SetAttribute("query", "SELECT id, email FROM users WHERE id = ?")
 	span.SetAttribute("args", id)
@@ -163,14 +164,14 @@ func loadUser(ctx context.Context, id string) (string, error) {
 // report fans out concurrent work below one parent span.
 func report(w http.ResponseWriter, r *http.Request) {
 	ctx, span := oida.Start(r.Context(), "build report")
-	defer span.End()
+	defer endSpan(ctx, span)
 
 	done := make(chan struct{}, 3)
 	for i := range 3 {
 		go func() {
 			defer func() { done <- struct{}{} }()
 			_, worker := oida.Start(ctx, fmt.Sprintf("shard %d", i), oida.KindDatabase)
-			defer worker.End()
+			defer endSpan(ctx, worker)
 			worker.SetAttribute("shard", i)
 			time.Sleep(time.Duration(3+rand.IntN(10)) * time.Millisecond)
 		}()
@@ -179,7 +180,7 @@ func report(w http.ResponseWriter, r *http.Request) {
 		<-done
 	}
 
-	if err := oida.Do(ctx, "GET pricing-api", func(context.Context) error {
+	if err := do(ctx, "GET pricing-api", func(context.Context) error {
 		time.Sleep(time.Duration(5+rand.IntN(20)) * time.Millisecond)
 		return nil
 	}, oida.KindExternal); err != nil {
@@ -211,8 +212,11 @@ func generateLoad(ctx context.Context, tracer *oida.Tracer) {
 			return
 		case <-ticker.C:
 			_ = tracer.Observe(ctx, "cron: refresh materialized views", func(ctx context.Context) error {
+				ctx = withBudget(ctx)
+				defer closeBudget(ctx)
+
 				_, span := oida.Start(ctx, "REFRESH MATERIALIZED VIEW daily_totals", oida.KindDatabase)
-				defer span.End()
+				defer endSpan(ctx, span)
 				time.Sleep(time.Duration(10+rand.IntN(40)) * time.Millisecond)
 				return nil
 			})
