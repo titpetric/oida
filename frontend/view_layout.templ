@@ -25,11 +25,20 @@ templ Layout(page Page) {
 			@styleElement(page.AssetURL(""))
 		</head>
 		<body>
-			@pageHeader(page)
-			@pageMetrics(page)
-			@pageNav(page)
-			{ children... }
-			@pageFooter(page)
+			if page.Active(ViewLogin) {
+				// The sign in screen shows the wordmark and nothing recorded:
+				// process facts, metrics and tabs wait behind the login.
+				<header class="top">
+					<h1><a href={ templ.SafeURL(page.Path) }>oida</a></h1>
+				</header>
+				{ children... }
+			} else {
+				@pageHeader(page)
+				@pageMetrics(page)
+				@pageNav(page)
+				{ children... }
+				@pageFooter(page)
+			}
 			<script src={ page.JSURL() } defer></script>
 			// The drawing is only on one view, so its script is only on that
 			// view: the list and the live feed do not pay for it.

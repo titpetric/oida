@@ -1,8 +1,11 @@
 package model
 
 import (
+	"context"
+	"fmt"
 	"math"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 )
@@ -88,6 +91,31 @@ type Options struct {
 	// recorder resolves the process default.
 	Tracer Recorder `yaml:"-"`
 
+	// AllowedNetworks restricts the debug front end to peers inside these
+	// CIDR ranges, such as 127.0.0.0/8 or 10.0.0.0/8. IPv4 and IPv6 both
+	// work; an empty list allows every network. A request from outside
+	// receives a 404 response, like a failed Authorize.
+	AllowedNetworks []string `yaml:"allowed_networks"`
+
+	// Users maps usernames to bcrypt password hashes for the front end login
+	// screen. Setting any user puts the front end behind a login.
+	Users map[string]string `yaml:"users"`
+
+	// UsersFile is the path of an .htpasswd style file with one
+	// username:bcrypt-hash per line. It is read once, when the front end is
+	// mounted, and merged under Users.
+	UsersFile string `yaml:"users_file"`
+
+	// SigningSecret signs the session cookie issued by the login screen and
+	// verifies "Authorization: Bearer" JWTs (HS256). When empty a per-process
+	// secret is generated: logins work, but sessions do not survive a restart
+	// and no externally minted token verifies.
+	SigningSecret string `yaml:"signing_secret"`
+
+	// AuthorizeUser authenticates a login when the configured users do not.
+	// Returning nil grants a session naming the given username.
+	AuthorizeUser func(ctx context.Context, username, password string) error `yaml:"-"`
+
 	initialized bool
 }
 
@@ -99,7 +127,7 @@ func NewOptions(serviceName string) Options {
 	return Options{
 		Path:             DefaultPath,
 		ServiceName:      serviceName,
-		Enabled:          true,
+		Enabled:          false,
 		RingBufferSize:   200,
 		TopRequests:      20,
 		MaxSpansPerTrace: 1000,
@@ -171,6 +199,11 @@ func (o Options) Validate() error {
 	}
 	if o.RefreshInterval < 0 {
 		return invalidOption("refresh_interval", "must not be negative")
+	}
+	for _, network := range o.AllowedNetworks {
+		if _, err := netip.ParsePrefix(strings.TrimSpace(network)); err != nil {
+			return invalidOption("allowed_networks", fmt.Sprintf("%q is not a CIDR prefix", network))
+		}
 	}
 	return nil
 }

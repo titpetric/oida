@@ -31,6 +31,7 @@ func main() {
 
 func run() error {
 	opts := oida.NewOptions("billing-api")
+	opts.Enabled = true
 	opts.Path = "/debug/oida"
 	opts.RingBufferSize = 500
 	opts.SampleRate = 100
@@ -102,7 +103,10 @@ With `net/http` you do not need it: oida reads `http.Request.Pattern`.
 mux := http.NewServeMux()
 mux.HandleFunc("GET /users/{id}", getUser)
 
-tracer, err := oida.Configure(oida.NewOptions("billing-api"))
+opts := oida.NewOptions("billing-api")
+opts.Enabled = true
+
+tracer, err := oida.Configure(opts)
 if err != nil {
 	return err
 }

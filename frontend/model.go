@@ -18,6 +18,11 @@ const (
 	ViewLive   View = "live"
 	ViewStats  View = "stats"
 	ViewDetail View = "detail"
+
+	// ViewLogin is the sign in screen, rendered when authentication is
+	// configured and the request carries no valid session or bearer token. It
+	// draws none of the recorded data.
+	ViewLogin View = "login"
 )
 
 // listKinds are the kinds offered in the front end filter, in display order.

@@ -27,6 +27,14 @@ var (
 
 	// ErrDisabled is returned when a trace is requested from a disabled tracer.
 	ErrDisabled = errors.New("oida: tracer is disabled")
+
+	// ErrInvalidCredentials is returned when a login does not match any
+	// configured user.
+	ErrInvalidCredentials = errors.New("oida: invalid credentials")
+
+	// ErrInvalidToken is returned when a session cookie or bearer token does
+	// not verify against the signing secret, or has expired.
+	ErrInvalidToken = errors.New("oida: invalid token")
 )
 
 // invalidOption formats a field level configuration error.

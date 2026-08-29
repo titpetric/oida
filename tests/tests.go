@@ -37,6 +37,7 @@ func NewServerWithTracer(t testing.TB) (http.Handler, *oida.Tracer) {
 	t.Helper()
 
 	opts := oida.NewOptions("oida-tests")
+	opts.Enabled = true
 	opts.Path = Path
 	opts.Storage = oida.NewStorageMemory(64)
 	opts.RingBufferSize = 64

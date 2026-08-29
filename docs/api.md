@@ -11,11 +11,16 @@ buffer inside the process, with a server side rendered front end mounted at
 /debug/oida.
 
 Wire it into a service in three calls: configure the tracer, mount it, add
-the middleware. The tracer is an http.Handler serving the debug front end,
-so it mounts like any other handler and no second import is needed:
+the middleware. Recording is opt-in: enable it in code, or leave the field
+alone and set OIDA_ENABLED=true in the environment. The tracer is an
+http.Handler serving the debug front end, so it mounts like any other
+handler and no second import is needed:
 
 ```go
-tracer, err := oida.Configure(oida.NewOptions("billing-api"))
+opts := oida.NewOptions("billing-api")
+opts.Enabled = true
+
+tracer, err := oida.Configure(opts)
 if err != nil {
 	return err
 }
@@ -61,6 +66,19 @@ Nothing in this package writes to stdout or stderr. Storage and rendering
 failures are reported through Options.OnError.
 
 ## Types
+
+<details>
+<summary><code>type Auth</code></summary>
+
+```go
+// Auth evaluates the authentication options: the network allow list, the
+// configured users, and the token verification behind the session cookie and
+// the Authorization header. It lives in the model package so the front end
+// can enforce it; the alias keeps it spelled oida.Auth.
+type Auth = model.Auth
+```
+
+</details>
 
 <details>
 <summary><code>type Options</code></summary>
@@ -279,6 +297,26 @@ const RequestIDHeader = "Request-Id"
 </details>
 
 <details>
+<summary><code>const SessionCookie</code></summary>
+
+```go
+// SessionCookie is the name of the front end session cookie.
+const SessionCookie = model.SessionCookie
+```
+
+</details>
+
+<details>
+<summary><code>const SessionTTL</code></summary>
+
+```go
+// SessionTTL is how long an issued session token stays valid.
+const SessionTTL = model.SessionTTL
+```
+
+</details>
+
+<details>
 <summary><code>const KindInternal, KindHTTP, KindDatabase, KindExternal, KindTemplate, KindCache, KindQueue</code></summary>
 
 ```go
@@ -332,6 +370,25 @@ const (
 ## Vars
 
 <details>
+<summary><code>var ErrInvalidCredentials, ErrInvalidToken</code></summary>
+
+```go
+// The errors authentication returns, aliased like the other error values so
+// errors.Is works with either spelling.
+var (
+	// ErrInvalidCredentials is returned when a login does not match any
+	// configured user.
+	ErrInvalidCredentials = model.ErrInvalidCredentials
+
+	// ErrInvalidToken is returned when a session cookie or bearer token does
+	// not verify against the signing secret, or has expired.
+	ErrInvalidToken = model.ErrInvalidToken
+)
+```
+
+</details>
+
+<details>
 <summary><code>var ErrNilRouter, ErrInvalidOptions, ErrInvalidPath, ErrInvalidSampleRate, ErrTraceNotFound, ErrDisabled</code></summary>
 
 ```go
@@ -371,6 +428,7 @@ var (
 - `func IsBytes (key string) bool`
 - `func MustResolve (opts Options) *Tracer`
 - `func New (opts Options) (*Tracer, error)`
+- `func NewAuth (opts Options) (*Auth, error)`
 - `func NewOptions (serviceName string) Options`
 - `func NewRateSampler (rate float64) Sampler`
 - `func NewStorageDisk (limit int, paths ...string) (*StorageDisk, error)`
@@ -424,6 +482,11 @@ var (
 Configure replaces the process wide tracer with one built from opts and
 returns it. Call it once during startup, before wiring the middleware.
 
+Configure also applies the environment: every OIDA_* variable listed on
+optionsFromEnv, including the OIDA_AUTH=username:password sign in opt-in.
+A variable applies only where the code left the field at its default, so
+options set in code win over the environment.
+
 ```go
 func Configure(opts Options) (*Tracer, error)
 ```
@@ -470,6 +533,15 @@ New returns a tracer configured with opts.
 
 ```go
 func New(opts Options) (*Tracer, error)
+```
+
+### NewAuth
+
+NewAuth builds the authentication state out of the options, or nil when no
+authentication option is set. See model.NewAuth.
+
+```go
+func NewAuth(opts Options) (*Auth, error)
 ```
 
 ### NewOptions

@@ -73,6 +73,7 @@ func hostRouter(t *testing.T, service, span string) vhost {
 	t.Helper()
 
 	opts := oida.NewOptions(service)
+	opts.Enabled = true
 	opts.TrackMemoryUse = false
 	opts.OnError = func(err error) { t.Errorf("oida: %v", err) }
 

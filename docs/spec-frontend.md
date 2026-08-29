@@ -91,10 +91,24 @@ curl -s 'http://localhost:8080/debug/oida/traces?format=text'
 
 ## Access control
 
-The dashboard can expose request paths, user agents, errors, and span attributes. Keep it on an internal listener or set `Options.Authorize` before mounting it on a public listener. A rejected request receives a 404 response.
+The dashboard can expose request paths, user agents, errors, and span attributes. Keep it on an internal listener, or gate it with the authentication options before mounting it on a public listener. Checks run in this order:
+
+1. `Options.Authorize`, when set. A rejected request receives a 404 response.
+2. `Options.AllowedNetworks`, when set. A peer outside the listed CIDR ranges also receives a 404.
+3. Credentials, when `Options.Users`, `Options.UsersFile`, `Options.AuthorizeUser` or `Options.SigningSecret` is set. A request carrying a valid `oida_session` cookie or an `Authorization: Bearer` token signed with `Options.SigningSecret` passes.
 
 ```go
 opts.Authorize = func(r *http.Request) bool {
 	return allowed(r)
 }
 ```
+
+With none of the options set, every request is served.
+
+## The login screen
+
+When credentials are required, a request without them lands on `{OIDA_PATH}/login`: a browser is redirected there with the requested page in `?back` (URL encoded, query included), and a JSON or plain text request receives a 401 instead, since it cannot fill in a form. GET renders the form, POST checks the username and password against the configured users and `AuthorizeUser`, and a successful login sets the `oida_session` cookie and returns to the `back` target. Only a location inside the dashboard qualifies; anything else lands on the overview, so the parameter cannot redirect off the site. A failed login re-renders the form with a 401 and keeps the username.
+
+The screen renders none of the recorded data, and no process facts beyond the wordmark. The embedded assets under `{OIDA_PATH}/assets/` stay reachable without credentials, because the screen loads its stylesheet from there; the asset tree holds nothing recorded.
+
+The fields behind this, and how to mint bearer tokens, are in [the configuration guide](guide-configuration.md).

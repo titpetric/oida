@@ -47,6 +47,15 @@ type Page struct {
 	// of its spans recorded a source location.
 	Memory  MemoryBudget
 	Sources bool
+
+	// LoginUsername is the username a failed login was attempted with, kept so
+	// the form does not empty itself. LoginError is what went wrong, worded
+	// with what to do next.
+	// LoginBack is where a successful login returns to, carried through the
+	// redirect and the form as ?back.
+	LoginUsername string
+	LoginError    string
+	LoginBack     string
 }
 
 // limitOptions are the row counts offered on the trace list.
@@ -408,4 +417,9 @@ func (p Page) Ticks() []AxisTick {
 		return nil
 	}
 	return axisTicks(p.Trace.Duration)
+}
+
+// LoginPath is where the sign in form lives and submits.
+func (p Page) LoginPath() string {
+	return p.Path + "/login"
 }

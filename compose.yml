@@ -1,7 +1,28 @@
 services:
   oida:
     image: titpetric/oida:latest
-    env_file: .env.docker
+    # Every configurable OIDA_* variable, with the value it holds when unset.
+    # The two active ones are what the demo needs; a variable applies only
+    # where the code left the option at its default.
+    environment:
+      OIDA_ADDR: ":8080"
+      OIDA_ENABLED: "true"
+      # OIDA_SERVICE_NAME: ""                                        # the name passed to NewOptions
+      # OIDA_PATH: "/debug/oida"
+      # OIDA_RING_BUFFER_SIZE: "200"                                 # completed traces retained
+      # OIDA_TOP_REQUESTS: "20"                                      # rows in the statistics view
+      # OIDA_MAX_SPANS_PER_TRACE: "1000"
+      # OIDA_SAMPLE_RATE: "100"                                      # out of [0,100] clamps
+      # OIDA_TRACK_MEMORY_USE: "true"
+      # OIDA_TRUST_REQUEST_ID: "false"                               # only behind a trusted proxy
+      # OIDA_REFRESH_INTERVAL: "5"                                   # live view fallback, seconds
+      # OIDA_LIVE_STREAM: "true"
+      # OIDA_IGNORE_PATHS: "/healthz,/readyz,/metrics,/favicon.ico"
+      # OIDA_ALLOWED_NETWORKS: ""                                    # unset: every peer is served
+      # OIDA_AUTH: ""                                                # username:password puts the UI behind a sign in
+      # OIDA_USERS_FILE: ""                                          # htpasswd style file, username:bcrypt per line
+      # OIDA_SIGNING_SECRET: ""                                      # unset: a per-process secret is generated
+      # OIDA_DEMO_INTERVAL: "5m"                                     # background demo trace interval, 0 disables
     ports:
       - "8097:8080"
     networks:

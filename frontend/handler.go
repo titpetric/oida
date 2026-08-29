@@ -37,6 +37,10 @@ type handler struct {
 	// resolved on every request, so a dashboard mounted before the tracer is
 	// configured picks it up as soon as it exists.
 	recorder model.Recorder
+
+	// auth carries the authentication options: the network allow list and
+	// the credentials behind the sign in screen. Nil when none are set.
+	auth *model.Auth
 }
 
 var _ http.Handler = (*handler)(nil)
@@ -64,7 +68,10 @@ func HandlerFor(recorder model.Recorder) http.Handler {
 
 // newHandler returns the front end handler bound to a recorder.
 func newHandler(opts model.Options, recorder model.Recorder) *handler {
-	return &handler{opts: opts, recorder: recorder}
+	// NewAuth reports what it dropped through Options.OnError; what loaded
+	// stays in force, and a dropped allow list entry only narrows access.
+	auth, _ := model.NewAuth(opts)
+	return &handler{opts: opts, recorder: recorder, auth: auth}
 }
 
 // tracer returns the recorder the request reads: the bound one, the process
@@ -86,7 +93,28 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch route := h.relative(r); {
+	// The network allow list is a hard filter: a peer outside it receives
+	// the same 404 a failed Authorize sends.
+	if !h.auth.NetworkAllowed(r) {
+		http.NotFound(w, r)
+		return
+	}
+
+	route := h.relative(r)
+	if h.auth.LoginRequired() {
+		if route == "/login" || route == "/login/" {
+			h.serveLogin(w, r)
+			return
+		}
+		// The embedded assets stay reachable: the sign in screen needs its
+		// stylesheet, and the tree holds nothing recorded.
+		if _, ok := h.auth.RequestUser(r); !ok && !strings.HasPrefix(route, assetPrefix) {
+			h.serveUnauthorized(w, r)
+			return
+		}
+	}
+
+	switch {
 	case route == "" || route == "/":
 		h.serveHosts(w, r)
 	case route == "/traces":
