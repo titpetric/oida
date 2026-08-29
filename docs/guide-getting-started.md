@@ -77,7 +77,7 @@ Order matters:
 - `frontend.Mount` must be called on a router that has the middleware registered, or on any router in the same process: the tracer is shared, not the router.
 - Routes registered *before* `r.Use` panic in chi; register middleware first.
 
-`middleware.RealIP` is not in the example because oida does not need it: the middleware resolves the client IP from the `Forwarded` and `X-Forwarded-For` headers itself, skipping LAN and loopback hops (see [spec-model.md](spec-model.md)). The same resolution runs on a plain `net/http` mux (section 3), which has no RealIP equivalent. Add RealIP when your own chi handlers read `r.RemoteAddr` and expect the client address there.
+> **Note**: chi provides `middleware.RealIP`, oida does not require it. The client IP is resolved from the `Forwarded` and `X-Forwarded-For` headers on any router (see [spec-model.md](spec-model.md)); add RealIP when your own handlers read `r.RemoteAddr`.
 
 Visit `http://localhost:8080/debug/oida`.
 
