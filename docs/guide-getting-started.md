@@ -74,8 +74,9 @@ func run() error {
 
 Order matters:
 
-- `oida.TracingMiddleware` goes **after** `middleware.RealIP` (so the remote address is the real one) and **after** `middleware.Recoverer` is registered if you want the recoverer to catch panics first — oida re-panics after recording, so either order records the failure; putting oida inside the recoverer keeps the 500 response behaviour of chi.
-- `frontend.Mount` must be called on a router that has the middleware registered, or on any router in the same process — the tracer is shared, not the router.
+- `middleware.RealIP` is optional for the recorded remote address: oida resolves the client IP from the `Forwarded` and `X-Forwarded-For` headers itself, skipping LAN and loopback hops (see [spec-model.md](spec-model.md)). Keep it when your own handlers read `r.RemoteAddr`.
+- `oida.TracingMiddleware` goes **after** `middleware.Recoverer` is registered if you want the recoverer to catch panics first. oida re-panics after recording, so either order records the failure; putting oida inside the recoverer keeps the 500 response behaviour of chi.
+- `frontend.Mount` must be called on a router that has the middleware registered, or on any router in the same process: the tracer is shared, not the router.
 - Routes registered *before* `r.Use` panic in chi; register middleware first.
 
 Visit `http://localhost:8080/debug/oida`.
@@ -98,7 +99,7 @@ Both routers talk to the same `opts.Tracer`, so the public router records and th
 
 `Options.RouteFunc` above is what makes statistics group `/users/1` and `/users/2` under `GET /users/{id}`: the middleware calls it *after* the handler ran, when chi's route context knows the matched pattern. Leave it out and every distinct URI becomes its own row.
 
-With `net/http` you do not need it — oida reads `http.Request.Pattern`.
+With `net/http` you do not need it: oida reads `http.Request.Pattern`.
 
 ## 3. net/http
 
@@ -149,6 +150,8 @@ opts.Authorize = func(r *http.Request) bool {
 	return ip != nil && (ip.IsLoopback() || ip.IsPrivate())
 }
 ```
+
+The check reads `r.RemoteAddr`, the connection peer, rather than the resolved client IP the traces record: a forwarded header is client input, so it cannot decide access.
 
 ## 5. Instrumenting the handler
 

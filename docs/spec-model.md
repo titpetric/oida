@@ -101,6 +101,10 @@ type HTTPInfo struct {
 
 `Route` is the routed pattern supplied by `Options.RouteFunc` or `http.Request.Pattern`. Statistics prefer it over the raw URI.
 
+`RemoteAddress` is the resolved client IP, without a port. The middleware reads the `Forwarded` (RFC 7239) header, or `X-Forwarded-For` when `Forwarded` names no address, and walks the hops right to left, skipping 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 169.254.0.0/16, ::1/128, fc00::/7 and fe80::/10: hops in those ranges are infrastructure, so the first address outside them is the client. Entries that hold no address, such as `unknown` or an obfuscated RFC 7239 identifier, are skipped.
+
+When every hop is inside those ranges, as with all-LAN traffic, the leftmost valid address wins. With no usable header the connection's own address is recorded, with the port stripped when it parses. There is nothing to configure; the ranges are fixed.
+
 ### Per-trace memory fields
 
 ```go
