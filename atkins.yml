@@ -15,12 +15,14 @@ tasks:
     passthru: true
     cmds:
       - templ generate
+      - goimports -w .
 
   templ:verify:
     desc: "Fail when the generated components are out of date"
     passthru: true
     cmds:
       - templ generate
+      - goimports -w .
       - git diff --exit-code -- '*_templ.go'
 
   lint:
