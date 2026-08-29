@@ -33,7 +33,7 @@ func Statistics(window []Trace, windowLimit, topLimit int, requests map[string]u
 		}
 
 		stat.Count++
-		if trace.Error != "" || trace.State == StateError {
+		if trace.ErrorText != "" || trace.State == StateError {
 			stat.Errors++
 		}
 		stat.totalDuration += trace.Duration
@@ -105,7 +105,7 @@ func hostStatistics(window []Trace, requests map[string]uint64) []HostStat {
 		name := TraceHost(trace)
 		stat := host(name)
 		stat.Traces++
-		if trace.Error != "" || trace.State == StateError {
+		if trace.ErrorText != "" || trace.State == StateError {
 			stat.Errors++
 		}
 		stat.totalDuration += trace.Duration

@@ -369,7 +369,7 @@ func (p Page) WaveSpans() []WaveSpan {
 			Start:  row.OffsetShare / 100,
 			End:    min((row.OffsetShare+row.Share)/100, 1),
 			Depth:  row.Depth,
-			Failed: row.Error != "",
+			Failed: row.ErrorText != "",
 		})
 	}
 	return spans

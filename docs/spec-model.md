@@ -35,11 +35,11 @@ type Span struct {
 	Filename   string        `json:"filename,omitempty"`
 	Line       int           `json:"line,omitempty"`
 	Attributes Attributes    `json:"attributes,omitempty"`
-	Error      string        `json:"error,omitempty"`
+	ErrorText  string        `json:"error,omitempty"`
 }
 ```
 
-Span IDs start at 1 within each trace. `ParentID` is zero for a root span. For active traces, `Duration` is the elapsed time when the trace was read. `Error` contains the latest error recorded on the span.
+Span IDs start at 1 within each trace. `ParentID` is zero for a root span. For active traces, `Duration` is the elapsed time when the trace was read. `ErrorText` contains the latest error recorded on the span; the Go field is not named `Error` because that name is the span's error logging method, and the JSON key is `error` either way.
 
 ## Trace
 
@@ -52,7 +52,7 @@ type Trace struct {
 	StartedAt time.Time     `json:"started_at"`
 	UpdatedAt time.Time     `json:"updated_at"`
 	Duration  time.Duration `json:"duration_ns"`
-	Error     string        `json:"error,omitempty"`
+	ErrorText string        `json:"error,omitempty"`
 	InFlight  bool          `json:"in_flight,omitempty"`
 
 	HTTP       *HTTPInfo  `json:"http,omitempty"`
@@ -61,6 +61,9 @@ type Trace struct {
 
 	Spans        []*Span `json:"spans,omitempty"`
 	DroppedSpans int     `json:"dropped_spans,omitempty"`
+
+	Logs        []LogEntry `json:"logs,omitempty"`
+	DroppedLogs int        `json:"dropped_logs,omitempty"`
 }
 ```
 
@@ -82,6 +85,23 @@ const (
 `memory_limit` is the ceiling the transaction ran under. `memory_usage` is the memory in use when a span or a trace finished, so the readings across the spans of a trace are the memory curve of the request, and the span where the curve steps is the span that allocated. A runtime that charges allocations to the request, such as an interpreter, reports both; the Go runtime reports neither, because there the heap belongs to the process. `MemoryUse` covers what Go can say.
 
 `Attributes.Int64(key)` reads a numeric value as an integer whatever type it arrived as, so a number that came back through JSON as a float, or over a wire as a decimal string, still reads as one. It reports false for a missing key and for a value that is not a number. `IsBytes(key)` reports whether a key holds a size in bytes.
+
+### Log entries
+
+```go
+type LogEntry struct {
+	Time       time.Time  `json:"time"`
+	Level      string     `json:"level"`
+	Message    string     `json:"message"`
+	SpanID     int        `json:"span_id,omitempty"`
+	RequestID  string     `json:"request_id,omitempty"`
+	Attributes Attributes `json:"attributes,omitempty"`
+}
+```
+
+`Trace.Info` and `Trace.Error` append entries to `Trace.Logs`, in write order; `Level` is `info` or `error`. `SpanID` is the span that was active when the entry was written, zero when none was open. `RequestID` repeats the trace ID, the value of the `Request-Id` header, so an entry stays attributable if the log is ever stored apart from its trace. `Attributes` carry the slog-style key/value arguments of the call; the message is stored verbatim.
+
+The slice is bounded by `Options.MaxSpansPerTrace` like the spans are, with the excess counted in `DroppedLogs`. `Options.CaptureLogs` gates recording; see [the instrumentation guide](guide-instrumentation.md).
 
 ### HTTP fields
 

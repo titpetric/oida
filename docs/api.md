@@ -81,6 +81,18 @@ type Auth = model.Auth
 </details>
 
 <details>
+<summary><code>type LogEntry</code></summary>
+
+```go
+// LogEntry is one log line recorded on a trace by Trace.Info, Trace.Error and
+// their Span counterparts. No context is involved: a trace attributes the
+// entry to its innermost open span, and a span uses its own id.
+type LogEntry = model.LogEntry
+```
+
+</details>
+
+<details>
 <summary><code>type Options</code></summary>
 
 ```go
@@ -210,7 +222,7 @@ type Tracer struct {
 </details>
 
 <details>
-<summary><code>type Trace, Span, Attributes, Kind, State, HTTPInfo, MemoryUse, Memory, PoolEstimate, StateDuration, Statistic, HostStat, Stats, Snapshot</code></summary>
+<summary><code>type Trace, Span, Spans, Attributes, Kind, State, HTTPInfo, MemoryUse, Memory, PoolEstimate, StateDuration, Statistic, HostStat, Stats, Snapshot</code></summary>
 
 ```go
 // The recorded data lives in the model package, so the front end can read it
@@ -222,6 +234,9 @@ type (
 
 	// Span is one timed operation within a trace.
 	Span = model.Span
+
+	// Spans is the recorded span list of a trace, searchable with Find.
+	Spans = model.Spans
 
 	// Attributes is a set of key/value pairs recorded on a trace or a span.
 	Attributes = model.Attributes
@@ -362,6 +377,19 @@ const (
 	StateKeepalive  = model.StateKeepalive
 	StateClosing    = model.StateClosing
 	StateError      = model.StateError
+)
+```
+
+</details>
+
+<details>
+<summary><code>const LevelInfo, LevelError</code></summary>
+
+```go
+// Log levels recorded by Trace.Info and Trace.Error.
+const (
+	LevelInfo  = model.LevelInfo
+	LevelError = model.LevelError
 )
 ```
 

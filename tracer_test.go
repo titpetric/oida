@@ -102,7 +102,7 @@ func TestObserveRecordsError(t *testing.T) {
 	}
 
 	traces := tracer.Traces()
-	if len(traces) != 1 || traces[0].Error != want.Error() || traces[0].State != StateError {
+	if len(traces) != 1 || traces[0].ErrorText != want.Error() || traces[0].State != StateError {
 		t.Fatalf("unexpected trace: %+v", traces)
 	}
 }

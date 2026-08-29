@@ -10,11 +10,16 @@ type TraceOptions struct {
 	Service string
 
 	// MaxSpans bounds the spans one trace records. Excess spans are counted in
-	// Trace.DroppedSpans. Zero means unlimited.
+	// Trace.DroppedSpans. It also bounds the log entries of the trace, whose
+	// excess is counted in Trace.DroppedLogs. Zero means unlimited.
 	MaxSpans int
 
 	// Clock is the time source of the trace. A nil clock uses time.Now.
 	Clock func() time.Time
+
+	// CaptureLogs records Info and Error log entries on the trace. Disabled,
+	// Info is a no-op and Error records through RecordError instead.
+	CaptureLogs bool
 }
 
 // now returns the current time from the configured clock.

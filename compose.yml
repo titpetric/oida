@@ -17,6 +17,7 @@ services:
       # OIDA_TRUST_REQUEST_ID: "false"                               # only behind a trusted proxy
       # OIDA_REFRESH_INTERVAL: "5"                                   # live view fallback, seconds
       # OIDA_LIVE_STREAM: "true"
+      # OIDA_CAPTURE_LOGS: "true"
       # OIDA_IGNORE_PATHS: "/healthz,/readyz,/metrics,/favicon.ico"
       # OIDA_ALLOWED_NETWORKS: ""                                    # unset: every peer is served
       # OIDA_AUTH: ""                                                # username:password puts the UI behind a sign in

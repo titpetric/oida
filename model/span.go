@@ -24,7 +24,10 @@ type Span struct {
 	Filename   string        `json:"filename,omitempty"`
 	Line       int           `json:"line,omitempty"`
 	Attributes Attributes    `json:"attributes,omitempty"`
-	Error      string        `json:"error,omitempty"`
+
+	// ErrorText is the message of the error recorded on the span. The JSON
+	// key stays "error"; the Go name makes room for the Error log method.
+	ErrorText string `json:"error,omitempty"`
 
 	// mu is a pointer so span values can be copied into snapshots without
 	// copying a lock. It is nil on inert copies.
@@ -69,7 +72,7 @@ func (s *Span) RecordError(err error) {
 	}
 	s.lock()
 	s.err = err
-	s.Error = err.Error()
+	s.ErrorText = err.Error()
 	trace := s.trace
 	s.unlock()
 	trace.RecordError(err)
@@ -133,8 +136,8 @@ func (s *Span) Err() error {
 	switch {
 	case s.err != nil:
 		return s.err
-	case s.Error != "":
-		return errors.New(s.Error)
+	case s.ErrorText != "":
+		return errors.New(s.ErrorText)
 	default:
 		return nil
 	}
@@ -255,4 +258,50 @@ func (s *Span) unlock() {
 	if s != nil && s.mu != nil {
 		s.mu.Unlock()
 	}
+}
+
+// Spans is the recorded span list of a trace.
+type Spans []*Span
+
+// Find returns the span with the id, or nil when the trace recorded none
+// with it, which includes an entry written outside any span.
+func (s Spans) Find(id int) *Span {
+	for _, span := range s {
+		if span != nil && span.ID == id {
+			return span
+		}
+	}
+	return nil
+}
+
+// Info records an informational log entry on the trace of the span, attributed
+// to this span. Args are slog-style key/value pairs. When log capture is
+// disabled it does nothing. Safe to call on a nil span.
+func (s *Span) Info(message string, args ...any) {
+	if s == nil || !s.trace.logsEnabled() {
+		return
+	}
+	s.trace.appendLog(LevelInfo, s.ID, message, args)
+}
+
+// Error records an error-level log entry on the trace of the span, attributed
+// to this span. It only logs; recording a failure is Span.RecordError. When
+// log capture is disabled it records the formatted text through RecordError
+// instead. Safe to call on a nil span.
+func (s *Span) Error(message string, args ...any) {
+	if s == nil {
+		return
+	}
+	if !s.trace.logsEnabled() {
+		s.RecordError(errors.New(formatLogText(message, args)))
+		return
+	}
+	s.trace.appendLog(LevelError, s.ID, message, args)
+}
+
+// StartSpan records a span without deriving a context. Use it for leaf spans
+// that will not nest.
+func StartSpan(ctx context.Context, name string, kind ...Kind) *Span {
+	_, span := Start(ctx, name, kind...)
+	return span
 }

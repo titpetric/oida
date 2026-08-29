@@ -101,6 +101,18 @@ fi
 
 detail="${UI}/trace/${trace}"
 
+# The trace for the log shot: the one that wrote the most entries, which is a
+# failed user lookup carrying its cache miss and the error.
+trace_logs=$(curl -s "${BASE}${UI}/traces?format=json" |
+  jq -r 'map(select(.logs != null)) | sort_by(.logs | length) | last | .id // empty')
+
+if [ -z "$trace_logs" ]; then
+  echo "no trace with log entries was recorded" >&2
+  exit 1
+fi
+
+detail_logs="${UI}/trace/${trace_logs}"
+
 cd "$root"
 
 shots=$(cat <<MANIFEST | node scripts/shot.js
@@ -148,6 +160,11 @@ shots=$(cat <<MANIFEST | node scripts/shot.js
       "out": "docs/assets/detail-spans.png",
       "path": "${detail}",
       "pick": "(function(){ var f = q('.spans'); f.style.transition = 'none'; q('input[data-peek]').checked = true; f.getBoundingClientRect(); return [q('.peek'), f]; })()"
+    },
+    {
+      "out": "docs/assets/detail-logs.png",
+      "path": "${detail_logs}",
+      "pick": "(function(){ q('#oida-tab-logs').checked = true; var p = q('.logs-panel'); p.getBoundingClientRect(); return [q('div.tabs'), p]; })()"
     },
     {
       "out": "docs/assets/detail-footer.png",

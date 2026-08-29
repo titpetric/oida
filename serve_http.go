@@ -20,12 +20,22 @@ var _ http.Handler = (*Tracer)(nil)
 // A path that does not start with Options.Path is treated as already relative,
 // the shape http.StripPrefix delivers. A nil tracer serves 404, not a panic.
 func (t *Tracer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := t.serveHTTP(w, r); err != nil {
+		t.onError(err)
+	}
+}
+
+// serveHTTP builds the front end handler on first use and serves the request.
+// The front end reports its own failures through Options.OnError, so a nil
+// error is the norm.
+func (t *Tracer) serveHTTP(w http.ResponseWriter, r *http.Request) error {
 	if t == nil {
 		http.NotFound(w, r)
-		return
+		return nil
 	}
 	t.handlerOnce.Do(func() {
 		t.handler = frontend.HandlerFor(t)
 	})
 	t.handler.ServeHTTP(w, r)
+	return nil
 }

@@ -301,7 +301,7 @@ func matches(trace model.Trace, query string) bool {
 	}
 	query = strings.ToLower(query)
 
-	if contains(trace.Name, query) || contains(trace.ID, query) || contains(trace.Error, query) {
+	if contains(trace.Name, query) || contains(trace.ID, query) || contains(trace.ErrorText, query) {
 		return true
 	}
 	if trace.HTTP != nil {
@@ -321,7 +321,7 @@ func matches(trace model.Trace, query string) bool {
 			continue
 		}
 		if contains(span.Name, query) || contains(string(span.Kind), query) ||
-			contains(span.Error, query) || contains(span.Filename, query) {
+			contains(span.ErrorText, query) || contains(span.Filename, query) {
 			return true
 		}
 		for key, value := range span.Attributes {
@@ -394,7 +394,7 @@ func traceDot(trace model.Trace) string {
 	if trace.HTTP != nil && trace.HTTP.Status > 0 {
 		return statusDot(trace.HTTP.Status)
 	}
-	if trace.Error != "" || trace.State == model.StateError {
+	if trace.ErrorText != "" || trace.State == model.StateError {
 		return "dot bad"
 	}
 	return "dot ok"

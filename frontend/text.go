@@ -146,8 +146,8 @@ func writeDetailText(w io.Writer, page Page) {
 	if trace.HTTP != nil {
 		fmt.Fprintf(w, "HTTP %d · %s · %s · %s\n", trace.HTTP.Status, trace.HTTP.Method, trace.HTTP.URI, trace.HTTP.RemoteAddress)
 	}
-	if trace.Error != "" {
-		fmt.Fprintf(w, "Error: %s\n", trace.Error)
+	if trace.ErrorText != "" {
+		fmt.Fprintf(w, "Error: %s\n", trace.ErrorText)
 	}
 	fmt.Fprintln(w)
 
@@ -181,11 +181,13 @@ func writeDetailText(w io.Writer, page Page) {
 		for _, key := range sortedKeys(row.Attributes) {
 			fmt.Fprintf(w, "%s%s = %s\n", strings.Repeat(" ", 74), key, attributeValue(row.Attributes, key))
 		}
-		if row.Error != "" {
-			fmt.Fprintf(w, "%s! %s\n", strings.Repeat(" ", 74), row.Error)
+		if row.ErrorText != "" {
+			fmt.Fprintf(w, "%s! %s\n", strings.Repeat(" ", 74), row.ErrorText)
 		}
 	}
 	fmt.Fprintln(w)
+
+	writeLogsText(w, page)
 
 	fmt.Fprintf(w, "Memory: heap %s · allocated %s · %d allocations · %d GC cycles / %s\n",
 		signedBytesText(trace.Memory.HeapDelta), bytesText(trace.Memory.AllocatedBytes),

@@ -54,6 +54,9 @@ A trace detail page shows:
 - Transaction attributes recorded on the trace, keys read as labels and byte-valued keys read as sizes
 - HTTP request and response details when the trace came from a request
 - Heap delta, allocated bytes, allocations, GC cycles, and GC pause
+- A Log tab beside the spans, showing the entries recorded with `Info` and `Error`: offset from the trace start, level, the span each entry was written under, and the message with its key/value pairs
+
+The Log tab switches without scripting and names its entry count. A trace without entries shows how to record one; entries over the `MaxSpansPerTrace` bound are dropped and counted. The plain text rendering carries the same table, and the trace JSON carries the entries under `logs`.
 
 Memory values under System are process-wide observations. Concurrent traces can overlap, so use them to identify trends rather than as isolated accounting.
 

@@ -106,7 +106,7 @@ func TestServerRecordsFailures(t *testing.T) {
 	if len(traces) != 1 {
 		t.Fatalf("recorded %d failed traces, want 1", len(traces))
 	}
-	if traces[0].Error == "" {
+	if traces[0].ErrorText == "" {
 		t.Fatalf("failed trace has no error: %+v", traces[0])
 	}
 }

@@ -1862,3 +1862,105 @@ section.login .login-note {
 section.login .login-note code {
   color: var(--text-dim);
 }
+
+
+/* Trace detail tabs: the spans and the log are two readings of the same
+   transaction, so they share one place on the page. The radios do the
+   switching, so it works with scripting off; the labels are set like the
+   other column headings. */
+.tabs {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.tabs input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.tabs label {
+  cursor: pointer;
+  padding: 0.45rem 0;
+  color: var(--text-dim);
+  font-size: 0.63rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs label b {
+  font-weight: 600;
+}
+
+.tabs input:checked + label {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+.tabs label:hover {
+  color: var(--text);
+}
+
+.tabs input:focus-visible + label {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+/* The log panel replaces the spans, the legend and their notes while its tab
+   is chosen. Everything else on the page stays. */
+.logs-panel {
+  display: none;
+}
+
+body:has(#oida-tab-logs:checked) .logs-panel {
+  display: block;
+}
+
+body:has(#oida-tab-logs:checked) .peek,
+body:has(#oida-tab-logs:checked) .spans,
+body:has(#oida-tab-logs:checked) .spans-note {
+  display: none;
+}
+
+.logs-panel > .scroll {
+  overflow-x: auto;
+}
+
+.logs-empty {
+  margin: 0;
+  padding: 2.5rem 1rem;
+  color: var(--text-dim);
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.logs-empty b {
+  display: block;
+  color: var(--text);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+/* Trace log entries. The table borrows everything from the span table; the
+   only ink of its own is the error level, because level is the data here. */
+.log-level {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.log-level-error {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.log-attr {
+  margin-left: 0.6em;
+  color: var(--text-dim);
+}

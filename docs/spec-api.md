@@ -119,6 +119,8 @@ When the context has no trace, these functions return nil spans, return the requ
 func (s *Span) End()
 func (s *Span) EndWithError(err error)
 func (s *Span) RecordError(err error)
+func (s *Span) Info(message string, args ...any)
+func (s *Span) Error(message string, args ...any)
 func (s *Span) SetAttribute(key string, value any)
 func (s *Span) SetAttributes(attributes Attributes)
 func (s *Span) SetName(name string)
@@ -130,7 +132,7 @@ func (s *Span) Context(ctx context.Context) context.Context
 func (s *Span) Trace() *Trace
 ```
 
-`End` is idempotent. `RecordError` marks both the span and trace as failed.
+`End` is idempotent. `RecordError` marks both the span and trace as failed. `Info` and `Error` record log entries on the trace of the span, linked to the span; see [the instrumentation guide](guide-instrumentation.md).
 
 ### Trace methods
 
@@ -139,6 +141,10 @@ The trace API matches the span API where the two mean the same thing:
 ```go
 func (t *Trace) RecordError(err error)
 func (t *Trace) Err() error
+func (t *Trace) Info(message string, args ...any)
+func (t *Trace) Error(message string, args ...any)
+func (t *Trace) Current() *Span
+func (t *Trace) Root() *Span
 func (t *Trace) SetAttribute(key string, value any)
 func (t *Trace) SetAttributes(attributes Attributes)
 func (t *Trace) Attribute(key string) (any, bool)
@@ -157,6 +163,8 @@ if err := trace.Err(); errors.Is(err, context.Canceled) {
 ```
 
 `Span.RecordError` records on the span and then on its trace, so an error recorded anywhere in a transaction is readable from both. A trace or span decoded from JSON kept the message and not the value, and reports an error carrying that message.
+
+`Info` and `Error` record log entries linked to the innermost open span, which is what `Current` returns; `Root` returns the first recorded span. With `Options.CaptureLogs` off, `Info` does nothing and `Error` records through `RecordError` instead.
 
 Trace attributes are for what holds for the whole transaction, such as the memory limit it ran under. What holds for one operation belongs on the span that measured it. See [the data model](spec-model.md#attributes) for the keys the front end knows.
 

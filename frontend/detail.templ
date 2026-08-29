@@ -15,7 +15,7 @@ templ Detail(page Page) {
 				<span class="elapsed">{ preciseText(page.Trace.Duration) }</span>
 				if page.Trace.HTTP != nil && page.Trace.HTTP.Status > 0 {
 					<span class={ statusClass(page.Trace.HTTP.Status) }>{ strconv.Itoa(page.Trace.HTTP.Status) }</span>
-				} else if page.Trace.Error != "" {
+				} else if page.Trace.ErrorText != "" {
 					<span class="status s5xx">fail</span>
 				} else {
 					<span class="status job">job</span>
@@ -23,8 +23,8 @@ templ Detail(page Page) {
 				@traceLink(*page.Trace, page)
 				<span class="stream-status">{ page.Age(page.Trace.StartedAt) }</span>
 			</div>
-			if page.Trace.Error != "" {
-				<div class="error">{ page.Trace.Error }</div>
+			if page.Trace.ErrorText != "" {
+				<div class="error">{ page.Trace.ErrorText }</div>
 			}
 			<div class="live-head">
 				<h2>Transaction</h2>
@@ -33,6 +33,7 @@ templ Detail(page Page) {
 			if page.Memory.Spans {
 				@memoryGraph(page)
 			}
+			@detailTabs(page)
 			// Where the time went, and the way into the detail behind it. The
 			// legend is the answer on its own, so it is always here; the spans
 			// are the working, and they fold away until they are asked for.
@@ -70,10 +71,11 @@ templ Detail(page Page) {
 				</div>
 			</div>
 			if page.Trace.DroppedSpans > 0 {
-				<p class="note">
+				<p class="note spans-note">
 					{ strconv.Itoa(page.Trace.DroppedSpans) } spans were dropped: this trace hit Options.MaxSpansPerTrace.
 				</p>
 			}
+			@traceLogs(page)
 			@traceFacts(*page.Trace, page.Memory)
 			<a class="back" href={ templ.SafeURL(page.URL(ViewList)) }>← All traces</a>
 		}
@@ -183,8 +185,8 @@ templ spanRow(page Page, row SpanRow) {
 					</details>
 				}
 			</span>
-			if row.Error != "" {
-				<span class="error">{ row.Error }</span>
+			if row.ErrorText != "" {
+				<span class="error">{ row.ErrorText }</span>
 			}
 		</td>
 	</tr>

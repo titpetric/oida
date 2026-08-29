@@ -138,8 +138,10 @@ func lookupCache(ctx context.Context, id string) (string, bool) {
 	span.SetAttribute("hit", hit)
 	time.Sleep(time.Duration(rand.IntN(400)) * time.Microsecond)
 	if !hit {
+		span.Info("cache miss, falling back to the database", "key", "user:"+id)
 		return "", false
 	}
+	span.Info("cache hit", "key", "user:"+id)
 	return "user " + id + " (cached)", true
 }
 
@@ -153,15 +155,25 @@ func loadUser(ctx context.Context, id string) (string, error) {
 	time.Sleep(time.Duration(2+rand.IntN(6)) * time.Millisecond)
 
 	if id == "0" {
+		span.Error("user lookup returned no rows", "user_id", id)
 		return "", errors.New("user 0 does not exist")
 	}
+	span.Info("user loaded", "user_id", id, "rows", 1)
 	return "user " + id, nil
 }
 
-// report fans out concurrent work below one parent span.
+// report fans out concurrent work below one parent span, and writes the log a
+// typical web request would: session, flags, cache, queries, the external
+// call, rendering, compression. The entries land on the trace's Log tab.
 func report(w http.ResponseWriter, r *http.Request) {
 	ctx, span := oida.Start(r.Context(), "build report")
 	defer endSpan(ctx, span)
+
+	trace := oida.TraceFromContext(ctx)
+	trace.Info("session accepted", "user_id", 1042, "roles", "analyst")
+	trace.Info("feature flags loaded", "flags", 12, "source", "cache")
+
+	span.Info("report cache missed, rebuilding", "key", "report:daily")
 
 	done := make(chan struct{}, 3)
 	for i := range 3 {
@@ -170,19 +182,34 @@ func report(w http.ResponseWriter, r *http.Request) {
 			_, worker := oida.Start(ctx, fmt.Sprintf("shard %d", i), oida.KindDatabase)
 			defer endSpan(ctx, worker)
 			worker.SetAttribute("shard", i)
-			time.Sleep(time.Duration(3+rand.IntN(10)) * time.Millisecond)
+			elapsed := 3 + rand.IntN(10)
+			time.Sleep(time.Duration(elapsed) * time.Millisecond)
+			worker.Info("shard queried", "shard", i, "rows", 380+rand.IntN(60))
+			if elapsed > 10 {
+				worker.Error("shard exceeded its budget", "shard", i, "budget_ms", 10, "took_ms", elapsed)
+			}
 		}()
 	}
 	for range 3 {
 		<-done
 	}
 
-	if err := do(ctx, "GET pricing-api", func(context.Context) error {
+	// Logged on the trace: the entry attributes itself to the innermost open
+	// span, which is the report span holding this work.
+	trace.Info("report shards merged", "shards", 3, "rows", 1204)
+
+	if err := do(ctx, "GET pricing-api", func(ctx context.Context) error {
+		oida.SpanFromContext(ctx).Info("pricing api responded", "status", 200, "currency", "EUR")
 		time.Sleep(time.Duration(5+rand.IntN(20)) * time.Millisecond)
 		return nil
 	}, oida.KindExternal); err != nil {
 		span.RecordError(err)
 	}
+
+	trace.Info("totals computed", "rows", 1204, "sum", "48210.50")
+	span.Info("report rendered", "template", "report.html", "bytes", 48512)
+	trace.Info("response compressed", "encoding", "gzip", "ratio", "3.1")
+	trace.Info("audit event queued", "topic", "reports", "partition", 3)
 
 	fmt.Fprintln(w, "report built")
 }

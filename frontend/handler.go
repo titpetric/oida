@@ -86,31 +86,40 @@ func (h *handler) tracer() model.Recorder {
 	return nopRecorder{}
 }
 
-// ServeHTTP routes one front end request.
+// ServeHTTP routes one front end request. The route handlers report their
+// failures through Options.OnError themselves, so serveHTTP returning an
+// error is the exception, reported the same way.
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := h.serveHTTP(w, r); err != nil {
+		h.tracer().ReportError(err)
+	}
+}
+
+// serveHTTP routes one front end request.
+func (h *handler) serveHTTP(w http.ResponseWriter, r *http.Request) error {
 	if !h.opts.Authorized(r) {
 		http.NotFound(w, r)
-		return
+		return nil
 	}
 
 	// The network allow list is a hard filter: a peer outside it receives
 	// the same 404 a failed Authorize sends.
 	if !h.auth.NetworkAllowed(r) {
 		http.NotFound(w, r)
-		return
+		return nil
 	}
 
 	route := h.relative(r)
 	if h.auth.LoginRequired() {
 		if route == "/login" || route == "/login/" {
 			h.serveLogin(w, r)
-			return
+			return nil
 		}
 		// The embedded assets stay reachable: the sign in screen needs its
 		// stylesheet, and the tree holds nothing recorded.
 		if _, ok := h.auth.RequestUser(r); !ok && !strings.HasPrefix(route, assetPrefix) {
 			h.serveUnauthorized(w, r)
-			return
+			return nil
 		}
 	}
 
@@ -130,10 +139,11 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		if id, ok := strings.CutPrefix(route, "/trace/"); ok {
 			h.serveDetail(w, r, strings.Trim(id, "/"))
-			return
+			return nil
 		}
 		http.NotFound(w, r)
 	}
+	return nil
 }
 
 // relative strips the mount path from the request path, so the same handler
@@ -453,7 +463,7 @@ func filterTraces(traces []model.Trace, page Page) []model.Trace {
 		if page.Host != "" && model.TraceHost(trace) != page.Host {
 			continue
 		}
-		if page.Status == "error" && trace.Error == "" && trace.State != model.StateError {
+		if page.Status == "error" && trace.ErrorText == "" && trace.State != model.StateError {
 			continue
 		}
 		out = append(out, trace)
