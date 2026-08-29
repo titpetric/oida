@@ -50,7 +50,6 @@ func run() error {
 	opts.Tracer = tracer
 
 	r := chi.NewRouter()
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(oida.TracingMiddleware(opts))
 
@@ -74,10 +73,11 @@ func run() error {
 
 Order matters:
 
-- `middleware.RealIP` is optional for the recorded remote address: oida resolves the client IP from the `Forwarded` and `X-Forwarded-For` headers itself, skipping LAN and loopback hops (see [spec-model.md](spec-model.md)). Keep it when your own handlers read `r.RemoteAddr`.
 - `oida.TracingMiddleware` goes **after** `middleware.Recoverer` is registered if you want the recoverer to catch panics first. oida re-panics after recording, so either order records the failure; putting oida inside the recoverer keeps the 500 response behaviour of chi.
 - `frontend.Mount` must be called on a router that has the middleware registered, or on any router in the same process: the tracer is shared, not the router.
 - Routes registered *before* `r.Use` panic in chi; register middleware first.
+
+`middleware.RealIP` is not in the example because oida does not need it: the middleware resolves the client IP from the `Forwarded` and `X-Forwarded-For` headers itself, skipping LAN and loopback hops (see [spec-model.md](spec-model.md)). The same resolution runs on a plain `net/http` mux (section 3), which has no RealIP equivalent. Add RealIP when your own chi handlers read `r.RemoteAddr` and expect the client address there.
 
 Visit `http://localhost:8080/debug/oida`.
 
