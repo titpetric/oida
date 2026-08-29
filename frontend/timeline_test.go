@@ -1,10 +1,11 @@
-package frontend
+package frontend_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/frontend"
 )
 
 // timelineTrace builds a trace with nested spans at fixed offsets.
@@ -38,7 +39,7 @@ func timelineTrace() oida.Trace {
 }
 
 func TestTimelineAttributesInnermostSpan(t *testing.T) {
-	segments := Timeline(timelineTrace())
+	segments := frontend.Timeline(timelineTrace())
 
 	want := []struct {
 		kind     oida.Kind
@@ -68,13 +69,13 @@ func TestTimelineAttributesInnermostSpan(t *testing.T) {
 func TestTimelineWithoutDurationIsEmpty(t *testing.T) {
 	trace := timelineTrace()
 	trace.Duration = 0
-	if segments := Timeline(trace); segments != nil {
+	if segments := frontend.Timeline(trace); segments != nil {
 		t.Fatalf("produced %d segments for an unfinished trace", len(segments))
 	}
 }
 
 func TestRowsAreDepthFirst(t *testing.T) {
-	rows := Rows(timelineTrace())
+	rows := frontend.Rows(timelineTrace())
 
 	names := make([]string, 0, len(rows))
 	for _, row := range rows {

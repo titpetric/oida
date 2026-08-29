@@ -10,7 +10,7 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // durationText renders a duration at microsecond resolution.
@@ -187,8 +187,8 @@ func attributeText(value any) string {
 // attributeValue renders one attribute in the unit its key implies: a memory
 // limit recorded as 1048576 reads as a megabyte. The exact figure is in the
 // JSON.
-func attributeValue(attributes oida.Attributes, key string) string {
-	if oida.IsBytes(key) {
+func attributeValue(attributes model.Attributes, key string) string {
+	if model.IsBytes(key) {
 		if size, ok := attributes.Int64(key); ok {
 			return signedBytesText(size)
 		}
@@ -240,7 +240,7 @@ func memoryText(row SpanRow) string {
 
 // sortedKeys returns the attribute keys in a stable order, so a rendered span
 // does not reshuffle between refreshes.
-func sortedKeys(attributes oida.Attributes) []string {
+func sortedKeys(attributes model.Attributes) []string {
 	keys := make([]string, 0, len(attributes))
 	for key := range attributes {
 		keys = append(keys, key)
@@ -251,7 +251,7 @@ func sortedKeys(attributes oida.Attributes) []string {
 
 // keyList renders the attribute keys as the summary of the disclosure, so a
 // span reads as a name plus what is known about it, not as a wall of chips.
-func keyList(attributes oida.Attributes) string {
+func keyList(attributes model.Attributes) string {
 	return strings.Join(sortedKeys(attributes), ", ")
 }
 
@@ -267,14 +267,14 @@ func isQueryKey(key string) bool {
 
 // shapeTitle summarises where a trace spent its time, for the tooltip on the
 // shape bar: "database 62% · external 30%".
-func shapeTitle(trace oida.Trace) string {
+func shapeTitle(trace model.Trace) string {
 	segments := Timeline(trace)
 	if len(segments) == 0 {
 		return durationText(trace.Duration)
 	}
 
-	shares := make(map[oida.Kind]float64, len(segments))
-	order := make([]oida.Kind, 0, len(segments))
+	shares := make(map[model.Kind]float64, len(segments))
+	order := make([]model.Kind, 0, len(segments))
 	for _, segment := range segments {
 		if _, seen := shares[segment.Kind]; !seen {
 			order = append(order, segment.Kind)
@@ -295,7 +295,7 @@ func shapeTitle(trace oida.Trace) string {
 // name, source, error and attribute values of every span. Searching for
 // "select" has to find the trace that ran the query, not just the ones whose
 // route happens to contain the word.
-func matches(trace oida.Trace, query string) bool {
+func matches(trace model.Trace, query string) bool {
 	if query == "" {
 		return true
 	}
@@ -340,7 +340,7 @@ func contains(value, lowered string) bool {
 
 // slowest returns the longest duration in a set of traces, used to scale the
 // inline bars so rows compare against each other.
-func slowest(traces []oida.Trace) time.Duration {
+func slowest(traces []model.Trace) time.Duration {
 	var longest time.Duration
 	for _, trace := range traces {
 		if trace.Duration > longest {
@@ -351,7 +351,7 @@ func slowest(traces []oida.Trace) time.Duration {
 }
 
 // recent returns at most n traces from the front of a newest-first list.
-func recent(traces []oida.Trace, n int) []oida.Trace {
+func recent(traces []model.Trace, n int) []model.Trace {
 	if n > 0 && len(traces) > n {
 		return traces[:n]
 	}
@@ -361,7 +361,7 @@ func recent(traces []oida.Trace, n int) []oida.Trace {
 // remoteText returns the peer a trace came from. Work that did not arrive over
 // the network came from inside the process, and says so rather than showing an
 // empty cell.
-func remoteText(trace oida.Trace) string {
+func remoteText(trace model.Trace) string {
 	if trace.HTTP == nil || trace.HTTP.RemoteAddress == "" {
 		return "internal"
 	}
@@ -390,11 +390,11 @@ func slaClass(sla float64) string {
 
 // traceDot returns the health dot of a trace: green for a delivered response,
 // orange for a client error, red for a server error or a recorded failure.
-func traceDot(trace oida.Trace) string {
+func traceDot(trace model.Trace) string {
 	if trace.HTTP != nil && trace.HTTP.Status > 0 {
 		return statusDot(trace.HTTP.Status)
 	}
-	if trace.Error != "" || trace.State == oida.StateError {
+	if trace.Error != "" || trace.State == model.StateError {
 		return "dot bad"
 	}
 	return "dot ok"
@@ -415,7 +415,7 @@ func statusDot(status int) string {
 }
 
 // hostDot returns the health dot of a host: red once anything it served failed.
-func hostDot(host oida.HostStat) string {
+func hostDot(host model.HostStat) string {
 	if host.Errors > 0 {
 		return "dot bad"
 	}
@@ -423,7 +423,7 @@ func hostDot(host oida.HostStat) string {
 }
 
 // hostHealth is the tooltip behind the host dot.
-func hostHealth(host oida.HostStat) string {
+func hostHealth(host model.HostStat) string {
 	if host.Errors == 0 {
 		return "no failures recorded"
 	}
@@ -448,17 +448,17 @@ func statusClass(status int) string {
 
 // kindStyle returns the badge style of a span kind. Badges carry dark text on
 // the kind colour, which holds contrast in both themes.
-func kindStyle(kind oida.Kind) templ.SafeCSS {
+func kindStyle(kind model.Kind) templ.SafeCSS {
 	return templ.SafeCSS("background:" + kind.Color() + ";color:#07090c")
 }
 
 // kindBackground returns the legend swatch style of a span kind.
-func kindBackground(kind oida.Kind) templ.SafeCSS {
+func kindBackground(kind model.Kind) templ.SafeCSS {
 	return templ.SafeCSS("background:" + kind.Color())
 }
 
 // kindBorder returns the row accent style of a span kind.
-func kindBorder(kind oida.Kind) templ.SafeCSS {
+func kindBorder(kind model.Kind) templ.SafeCSS {
 	return templ.SafeCSS("border-left:4px solid " + kind.Color())
 }
 
@@ -498,7 +498,7 @@ func indentStyle(depth int) templ.SafeCSS {
 }
 
 // stateClass returns the CSS class of a scoreboard state.
-func stateClass(state oida.State) string {
+func stateClass(state model.State) string {
 	return "state-" + strings.ToLower(state.Label())
 }
 

@@ -10,37 +10,32 @@ Package oida records in-process telemetry: traces and spans held in a ring
 buffer inside the process, with a server side rendered front end mounted at
 /debug/oida.
 
-Wire it into a service in three calls: configure the tracer, add the
-middleware, mount the dashboard from github.com/titpetric/oida/frontend.
-With the standard library ServeMux:
+Wire it into a service in three calls: configure the tracer, mount it, add
+the middleware. The tracer is an http.Handler serving the debug front end,
+so it mounts like any other handler and no second import is needed:
 
 ```go
-opts := oida.NewOptions()
-opts.ServiceName = "billing-api"
-
-tracer, err := oida.Configure(opts)
+tracer, err := oida.Configure(oida.NewOptions("billing-api"))
 if err != nil {
 	return err
 }
-opts.Tracer = tracer
 
 mux := http.NewServeMux()
-if err := frontend.MountServeMux(mux, opts); err != nil {
-	return err
-}
-handler := oida.TracingMiddleware(opts)(mux)
-return http.ListenAndServe(":8080", handler)
+mux.Handle("/debug/oida/", tracer)
 ```
 
-With a chi router the middleware registers like any other, and the same
-options carry over:
+A chi router mounts the same tracer with its own call:
 
 ```go
 r := chi.NewRouter()
-r.Use(oida.TracingMiddleware(opts))
-if err := frontend.Mount(r, opts); err != nil {
-	return err
-}
+r.Mount("/debug/oida", tracer)
+```
+
+The middleware records every sampled request into the tracer:
+
+```go
+handler := tracer.Middleware(mux)
+return http.ListenAndServe(":8080", handler)
 ```
 
 Instrument anything below the middleware:
@@ -55,11 +50,12 @@ Every instrumentation call is nil safe, so instrumented code runs unchanged
 in processes where oida is disabled, where the request was not sampled, or
 where no trace is in the context.
 
-The project is three packages. This one records: the tracer, the middleware,
-the options and the storage. Package model holds the recorded data and
-depends on nothing; the types it defines are aliased here, so instrumenting a
-service needs this import alone. Package frontend serves the dashboard and is
-the only one that renders.
+The project is three packages. This one records and serves: the tracer, the
+middleware, the options and the storage. Package model holds the recorded
+data and the configuration and depends on nothing; the types it defines are
+aliased here, so instrumenting a service needs this import alone. Package
+frontend renders the dashboard, reads the model alone, and is imported here
+so the tracer can serve it.
 
 Nothing in this package writes to stdout or stderr. Storage and rendering
 failures are reported through Options.OnError.
@@ -71,88 +67,9 @@ failures are reported through Options.OnError.
 
 ```go
 // Options configures telemetry behaviour, the debug front end and the
-// middleware. Take NewOptions and override what you need, so fields added in
-// later versions keep their defaults.
-type Options struct {
-	// Path is the mount path of the debug front end.
-	Path string `yaml:"path"`
-
-	// ServiceName is displayed in the front end and recorded on every trace.
-	ServiceName string `yaml:"service_name"`
-
-	// Enabled records traces. A disabled tracer passes requests through.
-	Enabled bool `yaml:"enabled"`
-
-	// RingBufferSize is the number of completed traces retained.
-	RingBufferSize int `yaml:"ring_buffer_size"`
-
-	// TopRequests is the maximum number of groups in rolling statistics.
-	TopRequests int `yaml:"top_requests"`
-
-	// MaxSpansPerTrace bounds the spans recorded in a single trace. Excess
-	// spans are counted in Trace.DroppedSpans. Zero means unlimited.
-	MaxSpansPerTrace int `yaml:"max_spans_per_trace"`
-
-	// SampleRate is the percentage of requests traced, between 0 and 100. It
-	// is ignored when Sampler is set.
-	SampleRate float64 `yaml:"sample_rate"`
-
-	// TrackMemoryUse records process-wide allocation changes for each trace.
-	TrackMemoryUse bool `yaml:"track_memory_use"`
-
-	// TrustRequestID reuses a client supplied Request-Id header. Only enable
-	// this behind a trusted proxy.
-	TrustRequestID bool `yaml:"trust_request_id"`
-
-	// IgnorePaths lists request paths that are never traced. Entries ending in
-	// "/*" match by prefix.
-	IgnorePaths []string `yaml:"ignore_paths"`
-
-	// RefreshInterval is the fallback auto refresh interval of the live view in
-	// seconds, used when the browser cannot stream. Zero disables it.
-	RefreshInterval int `yaml:"refresh_interval"`
-
-	// LiveStream serves the live view over server sent events, so recorded
-	// traces appear as they happen instead of on a timer.
-	LiveStream bool `yaml:"live_stream"`
-
-	// Sampler decides whether a request is traced. It replaces SampleRate.
-	Sampler Sampler `yaml:"-"`
-
-	// Storage retains completed traces. Defaults to StorageMemory sized by
-	// RingBufferSize; StorageDisk retains them across restarts.
-	Storage Storage `yaml:"-"`
-
-	// RouteFunc returns the routed pattern of a request, so statistics group
-	// /users/1 and /users/2 into GET /users/{id}. With chi:
-	//
-	//	opts.RouteFunc = func(r *http.Request) string {
-	//		return chi.RouteContext(r.Context()).RoutePattern()
-	//	}
-	//
-	// The function decides on its own: returning an empty string means the
-	// request has no route worth grouping by, and it groups by path instead.
-	// A nil function falls back to the pattern the router recorded on the
-	// request, which is what http.ServeMux and chi both set.
-	RouteFunc func(r *http.Request) string `yaml:"-"`
-
-	// OnError receives storage and recording errors. The package never writes
-	// to stdout or stderr, so this is the only way to observe them.
-	OnError func(error) `yaml:"-"`
-
-	// Authorize gates access to the debug front end. A nil function allows
-	// every request.
-	Authorize func(r *http.Request) bool `yaml:"-"`
-
-	// Clock is the time source of the tracer. Defaults to time.Now.
-	Clock func() time.Time `yaml:"-"`
-
-	// Tracer is the recorder used by TracingMiddleware, Handler and Mount. A
-	// nil tracer resolves the process default.
-	Tracer *Tracer `yaml:"-"`
-
-	initialized bool
-}
+// middleware. It lives in the model package so the front end can read it
+// without depending on the recorder; the alias keeps it spelled oida.Options.
+type Options = model.Options
 ```
 
 </details>
@@ -161,19 +78,11 @@ type Options struct {
 <summary><code>type Recorder</code></summary>
 
 ```go
-// Recorder is the substitutable subset of Tracer. Code that only needs to
-// record and read back traces can depend on this interface instead of the
-// concrete tracer.
-type Recorder interface {
-	// StartTrace begins a trace the caller must complete with Finish.
-	StartTrace(ctx context.Context, name string) (context.Context, *Trace, error)
-
-	// Finish completes a trace and retains it.
-	Finish(t *Trace)
-
-	// Snapshot returns a race free copy of the recorded state.
-	Snapshot() Snapshot
-}
+// Recorder is the substitutable surface of Tracer: the write side the
+// instrumentation records through, and the read side the debug front end
+// renders from. Code that only needs to record and read back traces can depend
+// on this interface instead of the concrete tracer.
+type Recorder = model.Recorder
 ```
 
 </details>
@@ -184,9 +93,7 @@ type Recorder interface {
 ```go
 // Sampler decides whether a request is traced. The decision is taken before a
 // trace is allocated, so rejecting a request costs one interface call.
-type Sampler interface {
-	Sample(r *http.Request) bool
-}
+type Sampler = model.Sampler
 ```
 
 </details>
@@ -196,7 +103,7 @@ type Sampler interface {
 
 ```go
 // SamplerFunc adapts a function to the Sampler interface.
-type SamplerFunc func(r *http.Request) bool
+type SamplerFunc = model.SamplerFunc
 ```
 
 </details>
@@ -209,28 +116,9 @@ type SamplerFunc func(r *http.Request) bool
 // use: the tracer writes from request goroutines and reads from the debug front
 // end at the same time.
 //
-// Two implementations ship with the package: StorageMemory, a bounded ring
+// Two implementations ship with this package: StorageMemory, a bounded ring
 // buffer, and StorageDisk, a bounded folder of JSON documents.
-type Storage interface {
-	// Save retains a completed trace.
-	Save(ctx context.Context, trace Trace) error
-
-	// Load returns a retained trace, or ErrTraceNotFound.
-	Load(ctx context.Context, id string) (Trace, error)
-
-	// List returns retained traces newest first, at most limit of them. A limit
-	// of zero or less returns everything retained.
-	List(ctx context.Context, limit int) ([]Trace, error)
-
-	// Len returns the number of retained traces.
-	Len(ctx context.Context) (int, error)
-
-	// Cap returns the retention limit, or zero when unbounded.
-	Cap() int
-
-	// Reset drops every retained trace.
-	Reset(ctx context.Context) error
-}
+type Storage = model.Storage
 ```
 
 </details>
@@ -279,6 +167,11 @@ type Tracer struct {
 	events  *broker
 	started time.Time
 	enabled atomic.Bool
+
+	// handler is the debug front end, built on the first request ServeHTTP
+	// receives so an unmounted tracer never constructs it.
+	handlerOnce sync.Once
+	handler     http.Handler
 
 	mu        sync.RWMutex
 	active    map[string]*Trace
@@ -370,7 +263,7 @@ const BackgroundHost = model.BackgroundHost
 
 ```go
 // DefaultPath is the default mount path of the debug front end.
-const DefaultPath = "/debug/oida"
+const DefaultPath = model.DefaultPath
 ```
 
 </details>
@@ -443,26 +336,28 @@ const (
 
 ```go
 // The errors this package returns. Every configuration failure wraps
-// ErrInvalidOptions, so a caller can test for the class or for the case.
+// ErrInvalidOptions, so a caller can test for the class or for the case. The
+// values live in the model package so the front end can return them too; these
+// are the same error values, so errors.Is works with either spelling.
 var (
 	// ErrNilRouter is returned when Mount is called without a router.
-	ErrNilRouter = errors.New("oida: router is nil")
+	ErrNilRouter = model.ErrNilRouter
 
 	// ErrInvalidOptions is the base error for every configuration failure.
-	ErrInvalidOptions = errors.New("oida: invalid options")
+	ErrInvalidOptions = model.ErrInvalidOptions
 
 	// ErrInvalidPath is returned when Options.Path is not an absolute path.
-	ErrInvalidPath = fmt.Errorf("%w: path must be an absolute path", ErrInvalidOptions)
+	ErrInvalidPath = model.ErrInvalidPath
 
 	// ErrInvalidSampleRate is returned when Options.SampleRate is outside
 	// [0,100].
-	ErrInvalidSampleRate = fmt.Errorf("%w: sample rate must be between 0 and 100", ErrInvalidOptions)
+	ErrInvalidSampleRate = model.ErrInvalidSampleRate
 
 	// ErrTraceNotFound is returned when a trace ID is not in the ring buffer.
-	ErrTraceNotFound = errors.New("oida: trace not found")
+	ErrTraceNotFound = model.ErrTraceNotFound
 
 	// ErrDisabled is returned when a trace is requested from a disabled tracer.
-	ErrDisabled = errors.New("oida: tracer is disabled")
+	ErrDisabled = model.ErrDisabled
 )
 ```
 
@@ -476,7 +371,7 @@ var (
 - `func IsBytes (key string) bool`
 - `func MustResolve (opts Options) *Tracer`
 - `func New (opts Options) (*Tracer, error)`
-- `func NewOptions () Options`
+- `func NewOptions (serviceName string) Options`
 - `func NewRateSampler (rate float64) Sampler`
 - `func NewStorageDisk (limit int, paths ...string) (*StorageDisk, error)`
 - `func NewStorageMemory (size int) *StorageMemory`
@@ -515,6 +410,7 @@ var (
 - `func (*Tracer) Options () Options`
 - `func (*Tracer) ReportError (err error)`
 - `func (*Tracer) Reset ()`
+- `func (*Tracer) ServeHTTP (w http.ResponseWriter, r *http.Request)`
 - `func (*Tracer) SetEnabled (enabled bool)`
 - `func (*Tracer) Snapshot () Snapshot`
 - `func (*Tracer) StartTrace (ctx context.Context, name string) (context.Context, *Trace, error)`
@@ -522,10 +418,6 @@ var (
 - `func (*Tracer) Subscribe () (<-chan struct{}, func())`
 - `func (*Tracer) Trace (id string) (Trace, bool)`
 - `func (*Tracer) Traces () []Trace`
-- `func (Options) Authorized (r *http.Request) bool`
-- `func (Options) Validate () error`
-- `func (Options) WithDefaults () Options`
-- `func (SamplerFunc) Sample (r *http.Request) bool`
 
 ### Configure
 
@@ -582,10 +474,10 @@ func New(opts Options) (*Tracer, error)
 
 ### NewOptions
 
-NewOptions returns the default options.
+NewOptions returns the default options for the named service.
 
 ```go
-func NewOptions() Options
+func NewOptions(serviceName string) Options
 ```
 
 ### NewRateSampler
@@ -953,6 +845,26 @@ are left alone and are recorded when they complete.
 func (*Tracer) Reset()
 ```
 
+### ServeHTTP
+
+ServeHTTP serves the debug front end of the tracer, so a tracer mounts like
+any other handler:
+
+```go
+mux := http.NewServeMux()
+mux.Handle("/debug/oida/", tracer)
+
+r := chi.NewRouter()
+r.Mount("/debug/oida", tracer)
+```
+
+A path that does not start with Options.Path is treated as already relative,
+the shape http.StripPrefix delivers. A nil tracer serves 404, not a panic.
+
+```go
+func (*Tracer) ServeHTTP(w http.ResponseWriter, r *http.Request)
+```
+
 ### SetEnabled
 
 SetEnabled turns recording on or off at runtime. Retained traces are kept.
@@ -1020,40 +932,4 @@ Traces returns the retained traces, newest first.
 
 ```go
 func (*Tracer) Traces() []Trace
-```
-
-### Authorized
-
-Authorized reports whether r may access the debug front end. The front end
-asks before it serves anything, including its assets.
-
-```go
-func (Options) Authorized(r *http.Request) bool
-```
-
-### Validate
-
-Validate reports whether the options are usable. Every failure wraps
-ErrInvalidOptions.
-
-```go
-func (Options) Validate() error
-```
-
-### WithDefaults
-
-WithDefaults returns a usable copy of the options. Options created by
-NewOptions preserve explicit zero values; an uninitialized Options receives
-the numeric defaults for backward compatibility.
-
-```go
-func (Options) WithDefaults() Options
-```
-
-### Sample
-
-Sample implements Sampler.
-
-```go
-func (SamplerFunc) Sample(r *http.Request) bool
 ```

@@ -6,17 +6,19 @@ server-side rendered front end at `/debug/oida`. See [README.md](README.md) and
 
 ## Packages
 
-- `model/` holds the recorded data: `Trace`, `Span`, `Snapshot`, `Stats`. It
-  imports nothing from this project, which is what keeps the other two apart.
-- `oida` (root) records: tracer, middleware, options, storage, instrumentation.
-  It aliases the model types, so a service instruments with one import.
+- `model/` holds the recorded data and the configuration: `Trace`, `Span`,
+  `Snapshot`, `Stats`, `Options`, plus the `Storage`, `Sampler` and `Recorder`
+  interfaces. It imports nothing from this project, which is what keeps the
+  other two apart.
 - `frontend/` renders: templ views, the view model, the plain text and the
-  HTTP handler, mounted with `frontend.Mount`. It reads the model through the
-  root package and never appears in it.
+  HTTP handler. It imports `model` alone and never the root package; an
+  `oida.` reference from `frontend` is an import cycle.
+- `oida` (root) records and serves: tracer, middleware, storage,
+  instrumentation. It imports both of the others, aliases the model types
+  (`oida.Options`, `oida.Trace`, ...), and `(*Tracer).ServeHTTP` serves the
+  front end, so a service instruments and mounts with one import.
 
-The dependency runs one way, `frontend` to `oida` to `model`. A reference to
-`frontend` from the root package is an import cycle, not an oversight to fix
-later.
+The dependency runs one way, `oida` to `frontend` to `model`.
 
 ## Verifying changes
 

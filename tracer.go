@@ -29,6 +29,11 @@ type Tracer struct {
 	started time.Time
 	enabled atomic.Bool
 
+	// handler is the debug front end, built on the first request ServeHTTP
+	// receives so an unmounted tracer never constructs it.
+	handlerOnce sync.Once
+	handler     http.Handler
+
 	mu        sync.RWMutex
 	active    map[string]*Trace
 	total     uint64
@@ -59,10 +64,10 @@ func New(opts Options) (*Tracer, error) {
 
 	tracer := &Tracer{
 		opts:      opts,
-		sampler:   opts.sampler(),
+		sampler:   samplerFor(opts),
 		storage:   opts.Storage,
 		events:    newBroker(),
-		started:   opts.now(),
+		started:   clockNow(opts),
 		active:    make(map[string]*Trace),
 		stateTime: make(map[State]time.Duration),
 		requests:  make(map[string]uint64),
@@ -74,7 +79,7 @@ func New(opts Options) (*Tracer, error) {
 // Options returns the options the tracer was built with.
 func (t *Tracer) Options() Options {
 	if t == nil {
-		return NewOptions()
+		return NewOptions("")
 	}
 	return t.opts
 }
@@ -98,7 +103,7 @@ func (t *Tracer) StartTrace(ctx context.Context, name string) (context.Context, 
 	if t == nil || !t.Enabled() {
 		return ctx, nil, ErrDisabled
 	}
-	id, err := model.NewID(t.opts.now())
+	id, err := model.NewID(clockNow(t.opts))
 	if err != nil {
 		return ctx, nil, err
 	}
@@ -124,7 +129,7 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 
 // begin registers a new trace as active.
 func (t *Tracer) begin(id, name string, info *HTTPInfo) *Trace {
-	trace := model.NewTrace(id, name, t.opts.traceOptions())
+	trace := model.NewTrace(id, name, traceOptionsFor(t.opts))
 	trace.HTTP = info
 	if t.opts.TrackMemoryUse {
 		trace.TrackMemory()
@@ -289,7 +294,7 @@ func (t *Tracer) Snapshot() Snapshot {
 	return Snapshot{
 		Service:    t.opts.ServiceName,
 		StartedAt:  t.started,
-		Uptime:     t.opts.now().Sub(t.started),
+		Uptime:     clockNow(t.opts).Sub(t.started),
 		PID:        os.Getpid(),
 		GoVersion:  runtime.Version(),
 		GOMAXPROCS: runtime.GOMAXPROCS(0),

@@ -13,8 +13,7 @@ func newTestTracer(t *testing.T, apply func(*Options)) (*Tracer, *testClock) {
 	t.Helper()
 
 	clock := &testClock{now: time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)}
-	opts := NewOptions()
-	opts.ServiceName = "test"
+	opts := NewOptions("test")
 	opts.TrackMemoryUse = false
 	opts.Clock = clock.Now
 	opts.OnError = func(err error) { t.Errorf("oida: %v", err) }

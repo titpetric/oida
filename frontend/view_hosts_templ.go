@@ -10,7 +10,7 @@ import (
 
 	"github.com/a-h/templ"
 	templruntime "github.com/a-h/templ/runtime"
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Hosts renders the landing page: every domain this process serves, and how
@@ -286,9 +286,9 @@ func Hosts(page Page) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var21 string
-				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(oida.BackgroundHost)
+				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(model.BackgroundHost)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `frontend/view_hosts.templ`, Line: 62, Col: 78}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `frontend/view_hosts.templ`, Line: 62, Col: 79}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {

@@ -260,7 +260,7 @@ This is worth recording when the runtime can charge allocations to one request, 
 
 ```go
 func TestRepoSpans(t *testing.T) {
-	tracer, err := oida.New(oida.NewOptions())
+	tracer, err := oida.New(oida.NewOptions("test"))
 	if err != nil {
 		t.Fatal(err)
 	}

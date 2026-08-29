@@ -10,7 +10,7 @@ import (
 
 	"github.com/a-h/templ"
 	templruntime "github.com/a-h/templ/runtime"
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Detail renders one trace: what it was, where the time went, and what it did.
@@ -895,7 +895,7 @@ func spanRow(page Page, row SpanRow) templ.Component {
 // request details, what the transaction recorded about itself, and the request
 // cost. Each is labels on the left and values on the right, one row per
 // property, so a label is always in the same place.
-func traceFacts(trace oida.Trace, memory MemoryBudget) templ.Component {
+func traceFacts(trace model.Trace, memory MemoryBudget) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {

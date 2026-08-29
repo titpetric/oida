@@ -3,7 +3,7 @@ package frontend
 import (
 	"strconv"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Live renders the feed of traces. When streaming is enabled the section is
@@ -53,7 +53,7 @@ templ liveSection(page Page) {
 			<tbody id="oida-feed">
 				for _, trace := range page.Feed {
 					<tr
-						class={ "row", templ.KV("failed", trace.Error != "" || trace.State == oida.StateError),
+						class={ "row", templ.KV("failed", trace.Error != "" || trace.State == model.StateError),
 							templ.KV("running", trace.InFlight) }
 						data-key={ trace.ID }
 						data-href={ page.TraceURL(trace.ID) }

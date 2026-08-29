@@ -17,14 +17,14 @@ const RequestIDHeader = "Request-Id"
 func TracingMiddleware(opts Options) func(http.Handler) http.Handler {
 	opts = opts.WithDefaults()
 	tracer := MustResolve(opts)
-	sampler := opts.sampler()
+	sampler := samplerFor(opts)
 
 	return func(next http.Handler) http.Handler {
 		if next == nil {
 			next = http.NotFoundHandler()
 		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !tracer.Enabled() || opts.ignored(r.URL.Path) {
+			if !tracer.Enabled() || ignoredPath(opts, r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -103,7 +103,7 @@ func requestID(r *http.Request, opts Options) string {
 			return given
 		}
 	}
-	id, err := model.NewID(opts.now())
+	id, err := model.NewID(clockNow(opts))
 	if err != nil {
 		return ""
 	}

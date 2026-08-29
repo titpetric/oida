@@ -3,7 +3,7 @@ package frontend
 import (
 	"strconv"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Detail renders one trace: what it was, where the time went, and what it did.
@@ -194,7 +194,7 @@ templ spanRow(page Page, row SpanRow) {
 // request details, what the transaction recorded about itself, and the request
 // cost. Each is labels on the left and values on the right, one row per
 // property, so a label is always in the same place.
-templ traceFacts(trace oida.Trace, memory MemoryBudget) {
+templ traceFacts(trace model.Trace, memory MemoryBudget) {
 	<div class="facts">
 		<div>
 			<h3>Request</h3>

@@ -10,7 +10,7 @@ import (
 
 	"github.com/a-h/templ"
 	templruntime "github.com/a-h/templ/runtime"
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Layout renders the page chrome shared by every view.
@@ -986,7 +986,7 @@ func pageFooter(page Page) templ.Component {
 
 // traceLink renders a trace identifier: a health dot, the tail of the id, which
 // is what tells rows apart, and the full value one click away.
-func traceLink(trace oida.Trace, page Page) templ.Component {
+func traceLink(trace model.Trace, page Page) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -1090,7 +1090,7 @@ func traceLink(trace oida.Trace, page Page) templ.Component {
 }
 
 // stateBar renders the lifetime time in state as a proportional bar.
-func stateBar(durations []oida.StateDuration) templ.Component {
+func stateBar(durations []model.StateDuration) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {

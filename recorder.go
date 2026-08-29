@@ -1,17 +1,9 @@
 package oida
 
-import "context"
+import "github.com/titpetric/oida/model"
 
-// Recorder is the substitutable subset of Tracer. Code that only needs to
-// record and read back traces can depend on this interface instead of the
-// concrete tracer.
-type Recorder interface {
-	// StartTrace begins a trace the caller must complete with Finish.
-	StartTrace(ctx context.Context, name string) (context.Context, *Trace, error)
-
-	// Finish completes a trace and retains it.
-	Finish(t *Trace)
-
-	// Snapshot returns a race free copy of the recorded state.
-	Snapshot() Snapshot
-}
+// Recorder is the substitutable surface of Tracer: the write side the
+// instrumentation records through, and the read side the debug front end
+// renders from. Code that only needs to record and read back traces can depend
+// on this interface instead of the concrete tracer.
+type Recorder = model.Recorder

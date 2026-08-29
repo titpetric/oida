@@ -13,7 +13,7 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 const (
@@ -29,35 +29,54 @@ const (
 	streamHeartbeat = 20 * time.Second
 )
 
-// handler serves the debug front end of one tracer.
+// handler serves the debug front end of one recorder.
 type handler struct {
-	opts   oida.Options
-	tracer *oida.Tracer
+	opts model.Options
+
+	// recorder is the recorder the handler was bound to. A nil recorder is
+	// resolved on every request, so a dashboard mounted before the tracer is
+	// configured picks it up as soon as it exists.
+	recorder model.Recorder
 }
 
 var _ http.Handler = (*handler)(nil)
 
-// Handler returns the debug front end handler for the tracer resolved from
-// opts. Invalid options degrade to their defaults; use Mount or New when the
-// error matters.
-func Handler(opts oida.Options) http.Handler {
+// Handler returns the debug front end handler for the recorder in opts, or the
+// process default when none is set. Invalid options degrade to their defaults;
+// use Mount when the error matters.
+func Handler(opts model.Options) http.Handler {
 	opts = opts.WithDefaults()
-	tracer := oida.MustResolve(opts)
-	opts.Tracer = tracer
-	return newHandler(opts, tracer)
+	return newHandler(opts, opts.Tracer)
 }
 
-// HandlerFor returns the debug front end handler of one tracer, configured the
-// way that tracer is. It is the shortest path from a tracer to a dashboard.
-func HandlerFor(tracer *oida.Tracer) http.Handler {
-	opts := tracer.Options()
-	opts.Tracer = tracer
-	return newHandler(opts, tracer)
+// HandlerFor returns the debug front end handler of one recorder, configured
+// the way that recorder is. It is the shortest path from a tracer to a
+// dashboard, and it is what the tracer's own ServeHTTP builds.
+func HandlerFor(recorder model.Recorder) http.Handler {
+	opts := model.NewOptions("")
+	if recorder != nil {
+		opts = recorder.Options()
+	}
+	opts = opts.WithDefaults()
+	opts.Tracer = recorder
+	return newHandler(opts, recorder)
 }
 
-// newHandler returns the front end handler bound to a tracer.
-func newHandler(opts oida.Options, tracer *oida.Tracer) *handler {
-	return &handler{opts: opts, tracer: tracer}
+// newHandler returns the front end handler bound to a recorder.
+func newHandler(opts model.Options, recorder model.Recorder) *handler {
+	return &handler{opts: opts, recorder: recorder}
+}
+
+// tracer returns the recorder the request reads: the bound one, the process
+// default, or an empty recorder while neither exists.
+func (h *handler) tracer() model.Recorder {
+	if h.recorder != nil {
+		return h.recorder
+	}
+	if recorder := model.DefaultRecorder(); recorder != nil {
+		return recorder
+	}
+	return nopRecorder{}
 }
 
 // ServeHTTP routes one front end request.
@@ -101,7 +120,7 @@ func (h *handler) relative(r *http.Request) string {
 
 // serveHosts renders the landing page: the domains this process serves.
 func (h *handler) serveHosts(w http.ResponseWriter, r *http.Request) {
-	snapshot := h.tracer.Snapshot()
+	snapshot := h.tracer().Snapshot()
 	page := h.page(snapshot, ViewHosts, r)
 	page.Refresh = 0
 
@@ -117,7 +136,7 @@ func (h *handler) serveHosts(w http.ResponseWriter, r *http.Request) {
 
 // serveList renders the completed trace log.
 func (h *handler) serveList(w http.ResponseWriter, r *http.Request) {
-	snapshot := h.tracer.Snapshot()
+	snapshot := h.tracer().Snapshot()
 	page := h.page(snapshot, ViewList, r)
 	snapshot.Log = filterTraces(snapshot.Log, page)
 	sortTraces(snapshot.Log, page.Sort, page.Ascending)
@@ -155,7 +174,7 @@ func (h *handler) serveLive(w http.ResponseWriter, r *http.Request) {
 
 // serveStats renders the rolling statistics.
 func (h *handler) serveStats(w http.ResponseWriter, r *http.Request) {
-	snapshot := h.tracer.Snapshot()
+	snapshot := h.tracer().Snapshot()
 	page := h.page(snapshot, ViewStats, r)
 	page.Refresh = 0
 
@@ -171,22 +190,22 @@ func (h *handler) serveStats(w http.ResponseWriter, r *http.Request) {
 
 // serveDetail renders one trace.
 func (h *handler) serveDetail(w http.ResponseWriter, r *http.Request, id string) {
-	if !oida.ValidID(id) {
+	if !model.ValidID(id) {
 		http.NotFound(w, r)
 		return
 	}
-	trace, ok := h.tracer.Trace(id)
+	trace, ok := h.tracer().Trace(id)
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
 
-	page := h.page(h.tracer.Snapshot(), ViewDetail, r)
+	page := h.page(h.tracer().Snapshot(), ViewDetail, r)
 	// A trace belongs to a host whether or not the reader arrived through a
 	// host filter, so the masthead keeps naming it and the views around it stay
 	// narrowed to the same domain.
 	if page.Host == "" {
-		page.Host = oida.TraceHost(trace)
+		page.Host = model.TraceHost(trace)
 	}
 	page.Trace = &trace
 	page.Rows = Rows(trace)
@@ -243,7 +262,7 @@ func (h *handler) serveEvents(w http.ResponseWriter, r *http.Request) {
 	// The stream outlives any sane write deadline.
 	_ = controller.SetWriteDeadline(time.Time{})
 
-	events, cancel := h.tracer.Subscribe()
+	events, cancel := h.tracer().Subscribe()
 	defer cancel()
 
 	ctx := r.Context()
@@ -291,7 +310,7 @@ func (h *handler) writeLiveEvent(ctx context.Context, w io.Writer, r *http.Reque
 
 	var buffer bytes.Buffer
 	if err := liveSection(page).Render(ctx, &buffer); err != nil {
-		h.tracer.ReportError(err)
+		h.tracer().ReportError(err)
 		return false
 	}
 	if err := writeSSE(w, buffer.String()); err != nil {
@@ -330,7 +349,7 @@ func drain(events <-chan struct{}) {
 func (h *handler) render(w http.ResponseWriter, r *http.Request, component templ.Component) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := component.Render(r.Context(), w); err != nil {
-		h.tracer.ReportError(err)
+		h.tracer().ReportError(err)
 	}
 }
 
@@ -338,10 +357,10 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, component templ
 // into one feed, newest first, so a request appears the moment it starts and
 // stays put as it finishes rather than jumping between two tables.
 func (h *handler) livePage(r *http.Request) Page {
-	snapshot := h.tracer.Snapshot()
+	snapshot := h.tracer().Snapshot()
 	page := h.page(snapshot, ViewLive, r)
 
-	feed := make([]oida.Trace, 0, len(snapshot.Live)+len(snapshot.Log))
+	feed := make([]model.Trace, 0, len(snapshot.Live)+len(snapshot.Log))
 	feed = append(feed, snapshot.Live...)
 	feed = append(feed, snapshot.Log...)
 	if page.Host != "" {
@@ -360,7 +379,7 @@ func (h *handler) livePage(r *http.Request) Page {
 }
 
 // page builds the view model shared by every component.
-func (h *handler) page(snapshot oida.Snapshot, view View, r *http.Request) Page {
+func (h *handler) page(snapshot model.Snapshot, view View, r *http.Request) Page {
 	page := Page{
 		Snapshot: snapshot,
 		View:     view,
@@ -373,7 +392,7 @@ func (h *handler) page(snapshot oida.Snapshot, view View, r *http.Request) Page 
 		Stream:   h.opts.LiveStream,
 	}
 	if kind := strings.TrimSpace(r.URL.Query().Get("kind")); kind != "" {
-		page.Kind = oida.Kind(kind)
+		page.Kind = model.Kind(kind)
 	}
 	page.Host = strings.TrimSpace(r.URL.Query().Get("host"))
 	page.RequestHost = r.Host
@@ -389,13 +408,13 @@ func (h *handler) page(snapshot oida.Snapshot, view View, r *http.Request) Page 
 }
 
 // filterTraces applies the list filters of a page.
-func filterTraces(traces []oida.Trace, page Page) []oida.Trace {
+func filterTraces(traces []model.Trace, page Page) []model.Trace {
 	if page.Query == "" && page.Kind == "" && page.Host == "" &&
 		(page.Status == "" || page.Status == "all") {
 		return traces
 	}
 
-	out := make([]oida.Trace, 0, len(traces))
+	out := make([]model.Trace, 0, len(traces))
 	for _, trace := range traces {
 		if !matches(trace, page.Query) {
 			continue
@@ -403,10 +422,10 @@ func filterTraces(traces []oida.Trace, page Page) []oida.Trace {
 		if page.Kind != "" && !trace.HasKind(page.Kind) {
 			continue
 		}
-		if page.Host != "" && oida.TraceHost(trace) != page.Host {
+		if page.Host != "" && model.TraceHost(trace) != page.Host {
 			continue
 		}
-		if page.Status == "error" && trace.Error == "" && trace.State != oida.StateError {
+		if page.Status == "error" && trace.Error == "" && trace.State != model.StateError {
 			continue
 		}
 		out = append(out, trace)

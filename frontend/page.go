@@ -7,19 +7,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Page is the view model handed to every templ component. Components take
 // nothing else, so they can be rendered in tests from a hand built page.
 type Page struct {
-	Snapshot oida.Snapshot
+	Snapshot model.Snapshot
 	View     View
 	Path     string
 	Title    string
 	Limit    int
 	Query    string
-	Kind     oida.Kind
+	Kind     model.Kind
 
 	// Host is the domain filter, empty for every host. RequestHost is the
 	// domain this dashboard was reached on, which is the sensible default
@@ -36,9 +36,9 @@ type Page struct {
 
 	// Feed is the live view: traces in flight and completed traces in one
 	// stream, newest first.
-	Feed []oida.Trace
+	Feed []model.Trace
 
-	Trace    *oida.Trace
+	Trace    *model.Trace
 	Rows     []SpanRow
 	Segments []Segment
 
@@ -153,7 +153,7 @@ func (p Page) SortClass(key SortKey) string {
 }
 
 // Hosts returns the hosts seen by the process, for the filter control.
-func (p Page) Hosts() []oida.HostStat {
+func (p Page) Hosts() []model.HostStat {
 	return p.Snapshot.Statistics.Hosts
 }
 
@@ -290,7 +290,7 @@ func (p Page) Service() string {
 
 // DurationShare returns the duration of a trace relative to the slowest trace
 // on the page.
-func (p Page) DurationShare(trace oida.Trace) float64 {
+func (p Page) DurationShare(trace model.Trace) float64 {
 	return share(trace.Duration, p.Slowest)
 }
 
@@ -298,7 +298,7 @@ func (p Page) DurationShare(trace oida.Trace) float64 {
 // the page, so one row of bars compares traces against each other rather than
 // against themselves. The shape of a request (how much of it was database,
 // how much was waiting on someone else) is the thing worth seeing in a list.
-func (p Page) Composition(trace oida.Trace) []Segment {
+func (p Page) Composition(trace model.Trace) []Segment {
 	segments := Timeline(trace)
 	if p.Slowest <= 0 || trace.Duration <= 0 {
 		return segments
@@ -381,8 +381,8 @@ func (p Page) WaveTrace() WaveTrace {
 
 // KindShares totals the timeline by kind, newest share first, for the legend.
 func (p Page) KindShares() []Segment {
-	shares := make(map[oida.Kind]*Segment, len(p.Segments))
-	order := make([]oida.Kind, 0, len(p.Segments))
+	shares := make(map[model.Kind]*Segment, len(p.Segments))
+	order := make([]model.Kind, 0, len(p.Segments))
 	for _, segment := range p.Segments {
 		total := shares[segment.Kind]
 		if total == nil {

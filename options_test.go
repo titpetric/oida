@@ -16,7 +16,7 @@ func TestOptionsDefaultsAndValidation(t *testing.T) {
 		t.Fatalf("path is %q, want the trailing slash trimmed", trimmed.Path)
 	}
 
-	zeroes := NewOptions()
+	zeroes := NewOptions("")
 	zeroes.RingBufferSize = 0
 	zeroes.TopRequests = 0
 	zeroes.MaxSpansPerTrace = 0
@@ -28,16 +28,16 @@ func TestOptionsDefaultsAndValidation(t *testing.T) {
 		t.Fatalf("explicit zero values were replaced: %+v", zeroes)
 	}
 
-	if !opts.ignored(DefaultPath + "/stats") {
+	if !ignoredPath(opts, DefaultPath+"/stats") {
 		t.Error("the front end path is traced")
 	}
-	if !opts.ignored("/healthz") || opts.ignored("/users/1") {
+	if !ignoredPath(opts, "/healthz") || ignoredPath(opts, "/users/1") {
 		t.Error("ignore paths do not match as documented")
 	}
 
-	prefixed := NewOptions()
+	prefixed := NewOptions("")
 	prefixed.IgnorePaths = []string{"/assets/*"}
-	if !prefixed.ignored("/assets/app.css") || prefixed.ignored("/assetsx") {
+	if !ignoredPath(prefixed, "/assets/app.css") || ignoredPath(prefixed, "/assetsx") {
 		t.Error("prefix ignore patterns do not match as documented")
 	}
 }

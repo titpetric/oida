@@ -1,29 +1,38 @@
 package oida
 
-import "sync"
+import (
+	"sync"
 
-var (
-	defaultMu     sync.RWMutex
-	defaultTracer *Tracer
+	"github.com/titpetric/oida/model"
 )
+
+// defaultMu guards the creation of the process wide tracer. The slot itself
+// lives in the model package, so the front end can read it without depending
+// on this one.
+var defaultMu sync.Mutex
 
 // Default returns the process wide tracer, creating it with the default options
 // on first use. Prefer an explicit tracer from New in libraries and tests.
 func Default() *Tracer {
-	defaultMu.RLock()
-	tracer := defaultTracer
-	defaultMu.RUnlock()
-	if tracer != nil {
+	if tracer := defaultTracer(); tracer != nil {
 		return tracer
 	}
 
 	defaultMu.Lock()
 	defer defaultMu.Unlock()
-	if defaultTracer == nil {
-		// NewOptions is always valid, so the error cannot occur.
-		defaultTracer, _ = New(NewOptions())
+	if tracer := defaultTracer(); tracer != nil {
+		return tracer
 	}
-	return defaultTracer
+	// NewOptions is always valid, so the error cannot occur.
+	tracer, _ := New(NewOptions(""))
+	model.SetDefaultRecorder(tracer)
+	return tracer
+}
+
+// defaultTracer returns the process wide tracer, or nil when none is set.
+func defaultTracer() *Tracer {
+	tracer, _ := model.DefaultRecorder().(*Tracer)
+	return tracer
 }
 
 // Configure replaces the process wide tracer with one built from opts and
@@ -34,9 +43,7 @@ func Configure(opts Options) (*Tracer, error) {
 		return nil, err
 	}
 
-	defaultMu.Lock()
-	defaultTracer = tracer
-	defaultMu.Unlock()
+	model.SetDefaultRecorder(tracer)
 	return tracer, nil
 }
 
@@ -44,27 +51,23 @@ func Configure(opts Options) (*Tracer, error) {
 // the process default otherwise. The first resolution of the default configures
 // it from opts. The front end resolves the tracer it serves this way.
 func Resolve(opts Options) (*Tracer, error) {
-	if opts.Tracer != nil {
-		return opts.Tracer, nil
+	if tracer, ok := opts.Tracer.(*Tracer); ok && tracer != nil {
+		return tracer, nil
 	}
-
-	defaultMu.RLock()
-	tracer := defaultTracer
-	defaultMu.RUnlock()
-	if tracer != nil {
+	if tracer := defaultTracer(); tracer != nil {
 		return tracer, nil
 	}
 
 	defaultMu.Lock()
 	defer defaultMu.Unlock()
-	if defaultTracer != nil {
-		return defaultTracer, nil
+	if tracer := defaultTracer(); tracer != nil {
+		return tracer, nil
 	}
 	tracer, err := New(opts)
 	if err != nil {
 		return nil, err
 	}
-	defaultTracer = tracer
+	model.SetDefaultRecorder(tracer)
 	return tracer, nil
 }
 

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // format is the response representation selected for a front end request.
@@ -64,7 +64,7 @@ func writeText(w http.ResponseWriter, page Page) {
 }
 
 // writeHeaderText renders the process summary.
-func writeHeaderText(w io.Writer, s oida.Snapshot) {
+func writeHeaderText(w io.Writer, s model.Snapshot) {
 	service := s.Service
 	if service == "" {
 		service = "unnamed service"
@@ -83,7 +83,7 @@ func writeHeaderText(w io.Writer, s oida.Snapshot) {
 }
 
 // writeTraceTableText renders a list of traces.
-func writeTraceTableText(w io.Writer, title string, traces []oida.Trace) {
+func writeTraceTableText(w io.Writer, title string, traces []model.Trace) {
 	fmt.Fprintf(w, "%s (%d):\n", title, len(traces))
 	fmt.Fprintln(w, "TRACE-ID                   S  TIME          NAME                                     STATUS  DURATION      SPANS  BYTES      HEAP       ALLOCATED  REMOTE")
 	for _, trace := range traces {
@@ -102,7 +102,7 @@ func writeTraceTableText(w io.Writer, title string, traces []oida.Trace) {
 }
 
 // writeStateText renders the lifetime time in state.
-func writeStateText(w io.Writer, durations []oida.StateDuration) {
+func writeStateText(w io.Writer, durations []model.StateDuration) {
 	fmt.Fprintln(w, "Lifetime trace state time:")
 	for _, state := range durations {
 		fmt.Fprintf(w, "%-12s (%s) %-13s %6.2f%%\n", state.Label, state.State, durationText(state.Duration), state.Share)
@@ -111,7 +111,7 @@ func writeStateText(w io.Writer, durations []oida.StateDuration) {
 }
 
 // writeHostsText renders the per host traffic overview.
-func writeHostsText(w io.Writer, stats oida.Stats) {
+func writeHostsText(w io.Writer, stats model.Stats) {
 	fmt.Fprintf(w, "Hosts (%d):\n", len(stats.Hosts))
 	fmt.Fprintln(w, "REQUESTS  RECORDED  ERRORS  ROUTES  SHARE    AVG TIME      MAX TIME      HOST")
 	for _, host := range stats.Hosts {
@@ -123,7 +123,7 @@ func writeHostsText(w io.Writer, stats oida.Stats) {
 }
 
 // writeStatsText renders the rolling statistics.
-func writeStatsText(w io.Writer, stats oida.Stats) {
+func writeStatsText(w io.Writer, stats model.Stats) {
 	fmt.Fprintf(w, "Top %d of %d traces in a %d trace window:\n", stats.TopLimit, stats.WindowSize, stats.WindowLimit)
 	fmt.Fprintln(w, "SHARE    COUNT  ERRORS  AVG TIME      MAX TIME      AVG BYTES  AVG ALLOC  AVG SPANS  NAME")
 	for _, stat := range stats.Top {

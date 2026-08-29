@@ -1,4 +1,4 @@
-package frontend
+package frontend_test
 
 import (
 	"sync"
@@ -13,8 +13,7 @@ func newTestTracer(t *testing.T, apply func(*oida.Options)) (*oida.Tracer, *test
 	t.Helper()
 
 	clock := &testClock{now: time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)}
-	opts := oida.NewOptions()
-	opts.ServiceName = "test"
+	opts := oida.NewOptions("test")
 	opts.TrackMemoryUse = false
 	opts.Clock = clock.Now
 	opts.OnError = func(err error) { t.Errorf("oida: %v", err) }
@@ -27,6 +26,14 @@ func newTestTracer(t *testing.T, apply func(*oida.Options)) (*oida.Tracer, *test
 		t.Fatalf("New: %v", err)
 	}
 	return tracer, clock
+}
+
+// truncate shortens a value for failure messages.
+func truncate(value string, width int) string {
+	if len(value) <= width {
+		return value
+	}
+	return value[:width] + "..."
 }
 
 // testClock is a deterministic time source.

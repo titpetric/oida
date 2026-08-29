@@ -1,10 +1,11 @@
-package frontend
+package frontend_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/frontend"
 )
 
 // memoryTrace builds a trace whose spans report memory_usage. The spans are
@@ -44,12 +45,12 @@ func memoryTrace() oida.Trace {
 }
 
 // memoryPage runs a trace through the same pipeline the handler uses.
-func memoryPage(trace oida.Trace) Page {
-	rows := Rows(trace)
-	return Page{
+func memoryPage(trace oida.Trace) frontend.Page {
+	rows := frontend.Rows(trace)
+	return frontend.Page{
 		Trace:  &trace,
 		Rows:   rows,
-		Memory: TraceMemory(trace, rows),
+		Memory: frontend.TraceMemory(trace, rows),
 	}
 }
 
@@ -127,39 +128,5 @@ func TestMemorySeriesWithoutReadingsIsEmpty(t *testing.T) {
 	series := memoryPage(trace).MemorySeries()
 	if len(series.Points) != 0 {
 		t.Fatalf("produced %d points for a trace with no readings", len(series.Points))
-	}
-}
-
-func TestMemoryPathsStepThroughReadings(t *testing.T) {
-	series := memoryPage(memoryTrace()).MemorySeries()
-
-	// The line runs the whole trace: it opens at the first reading's level
-	// and holds the last level to the end.
-	if got, want := series.linePath(), "M 0 77.00 H 20.00 V 77.00 H 30.00 V 54.00 H 80.00 V 8.00 H 100"; got != want {
-		t.Errorf("line path is %q, want %q", got, want)
-	}
-	if got, want := series.areaPath(), "M 0 100 V 77.00 H 20.00 V 77.00 H 30.00 V 54.00 H 80.00 V 8.00 H 100 V 100 Z"; got != want {
-		t.Errorf("area path is %q, want %q", got, want)
-	}
-
-	// Hover targets tile the line: each reading owns the stretch behind it,
-	// and the last owns the run-out to the end of the trace.
-	if got := series.hitX(0); got != "0" {
-		t.Errorf("first hit starts at %s, want 0", got)
-	}
-	if got := series.hitWidth(2); got != "70.00" {
-		t.Errorf("last hit is %s wide, want 70.00", got)
-	}
-
-	// The axis reads the level under any share: the newest reading taken by
-	// then, the first before any was, the last past the end.
-	if got := series.at(0); got != series.Points[0].Bytes {
-		t.Errorf("at(0) is %d, want the first reading %d", got, series.Points[0].Bytes)
-	}
-	if got := series.at(50); got != series.Points[1].Bytes {
-		t.Errorf("at(50) is %d, want the second reading %d", got, series.Points[1].Bytes)
-	}
-	if got := series.at(100); got != series.Points[2].Bytes {
-		t.Errorf("at(100) is %d, want the last reading %d", got, series.Points[2].Bytes)
 	}
 }

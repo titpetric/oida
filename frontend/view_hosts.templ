@@ -3,7 +3,7 @@ package frontend
 import (
 	"strconv"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Hosts renders the landing page: every domain this process serves, and how
@@ -59,7 +59,7 @@ templ Hosts(page Page) {
 							<td class="empty" colspan="10">
 								<b>No traffic yet</b>
 								Hosts appear here as requests reach the instrumented router.
-								Work that does not arrive over HTTP groups under { oida.BackgroundHost }.
+								Work that does not arrive over HTTP groups under { model.BackgroundHost }.
 							</td>
 						</tr>
 					}

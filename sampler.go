@@ -3,21 +3,16 @@ package oida
 import (
 	"net/http"
 	"sync/atomic"
+
+	"github.com/titpetric/oida/model"
 )
 
 // Sampler decides whether a request is traced. The decision is taken before a
 // trace is allocated, so rejecting a request costs one interface call.
-type Sampler interface {
-	Sample(r *http.Request) bool
-}
+type Sampler = model.Sampler
 
 // SamplerFunc adapts a function to the Sampler interface.
-type SamplerFunc func(r *http.Request) bool
-
-// Sample implements Sampler.
-func (f SamplerFunc) Sample(r *http.Request) bool {
-	return f(r)
-}
+type SamplerFunc = model.SamplerFunc
 
 // rateSampler samples a fixed percentage of requests using a counter rather
 // than randomness, so the decision sequence is deterministic and testable.

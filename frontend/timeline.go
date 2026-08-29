@@ -4,14 +4,14 @@ import (
 	"slices"
 	"time"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Timeline converts the spans of a trace into non overlapping segments, each
 // attributed to the innermost span that was active during it. Shares are
 // percentages of the trace duration, so segments render directly as CSS
 // offsets and widths.
-func Timeline(trace oida.Trace) []Segment {
+func Timeline(trace model.Trace) []Segment {
 	total := trace.Duration
 	if total <= 0 || len(trace.Spans) == 0 {
 		return nil
@@ -19,7 +19,7 @@ func Timeline(trace oida.Trace) []Segment {
 	end := trace.StartedAt.Add(total)
 
 	type interval struct {
-		kind  oida.Kind
+		kind  model.Kind
 		depth int
 		start time.Time
 		stop  time.Time
@@ -31,7 +31,7 @@ func Timeline(trace oida.Trace) []Segment {
 		if span == nil || span.Duration <= 0 {
 			continue
 		}
-		if span.Kind == oida.KindHTTP && span.Depth == 0 {
+		if span.Kind == model.KindHTTP && span.Depth == 0 {
 			continue
 		}
 		start, stop := span.StartedAt, span.StartedAt.Add(span.Duration)
@@ -98,12 +98,12 @@ func Timeline(trace oida.Trace) []Segment {
 }
 
 // Rows flattens the spans of a trace into depth first render rows.
-func Rows(trace oida.Trace) []SpanRow {
+func Rows(trace model.Trace) []SpanRow {
 	if len(trace.Spans) == 0 {
 		return nil
 	}
 
-	children := make(map[int][]*oida.Span, len(trace.Spans))
+	children := make(map[int][]*model.Span, len(trace.Spans))
 	for _, span := range trace.Spans {
 		if span != nil {
 			children[span.ParentID] = append(children[span.ParentID], span)
@@ -123,7 +123,7 @@ func Rows(trace oida.Trace) []SpanRow {
 				Open:   span.Duration == 0,
 				Last:   i == len(siblings)-1,
 			}
-			row.Memory, row.HasMemory = span.Attributes.Int64(oida.AttrMemoryUsage)
+			row.Memory, row.HasMemory = span.Attributes.Int64(model.AttrMemoryUsage)
 			if total > 0 {
 				row.OffsetShare = share(row.Offset, total)
 				row.Share = share(span.Duration, total)
@@ -153,7 +153,7 @@ func Rows(trace oida.Trace) []SpanRow {
 				Open:   span.Duration == 0,
 				Last:   true,
 			}
-			row.Memory, row.HasMemory = span.Attributes.Int64(oida.AttrMemoryUsage)
+			row.Memory, row.HasMemory = span.Attributes.Int64(model.AttrMemoryUsage)
 			if total > 0 {
 				row.OffsetShare = share(row.Offset, total)
 				row.Share = share(span.Duration, total)

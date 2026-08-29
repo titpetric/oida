@@ -11,7 +11,13 @@
 //	}
 //
 // Use Handler to build the handler without a router, MountServeMux with the
-// standard library mux, and HandlerFor when a tracer is already at hand.
+// standard library mux, and HandlerFor when a tracer is already at hand. The
+// tracer is an http.Handler serving this front end itself, so mounting it
+// directly needs no import of this package; these entry points remain for
+// callers that wire the front end from options.
+//
+// The package reads the recorded data through the model package alone. The
+// root package imports it to serve the dashboard from the tracer.
 //
 // The assets live in frontend/assets and are embedded, so the front end makes
 // no external requests: no webfonts, no CDN, no analytics. Rendering failures

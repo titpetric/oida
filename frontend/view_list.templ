@@ -3,7 +3,7 @@ package frontend
 import (
 	"strconv"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // List renders the recorded traces held in storage.
@@ -93,9 +93,9 @@ templ sortLink(page Page, key SortKey, label string) {
 // traceRow renders one recorded trace. The shape column is the trace timeline
 // scaled against the slowest row, so a database bound request and an upstream
 // bound request are told apart without opening either.
-templ traceRow(trace oida.Trace, page Page) {
+templ traceRow(trace model.Trace, page Page) {
 	<tr
-		class={ "row", templ.KV("failed", trace.Error != "" || trace.State == oida.StateError) }
+		class={ "row", templ.KV("failed", trace.Error != "" || trace.State == model.StateError) }
 		data-href={ page.TraceURL(trace.ID) }
 	>
 		<td class="c-medium">
