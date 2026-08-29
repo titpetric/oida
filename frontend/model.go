@@ -3,7 +3,7 @@ package frontend
 import (
 	"time"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // View identifies one rendered page of the debug front end.
@@ -21,20 +21,20 @@ const (
 )
 
 // listKinds are the kinds offered in the front end filter, in display order.
-var listKinds = []oida.Kind{
-	oida.KindHTTP,
-	oida.KindDatabase,
-	oida.KindExternal,
-	oida.KindTemplate,
-	oida.KindCache,
-	oida.KindQueue,
-	oida.KindInternal,
+var listKinds = []model.Kind{
+	model.KindHTTP,
+	model.KindDatabase,
+	model.KindExternal,
+	model.KindTemplate,
+	model.KindCache,
+	model.KindQueue,
+	model.KindInternal,
 }
 
 // Segment is one point-in-time region of a trace where a span kind was the
 // innermost active span.
 type Segment struct {
-	Kind        oida.Kind     `json:"kind"`
+	Kind        model.Kind    `json:"kind"`
 	Offset      time.Duration `json:"offset_ns"`
 	Duration    time.Duration `json:"duration_ns"`
 	OffsetShare float64       `json:"offset_percent"`
@@ -115,7 +115,7 @@ type AxisTick struct {
 
 // SpanRow is the flattened render model of one span within a trace.
 type SpanRow struct {
-	oida.Span
+	model.Span
 
 	Offset      time.Duration `json:"offset_ns"`
 	OffsetShare float64       `json:"offset_percent"`
@@ -150,10 +150,10 @@ type MemoryBudget struct {
 
 // TraceMemory reads the memory a trace reported, from its attributes and from
 // the rows flattened out of its spans.
-func TraceMemory(trace oida.Trace, rows []SpanRow) MemoryBudget {
+func TraceMemory(trace model.Trace, rows []SpanRow) MemoryBudget {
 	budget := MemoryBudget{}
-	budget.Limit, budget.HasLimit = trace.Attributes.Int64(oida.AttrMemoryLimit)
-	budget.Used, budget.HasUsed = trace.Attributes.Int64(oida.AttrMemoryUsage)
+	budget.Limit, budget.HasLimit = trace.Attributes.Int64(model.AttrMemoryLimit)
+	budget.Used, budget.HasUsed = trace.Attributes.Int64(model.AttrMemoryUsage)
 
 	for _, row := range rows {
 		if !row.HasMemory {

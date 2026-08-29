@@ -3,11 +3,10 @@ tasks:
     cmds:
       - go mod tidy
       - task: templ
-      - goimports -w .
-      - goimports-reviser -set-alias -format -imports-order "std,blanked,general,company,project" ./...
-      - go fmt ./...
+      - task: go:fmt
       - task: go:test
       - task: go:build
+      - task: docs:api
       - task: docker:build
 
   templ:
@@ -30,6 +29,19 @@ tasks:
     cmds:
       - gofsck ./...
       - go-fsck lint ./...
+
+  docs:api:
+    desc: "Generate the API reference into docs/api.md"
+    passthru: true
+    cmds:
+      - defer: rm -f go-fsck.json
+      # Extracted without -r, so the reference holds the importable package
+      # and not the command or the internal ones.
+      - go-fsck extract . --include-sources
+      - go-fsck docs > docs/api.md
+      # mdox reflows the generated markdown; format here so the committed
+      # file matches what the mdox:lint gate expects.
+      - task: mdox:fmt
 
   gen:architecture:
     aliases: [gen]

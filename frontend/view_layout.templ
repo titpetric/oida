@@ -3,7 +3,7 @@ package frontend
 import (
 	"strconv"
 
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Layout renders the page chrome shared by every view.
@@ -176,7 +176,7 @@ templ pageFooter(page Page) {
 
 // traceLink renders a trace identifier: a health dot, the tail of the id, which
 // is what tells rows apart, and the full value one click away.
-templ traceLink(trace oida.Trace, page Page) {
+templ traceLink(trace model.Trace, page Page) {
 	<span class="tid">
 		<i class={ traceDot(trace) }></i>
 		<a href={ templ.SafeURL(page.TraceURL(trace.ID)) } title={ trace.ID }>{ shortID(trace.ID) }</a>
@@ -185,7 +185,7 @@ templ traceLink(trace oida.Trace, page Page) {
 }
 
 // stateBar renders the lifetime time in state as a proportional bar.
-templ stateBar(durations []oida.StateDuration) {
+templ stateBar(durations []model.StateDuration) {
 	<div class="state-bar">
 		for _, state := range durations {
 			<span

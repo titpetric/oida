@@ -13,7 +13,7 @@ Most services use `NewOptions`, `Configure`, `TracingMiddleware`, `frontend.Moun
 ## Setup
 
 ```go
-func NewOptions() Options
+func NewOptions(serviceName string) Options
 func New(opts Options) (*Tracer, error)
 func Configure(opts Options) (*Tracer, error)
 func Default() *Tracer
@@ -21,15 +21,17 @@ func Resolve(opts Options) (*Tracer, error)
 func MustResolve(opts Options) *Tracer
 
 func TracingMiddleware(opts Options) func(http.Handler) http.Handler
+
+func (t *Tracer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ```
 
-The dashboard is served by the `frontend` package:
+`*Tracer` implements `http.Handler` and serves the dashboard, so mounting it needs no second import. The `frontend` package remains the rendering implementation and keeps its entry points for callers wiring the dashboard from options:
 
 ```go
 package frontend
 
 func Handler(opts oida.Options) http.Handler
-func HandlerFor(tracer *oida.Tracer) http.Handler
+func HandlerFor(recorder oida.Recorder) http.Handler
 func Mount(r Router, opts oida.Options) error
 func MountServeMux(mux *http.ServeMux, opts oida.Options) error
 ```
@@ -37,7 +39,7 @@ func MountServeMux(mux *http.ServeMux, opts oida.Options) error
 `Configure` creates the process-wide tracer. Set `opts.Tracer` to the returned value before wiring middleware and the dashboard so every entry point uses the same tracer.
 
 ```go
-opts := oida.NewOptions()
+opts := oida.NewOptions("billing-api")
 tracer, err := oida.Configure(opts)
 if err != nil {
 	return err

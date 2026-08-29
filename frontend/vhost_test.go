@@ -1,4 +1,4 @@
-package frontend
+package frontend_test
 
 import (
 	"net/http"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/frontend"
 )
 
 // TestVirtualHostsKeepSeparateTracers wires two hosts to two tracers on one
@@ -71,8 +72,7 @@ type vhost struct {
 func hostRouter(t *testing.T, service, span string) vhost {
 	t.Helper()
 
-	opts := oida.NewOptions()
-	opts.ServiceName = service
+	opts := oida.NewOptions(service)
 	opts.TrackMemoryUse = false
 	opts.OnError = func(err error) { t.Errorf("oida: %v", err) }
 
@@ -87,7 +87,7 @@ func hostRouter(t *testing.T, service, span string) vhost {
 		oida.StartSpan(r.Context(), span, oida.KindDatabase).End()
 		_, _ = w.Write([]byte(service))
 	})
-	if err := MountServeMux(mux, opts); err != nil {
+	if err := frontend.MountServeMux(mux, opts); err != nil {
 		t.Fatalf("MountServeMux: %v", err)
 	}
 

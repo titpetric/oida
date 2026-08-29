@@ -1,4 +1,4 @@
-package frontend
+package frontend_test
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/frontend"
 )
 
 // newTestServer returns a mux with the front end mounted on a private tracer,
@@ -19,7 +20,7 @@ func newTestServer(t *testing.T, apply func(*oida.Options)) (http.Handler, *oida
 	opts.Tracer = tracer
 
 	mux := http.NewServeMux()
-	if err := MountServeMux(mux, opts); err != nil {
+	if err := frontend.MountServeMux(mux, opts); err != nil {
 		t.Fatalf("MountServeMux: %v", err)
 	}
 
@@ -47,26 +48,26 @@ func TestHandlerAuthorization(t *testing.T) {
 }
 
 func TestMountValidation(t *testing.T) {
-	opts := oida.NewOptions()
-	if err := Mount(nil, opts); !errors.Is(err, oida.ErrNilRouter) {
+	opts := oida.NewOptions("")
+	if err := frontend.Mount(nil, opts); !errors.Is(err, oida.ErrNilRouter) {
 		t.Fatalf("Mount(nil) returned %v, want oida.ErrNilRouter", err)
 	}
 
 	opts.Path = "debug/oida"
-	if err := Mount(&stubRouter{}, opts); !errors.Is(err, oida.ErrInvalidPath) {
+	if err := frontend.Mount(&stubRouter{}, opts); !errors.Is(err, oida.ErrInvalidPath) {
 		t.Fatalf("relative path returned %v, want oida.ErrInvalidPath", err)
 	}
 
-	opts = oida.NewOptions()
+	opts = oida.NewOptions("")
 	opts.SampleRate = 200
-	if err := Mount(&stubRouter{}, opts); !errors.Is(err, oida.ErrInvalidSampleRate) {
+	if err := frontend.Mount(&stubRouter{}, opts); !errors.Is(err, oida.ErrInvalidSampleRate) {
 		t.Fatalf("invalid sample rate returned %v, want oida.ErrInvalidSampleRate", err)
 	}
 
-	opts = oida.NewOptions()
+	opts = oida.NewOptions("")
 	opts.Tracer, _ = newTestTracer(t, nil)
 	router := &stubRouter{}
-	if err := Mount(router, opts); err != nil {
+	if err := frontend.Mount(router, opts); err != nil {
 		t.Fatalf("Mount: %v", err)
 	}
 	if router.pattern != oida.DefaultPath || router.handler == nil {
@@ -80,7 +81,7 @@ type stubRouter struct {
 	handler http.Handler
 }
 
-// Mount implements Router.
+// Mount implements frontend.Router.
 func (r *stubRouter) Mount(pattern string, h http.Handler) {
 	r.pattern = pattern
 	r.handler = h

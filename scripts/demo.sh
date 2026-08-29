@@ -108,6 +108,11 @@ shots=$(cat <<MANIFEST | node scripts/shot.js
       "pick": "[q('.trace-head'), q('.live-head'), q('.waves'), q('.axis')]"
     },
     {
+      "out": "docs/assets/detail-memory.png",
+      "path": "${detail}",
+      "pick": "[qa('.live-head')[1], q('.memory-graph'), qa('.axis')[1]]"
+    },
+    {
       "out": "docs/assets/detail-spans.png",
       "path": "${detail}",
       "pick": "(function(){ var f = q('.spans'); f.style.transition = 'none'; q('input[data-peek]').checked = true; f.getBoundingClientRect(); return [q('.peek'), f]; })()"

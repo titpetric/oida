@@ -8,7 +8,7 @@ go get github.com/titpetric/oida@latest
 
 ## 2. chi/v5
 
-The complete wiring is three calls: configure the tracer, add the middleware, mount the UI.
+The complete wiring is three calls: configure the tracer, add the middleware, mount the tracer. The tracer is an `http.Handler` serving the UI, so no second import is needed.
 
 ```go
 package main
@@ -21,7 +21,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/titpetric/oida"
-	"github.com/titpetric/oida/frontend"
 )
 
 func main() {
@@ -31,8 +30,7 @@ func main() {
 }
 
 func run() error {
-	opts := oida.NewOptions()
-	opts.ServiceName = "billing-api"
+	opts := oida.NewOptions("billing-api")
 	opts.Path = "/debug/oida"
 	opts.RingBufferSize = 500
 	opts.SampleRate = 100
@@ -53,9 +51,7 @@ func run() error {
 	r.Use(middleware.Recoverer)
 	r.Use(oida.TracingMiddleware(opts))
 
-	if err := frontend.Mount(r, opts); err != nil {
-		return err
-	}
+	r.Mount(opts.Path, tracer)
 
 	r.Get("/users/{id}", getUser)
 
@@ -74,8 +70,9 @@ func run() error {
 Order matters:
 
 - `oida.TracingMiddleware` goes **after** `middleware.Recoverer` is registered if you want the recoverer to catch panics first. oida re-panics after recording, so either order records the failure; putting oida inside the recoverer keeps the 500 response behaviour of chi.
-- `frontend.Mount` must be called on a router that has the middleware registered, or on any router in the same process: the tracer is shared, not the router.
+- The tracer can be mounted on the router the middleware records, or on any router in the same process: the tracer is shared, not the router.
 - Routes registered *before* `r.Use` panic in chi; register middleware first.
+- `frontend.Mount(r, opts)` from `github.com/titpetric/oida/frontend` still works and mounts the same handler, for callers wiring the UI from options rather than from a tracer.
 
 > **Note**: chi provides `middleware.RealIP`, oida does not require it. The client IP is resolved from the `Forwarded` and `X-Forwarded-For` headers on any router (see [spec-model.md](spec-model.md)); add RealIP when your own handlers read `r.RemoteAddr`.
 
@@ -87,13 +84,11 @@ The UI does not have to sit on the public router. A separate listener keeps `/de
 
 ```go
 admin := chi.NewRouter()
-if err := frontend.Mount(admin, opts); err != nil {
-	return err
-}
+admin.Mount("/debug/oida", tracer)
 go http.ListenAndServe("127.0.0.1:9090", admin) //nolint:errcheck // admin listener
 ```
 
-Both routers talk to the same `opts.Tracer`, so the public router records and the admin router displays.
+Both routers talk to the same tracer, so the public router records and the admin router displays.
 
 ### 2.2 Route patterns in statistics
 
@@ -107,24 +102,17 @@ With `net/http` you do not need it: oida reads `http.Request.Pattern`.
 mux := http.NewServeMux()
 mux.HandleFunc("GET /users/{id}", getUser)
 
-opts := oida.NewOptions()
-opts.ServiceName = "billing-api"
-
-tracer, err := oida.Configure(opts)
+tracer, err := oida.Configure(oida.NewOptions("billing-api"))
 if err != nil {
 	return err
 }
-opts.Tracer = tracer
+mux.Handle("/debug/oida/", tracer)
 
-if err := frontend.MountServeMux(mux, opts); err != nil {
-	return err
-}
-
-handler := oida.TracingMiddleware(opts)(mux)
+handler := tracer.Middleware(mux)
 return http.ListenAndServe(":8080", handler)
 ```
 
-`MountServeMux` registers both `/debug/oida` and `/debug/oida/`, because `ServeMux` treats those as different patterns.
+The subtree pattern `/debug/oida/` covers the whole UI; `ServeMux` redirects a request for the bare `/debug/oida` to it. `frontend.MountServeMux(mux, opts)` remains and registers both patterns, so the bare path serves without the redirect.
 
 ## 4. Protecting the endpoint
 
@@ -232,7 +220,7 @@ func TestUsers(t *testing.T) {
 For your own service, build an explicit tracer instead of `Default()` so packages can run in parallel:
 
 ```go
-tracer, err := oida.New(oida.NewOptions())
+tracer, err := oida.New(oida.NewOptions("billing-api"))
 ```
 
 ## 8. Verifying the wiring

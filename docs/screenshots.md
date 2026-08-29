@@ -34,6 +34,12 @@ The shape of a single wave is not data. Its extent, its colour and how loud it r
 
 ![The trace as overlaid waveforms, blending where they cross](assets/detail-waves.png)
 
+## One trace: the memory
+
+Drawn when the spans reported `memory_usage`, between the drawing and the spans. Each reading is the memory in use when a span finished, so the line holds flat and steps where a span let go: the step is the span that allocated. The line runs the whole trace, opening at the first reading's level and holding the last to the end. Hovering a stretch of the line names that span. The head line carries the peak, and the limit when the trace recorded one; a limit close to the readings joins the plot as a dashed reference line, but here the 1.0 MiB limit is far above the 60 KiB peak, so the graph keeps the scale of its readings and the limit stays in words. Underneath sits the same time axis the drawing was measured against, each tick carrying the memory in use at that moment beside the time.
+
+![The memory graph: a step line of the span readings over the shared time axis](assets/detail-memory.png)
+
 ## One trace: the spans
 
 Under the drawing sits a bar carrying the legend and a count, and behind the count a switch. Shut, which is how it opens, the bar is the answer: where the time went, by kind. Thrown, it folds out every span the trace recorded, in tree order: kind, offset from the start of the request, duration, a bar against the shared time axis, and the name. Two columns appear when the trace has them, and are not drawn when it does not: the memory in use when each span finished, drawn against the largest reading of the trace, and the source location that opened the span. The demo above reports memory on most of its spans and not on `shard 0`, so the column has a gap and the reading below it steps by two spans' worth. Attributes fold out per span, and a recorded error is printed where it happened. The choice is remembered for the whole front end, so a reader who wants the spans shut has them shut on every trace they open.

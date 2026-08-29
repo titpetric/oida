@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -35,8 +36,7 @@ func NewServer(t testing.TB) http.Handler {
 func NewServerWithTracer(t testing.TB) (http.Handler, *oida.Tracer) {
 	t.Helper()
 
-	opts := oida.NewOptions()
-	opts.ServiceName = "oida-tests"
+	opts := oida.NewOptions("oida-tests")
 	opts.Path = Path
 	opts.Storage = oida.NewStorageMemory(64)
 	opts.RingBufferSize = 64
@@ -66,6 +66,7 @@ func NewServerWithTracer(t testing.TB) (http.Handler, *oida.Tracer) {
 	router.Get("/users/{id}", handleUser)
 	router.Get("/slow", handleSlow)
 	router.Get("/fail", handleFail)
+	router.Get("/memory", handleMemory)
 
 	return router, tracer
 }
@@ -124,6 +125,31 @@ func handleSlow(w http.ResponseWriter, r *http.Request) {
 	span.SetAttribute("url", "https://upstream.invalid/slow")
 	time.Sleep(5 * time.Millisecond)
 	_, _ = w.Write([]byte("slow"))
+}
+
+// handleMemory records the memory accounting a transaction can carry: a
+// memory_limit on the trace, and a memory_usage reading on each span as it
+// finishes. The limit defaults to a mebibyte; ?limit=<bytes> moves it, so a
+// test can place it near the readings or far above them.
+func handleMemory(w http.ResponseWriter, r *http.Request) {
+	limit := int64(1 << 20)
+	if value, err := strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64); err == nil && value > 0 {
+		limit = value
+	}
+
+	trace := oida.TraceFromContext(r.Context())
+	trace.SetAttribute(oida.AttrMemoryLimit, limit)
+
+	ctx, span := oida.Start(r.Context(), "load rows", oida.KindDatabase)
+	span.SetAttribute(oida.AttrMemoryUsage, int64(30<<10))
+	span.End()
+
+	_, render := oida.Start(ctx, "render rows", oida.KindTemplate)
+	render.SetAttribute(oida.AttrMemoryUsage, int64(50<<10))
+	render.End()
+
+	trace.SetAttribute(oida.AttrMemoryUsage, int64(50<<10))
+	_, _ = w.Write([]byte("memory"))
 }
 
 // handleFail records an error and responds with a failure.

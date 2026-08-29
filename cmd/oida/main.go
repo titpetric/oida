@@ -18,7 +18,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/titpetric/oida"
-	"github.com/titpetric/oida/frontend"
 )
 
 // Build information, filled in by the linker.
@@ -43,8 +42,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	opts := oida.NewOptions()
-	opts.ServiceName = "oida-example"
+	opts := oida.NewOptions("oida-example")
 	opts.RingBufferSize = 500
 	opts.RouteFunc = func(r *http.Request) string {
 		if route := chi.RouteContext(r.Context()); route != nil {
@@ -68,9 +66,8 @@ func run() error {
 	r.Use(oida.TracingMiddleware(opts))
 	r.Use(trackMemory)
 
-	if err := frontend.Mount(r, opts); err != nil {
-		return err
-	}
+	// The tracer is an http.Handler serving the debug front end.
+	r.Mount(opts.Path, tracer)
 
 	r.Get("/", index)
 	r.Get("/users/{id}", getUser)

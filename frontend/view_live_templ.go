@@ -10,7 +10,7 @@ import (
 
 	"github.com/a-h/templ"
 	templruntime "github.com/a-h/templ/runtime"
-	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/model"
 )
 
 // Live renders the feed of traces. When streaming is enabled the section is
@@ -156,7 +156,7 @@ func liveSection(page Page) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		for _, trace := range page.Feed {
-			var templ_7745c5c3_Var6 = []any{"row", templ.KV("failed", trace.Error != "" || trace.State == oida.StateError),
+			var templ_7745c5c3_Var6 = []any{"row", templ.KV("failed", trace.Error != "" || trace.State == model.StateError),
 				templ.KV("running", trace.InFlight)}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var6...)
 			if templ_7745c5c3_Err != nil {

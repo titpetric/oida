@@ -13,26 +13,23 @@ go get github.com/titpetric/oida@latest
 ## Use
 
 ```go
-import (
-	"github.com/titpetric/oida"
-	"github.com/titpetric/oida/frontend"
-)
+import "github.com/titpetric/oida"
 
-opts := oida.NewOptions()
-opts.ServiceName = "billing-api"
-
-tracer, err := oida.Configure(opts)
+tracer, err := oida.Configure(oida.NewOptions("billing-api"))
 if err != nil {
 	return err
 }
-opts.Tracer = tracer
 
 r := chi.NewRouter()
-r.Use(oida.TracingMiddleware(opts))
+r.Use(tracer.Middleware)
+r.Mount("/debug/oida", tracer)
+```
 
-if err := frontend.Mount(r, opts); err != nil {
-	return err
-}
+The tracer is an `http.Handler` serving the dashboard, so it mounts the same way on the standard library mux:
+
+```go
+mux := http.NewServeMux()
+mux.Handle("/debug/oida/", tracer)
 ```
 
 Instrument work below the middleware:

@@ -1,4 +1,4 @@
-package frontend
+package frontend_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/titpetric/oida"
+	"github.com/titpetric/oida/frontend"
 )
 
 // renderedTracer returns a tracer holding one trace with nested spans, and the
@@ -39,7 +40,7 @@ func renderedTracer(t *testing.T) (*oida.Tracer, http.Handler, oida.Trace) {
 	if len(traces) != 1 {
 		t.Fatalf("recorded %d traces, want 1", len(traces))
 	}
-	return tracer, HandlerFor(tracer), traces[0]
+	return tracer, frontend.HandlerFor(tracer), traces[0]
 }
 
 // tracesPath is the trace list. The mount path itself is the host overview.
@@ -129,7 +130,7 @@ func TestHandlerRendersSpanAttributes(t *testing.T) {
 	}
 
 	trace := tracer.Traces()[0]
-	body := request(t, HandlerFor(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
+	body := request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
 
 	// The span row names the operation; the statement is not repeated beside
 	// it, because "SELECT users" already says what it is.
@@ -178,7 +179,7 @@ func TestHandlerRendersTransactionMemory(t *testing.T) {
 	}
 
 	trace := tracer.Traces()[0]
-	body := request(t, HandlerFor(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
+	body := request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
 
 	for _, want := range []string{
 		"<h3>Transaction</h3>",
@@ -197,9 +198,12 @@ func TestHandlerRendersTransactionMemory(t *testing.T) {
 		}
 	}
 
-	// Once in the memory column, once in the attributes of that span.
-	if got := strings.Count(body, "10.0 KiB"); got != 2 {
-		t.Errorf("the first reading is rendered %d times, want 2", got)
+	// Once in the memory column, once in the attributes of that span, once in
+	// the hover title of its stretch of the memory graph, and once per axis
+	// tick where it is still the level in use, which is four of the five here.
+	// The graph markup itself is asserted black box, in tests/memory_test.go.
+	if got := strings.Count(body, "10.0 KiB"); got != 7 {
+		t.Errorf("the first reading is rendered %d times, want 7", got)
 	}
 }
 
@@ -233,7 +237,7 @@ func TestHandlerRendersSourceColumn(t *testing.T) {
 	}
 
 	trace := tracer.Traces()[0]
-	body := request(t, HandlerFor(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
+	body := request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
 	for _, want := range []string{">Source<", "internal/billing/repo.go:L42"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("detail view misses %q", want)
@@ -272,7 +276,7 @@ func TestHandlerDrawsTheTrace(t *testing.T) {
 
 func TestPageWaveTraceCarriesTheWholeStack(t *testing.T) {
 	trace := timelineTrace()
-	page := Page{Trace: &trace, Segments: Timeline(trace), Rows: Rows(trace)}
+	page := frontend.Page{Trace: &trace, Segments: frontend.Timeline(trace), Rows: frontend.Rows(trace)}
 
 	shape := page.WaveTrace()
 	if len(shape.Spans) != len(trace.Spans) {
@@ -287,7 +291,7 @@ func TestPageWaveTraceCarriesTheWholeStack(t *testing.T) {
 		t.Errorf("the trace reports depth %d, want 2", shape.Depth)
 	}
 
-	var root WaveSpan
+	var root frontend.WaveSpan
 	for _, span := range shape.Spans {
 		if span.Start < 0 || span.End > 1.0001 || span.End < span.Start {
 			t.Errorf("the %s span runs %.3f to %.3f", span.Kind, span.Start, span.End)
@@ -364,7 +368,7 @@ func TestHandlerHealthDots(t *testing.T) {
 			httptest.NewRequest(http.MethodGet, "http://one.example/"+strconv.Itoa(code), nil))
 	}
 
-	body := request(t, HandlerFor(tracer), tracesPath, nil).Body.String()
+	body := request(t, frontend.HandlerFor(tracer), tracesPath, nil).Body.String()
 	for _, want := range []string{
 		`class="dot ok"`,   // 200 and 302
 		`class="dot warn"`, // 404
@@ -379,7 +383,7 @@ func TestHandlerHealthDots(t *testing.T) {
 	}
 
 	// The host served a failure, so its dot is red.
-	hosts := request(t, HandlerFor(tracer), oida.DefaultPath, nil).Body.String()
+	hosts := request(t, frontend.HandlerFor(tracer), oida.DefaultPath, nil).Body.String()
 	if !strings.Contains(hosts, `class="dot bad"`) {
 		t.Error("a host that served a 500 is not marked as failing")
 	}
@@ -513,7 +517,7 @@ func seedHosts(t *testing.T) (*oida.Tracer, http.Handler) {
 		traffic.ServeHTTP(httptest.NewRecorder(),
 			httptest.NewRequest(http.MethodGet, "http://"+seed.host+"/orders", nil))
 	}
-	return tracer, HandlerFor(tracer)
+	return tracer, frontend.HandlerFor(tracer)
 }
 
 func TestHandlerSearchesSpanContent(t *testing.T) {
@@ -677,7 +681,7 @@ func TestHandlerHostStatistics(t *testing.T) {
 func TestHandlerServesUnderCustomPath(t *testing.T) {
 	tracer, _ := newTestTracer(t, func(o *oida.Options) { o.Path = "/admin/telemetry" })
 
-	response := request(t, HandlerFor(tracer), "/admin/telemetry/stats", nil)
+	response := request(t, frontend.HandlerFor(tracer), "/admin/telemetry/stats", nil)
 	if response.Code != http.StatusOK {
 		t.Fatalf("status %d", response.Code)
 	}
