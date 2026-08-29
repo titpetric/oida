@@ -10,3 +10,7 @@ Checklist:
 - [ ] Clean git tree: every generated file that is not .gitignored is committed (templ output)
 - [ ] go.mod/go.sum changes belong to the feature and are committed (no third-party PRs for go.mod changes will be considered)
 - [ ] Frontend changes checked in both dark and light themes
+
+Not applicable:
+
+<!-- Move checklist items the change does not touch here, unticked. -->
