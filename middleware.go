@@ -54,7 +54,7 @@ func serveTraced(tracer *Tracer, opts Options, next http.Handler, w http.Respons
 		URI:           r.URL.RequestURI(),
 		Host:          r.Host,
 		Protocol:      r.Proto,
-		RemoteAddress: r.RemoteAddr,
+		RemoteAddress: remoteAddr(r),
 		UserAgent:     r.UserAgent(),
 	}
 	trace := tracer.begin(id, r.Method+" "+r.URL.Path, info)
