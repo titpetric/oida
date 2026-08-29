@@ -1766,3 +1766,99 @@ td.plot .bar.plot {
   font-size: 0.65rem;
   white-space: nowrap;
 }
+
+/* ------------------------------------------------------------------- login */
+
+/* The sign in screen: one narrow card, the filter bar vocabulary stacked
+   vertically. Labels above inputs, one amber action, nothing recorded on
+   the page around it. */
+section.login {
+  max-width: 21rem;
+  margin: 3.5rem auto;
+  padding: 1.3rem 1.5rem 1.5rem;
+  background: var(--ink-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+}
+
+section.login h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+section.login p {
+  margin: 0 0 1rem;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+/* The failure names what to do next, and reads as a state, not decoration. */
+section.login .login-error {
+  padding: 0.5rem 0.7rem;
+  background: var(--bad-wash);
+  border: 1px solid var(--bad);
+  border-radius: var(--radius);
+  color: var(--text);
+}
+
+section.login form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+section.login .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+section.login label {
+  color: var(--text-faint);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+section.login input {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  background: var(--ink-2);
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+section.login button[type="submit"] {
+  padding: 0.45rem 0.55rem;
+  background: var(--signal);
+  border: 1px solid var(--signal);
+  border-radius: var(--radius);
+  color: var(--signal-ink);
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+
+section.login button[type="submit"]:active {
+  transform: translateY(1px);
+}
+
+section.login .login-note {
+  margin: 0;
+  color: var(--text-faint);
+}
+
+section.login .login-note code {
+  color: var(--text-dim);
+}

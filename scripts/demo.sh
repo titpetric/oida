@@ -26,6 +26,38 @@ case "$theme" in
   *) echo "theme must be dark or light" >&2; exit 2 ;;
 esac
 
+# An authenticated deployment serves the sign in screen and redirects every
+# other page to it, so the run captures the login card and stops there: the
+# rest of the shots want the open dashboard. Only an authenticated demo,
+# OIDA_AUTH=username:password, answers on /login.
+if curl -fsS -o /dev/null "${BASE}${UI}/login"; then
+  cd "$root"
+  shots=$(cat <<MANIFEST | node scripts/shot.js
+{
+  "base": "${BASE}",
+  "width": 1440,
+  "scale": 2,
+  "theme": "${theme}",
+  "pad": 14,
+  "shots": [
+    {
+      "out": "docs/assets/login.png",
+      "path": "${UI}/login",
+      "pick": "q('section.login')"
+    }
+  ]
+}
+MANIFEST
+)
+  for shot in $shots; do
+    if command -v magick >/dev/null 2>&1; then
+      magick "$shot" -strip -colors 256 -define png:compression-level=9 "$shot"
+    fi
+    echo "$shot"
+  done
+  exit 0
+fi
+
 if ! curl -fsS -o /dev/null "${BASE}${UI}?format=json"; then
   echo "no service at ${BASE}${UI}: docker compose up -d --force-recreate --wait" >&2
   exit 1

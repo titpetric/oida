@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	chi "github.com/go-chi/chi/v5"
-
 	"github.com/titpetric/oida"
 )
 
@@ -16,8 +14,16 @@ import (
 // touching the process default so the tests can run in parallel.
 func mountedTracer(t *testing.T) *oida.Tracer {
 	t.Helper()
+	return mountedTracerAt(t, oida.DefaultPath)
+}
+
+// mountedTracerAt returns the same tracer configured for another mount path.
+func mountedTracerAt(t *testing.T, path string) *oida.Tracer {
+	t.Helper()
 
 	opts := oida.NewOptions("mount-test")
+	opts.Enabled = true
+	opts.Path = path
 	opts.TrackMemoryUse = false
 	opts.OnError = func(err error) { t.Errorf("oida: %v", err) }
 
@@ -35,13 +41,20 @@ func mountedTracer(t *testing.T) *oida.Tracer {
 // on and verifies the pages that exercise both path shapes.
 func checkDashboard(t *testing.T, handler http.Handler) {
 	t.Helper()
+	checkDashboardAt(t, handler, oida.DefaultPath)
+}
+
+// checkDashboardAt verifies the dashboard under another mount path, including
+// that the pages link their assets under it, so a misconfigured base surfaces.
+func checkDashboardAt(t *testing.T, handler http.Handler, base string) {
+	t.Helper()
 
 	for path, want := range map[string]string{
-		"/debug/oida/":                "mount-test",
-		"/debug/oida/traces":          "cron: tick",
-		"/debug/oida/live?stream=off": "cron: tick",
-		"/debug/oida/assets/oida.css": "--signal",
-		"/debug/oida/stats":           "mount-test",
+		base + "/":                `href="` + base + `/assets/oida.css"`,
+		base + "/traces":          "cron: tick",
+		base + "/live?stream=off": "cron: tick",
+		base + "/assets/oida.css": "--signal",
+		base + "/stats":           "mount-test",
 	} {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
@@ -49,19 +62,14 @@ func checkDashboard(t *testing.T, handler http.Handler) {
 			t.Errorf("GET %s returned %d", path, response.Code)
 			continue
 		}
+		if response.Body.Len() == 0 {
+			t.Errorf("GET %s returned an empty body", path)
+			continue
+		}
 		if !strings.Contains(response.Body.String(), want) {
 			t.Errorf("GET %s does not contain %q", path, want)
 		}
 	}
-}
-
-func TestMount(t *testing.T) {
-	tracer := mountedTracer(t)
-
-	router := chi.NewRouter()
-	router.Mount("/debug/oida", tracer)
-
-	checkDashboard(t, router)
 }
 
 func TestMountServeMux(t *testing.T) {
@@ -71,6 +79,15 @@ func TestMountServeMux(t *testing.T) {
 	mux.Handle("/debug/oida/", tracer)
 
 	checkDashboard(t, mux)
+}
+
+func TestMountServeMuxStatusPage(t *testing.T) {
+	tracer := mountedTracerAt(t, "/status-page")
+
+	mux := http.NewServeMux()
+	mux.Handle("/status-page/", tracer)
+
+	checkDashboardAt(t, mux, "/status-page")
 }
 
 func TestMountStripped(t *testing.T) {

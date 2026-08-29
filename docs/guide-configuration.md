@@ -35,27 +35,53 @@ type Options struct {
 }
 ```
 
-| Field              | Default                                               | Meaning                                                                                                                                                                      |
-|--------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Path`             | `/debug/oida`                                         | Mount path of the UI. Must be absolute; trailing slashes are trimmed. Also implicitly added to `IgnorePaths`.                                                                |
-| `ServiceName`      | `""`                                                  | Shown in the header and stored on every trace.                                                                                                                               |
-| `Enabled`          | `true`                                                | When false, the middleware passes through and the handler serves an empty snapshot. Flip at runtime with `Tracer.SetEnabled`.                                                |
-| `RingBufferSize`   | `200`                                                 | Completed traces retained. 0 disables retention (live view still works).                                                                                                     |
-| `TopRequests`      | `20`                                                  | Rows in the statistics view.                                                                                                                                                 |
-| `MaxSpansPerTrace` | `1000`                                                | Spans recorded per trace; further spans are counted in `DroppedSpans` and dropped. 0 means unlimited.                                                                        |
-| `SampleRate`       | `100`                                                 | Percentage of requests traced, `[0,100]`.                                                                                                                                    |
-| `TrackMemoryUse`   | `true`                                                | Read `runtime.MemStats` around each trace.                                                                                                                                   |
-| `TrustRequestID`   | `false`                                               | Reuse a client-supplied `Request-Id` header instead of generating one. Only enable behind a trusted proxy.                                                                   |
-| `IgnorePaths`      | `["/healthz", "/readyz", "/metrics", "/favicon.ico"]` | Exact paths and `/prefix/*` patterns never traced.                                                                                                                           |
-| `RefreshInterval`  | `5`                                                   | Fallback refresh of the live view, in seconds, used when the browser cannot stream. 0 disables it.                                                                           |
-| `LiveStream`       | `true`                                                | Serve the live view over server sent events, so traces appear as they are recorded. False falls back to the meta refresh and 404s the stream route.                          |
-| `Sampler`          | nil                                                   | Overrides `SampleRate` entirely when set.                                                                                                                                    |
-| `Storage`          | nil                                                   | Retention backend. Nil builds `NewStorageMemory(RingBufferSize)`.                                                                                                            |
-| `RouteFunc`        | nil                                                   | Returns the routed pattern of a request, so statistics group by route. It decides on its own: an empty result means group by path. Nil falls back to `http.Request.Pattern`. |
-| `OnError`          | nil                                                   | Receives storage and rendering failures. Nil discards them — the package never prints.                                                                                       |
-| `Authorize`        | nil                                                   | Access check for the UI. Nil means "allow" — set it before exposing the route on a public listener.                                                                          |
-| `Clock`            | `time.Now`                                            | Time source. Tests inject a deterministic clock.                                                                                                                             |
-| `Tracer`           | nil                                                   | Explicit tracer for `TracingMiddleware`, `Handler` and `Mount`. Nil resolves the process default.                                                                            |
+Field: `Options.Path`<br>Default: `/debug/oida`<br>Meaning: Mount path of the UI. Must be absolute; trailing slashes are trimmed. Also implicitly added to `IgnorePaths`.
+
+Field: `Options.ServiceName`<br>Default: the name passed to `NewOptions`<br>Meaning: Shown in the header and stored on every trace.
+
+Field: `Options.Enabled`<br>Default: `false`<br>Meaning: Recording is opt-in: enable in code or with `OIDA_ENABLED=true`. When false, the middleware passes through and the handler serves an empty snapshot. Flip at runtime with `Tracer.SetEnabled`.
+
+Field: `Options.RingBufferSize`<br>Default: `200`<br>Meaning: Completed traces retained. 0 disables retention (live view still works).
+
+Field: `Options.TopRequests`<br>Default: `20`<br>Meaning: Rows in the statistics view.
+
+Field: `Options.MaxSpansPerTrace`<br>Default: `1000`<br>Meaning: Spans recorded per trace; further spans are counted in `DroppedSpans` and dropped. 0 means unlimited.
+
+Field: `Options.SampleRate`<br>Default: `100`<br>Meaning: Percentage of requests traced, `[0,100]`.
+
+Field: `Options.TrackMemoryUse`<br>Default: `true`<br>Meaning: Read `runtime.MemStats` around each trace.
+
+Field: `Options.TrustRequestID`<br>Default: `false`<br>Meaning: Reuse a client-supplied `Request-Id` header instead of generating one. Only enable behind a trusted proxy.
+
+Field: `Options.IgnorePaths`<br>Default: `/healthz`, `/readyz`, `/metrics`, `/favicon.ico`<br>Meaning: Exact paths and `/prefix/*` patterns never traced.
+
+Field: `Options.RefreshInterval`<br>Default: `5`<br>Meaning: Fallback refresh of the live view, in seconds, used when the browser cannot stream. 0 disables it.
+
+Field: `Options.LiveStream`<br>Default: `true`<br>Meaning: Serve the live view over server sent events, so traces appear as recorded. False falls back to the meta refresh and 404s the stream route.
+
+Field: `Options.Sampler`<br>Default: nil<br>Meaning: Overrides `SampleRate` entirely when set.
+
+Field: `Options.Storage`<br>Default: nil<br>Meaning: Retention backend. Nil builds `NewStorageMemory(RingBufferSize)`.
+
+Field: `Options.RouteFunc`<br>Default: nil<br>Meaning: Returns the routed pattern of a request, so statistics group by route. An empty result means group by path. Nil falls back to `http.Request.Pattern`.
+
+Field: `Options.OnError`<br>Default: nil<br>Meaning: Receives storage and rendering failures. Nil discards them; the package never prints.
+
+Field: `Options.Authorize`<br>Default: nil<br>Meaning: Access check for the UI. Nil means "allow"; set it before exposing the route on a public listener.
+
+Field: `Options.AllowedNetworks`<br>Default: none<br>Meaning: CIDR allow list for the UI. A peer outside it receives a 404, like a failed `Authorize`.
+
+Field: `Options.Users`<br>Default: none<br>Meaning: Usernames to bcrypt hashes behind the sign in screen. Any user puts the UI behind `{OIDA_PATH}/login`.
+
+Field: `Options.UsersFile`<br>Default: none<br>Meaning: An `.htpasswd` style file, one `username:hash` per line, read once and merged under `Users`.
+
+Field: `Options.AuthorizeUser`<br>Default: nil<br>Meaning: Authenticates a login the configured users did not, so a directory can answer instead of a password file.
+
+Field: `Options.SigningSecret`<br>Default: none<br>Meaning: Signs the session cookie and verifies `Authorization: Bearer` JWTs. Empty generates a per-process secret.
+
+Field: `Options.Clock`<br>Default: `time.Now`<br>Meaning: Time source. Tests inject a deterministic clock.
+
+Field: `Options.Tracer`<br>Default: nil<br>Meaning: Explicit recorder for `TracingMiddleware`, `Handler` and `Mount`. Nil resolves the process default.
 
 ### 1.1 Route patterns
 
@@ -80,7 +106,7 @@ opts.OnError = func(err error) {
 }
 ```
 
-This is the only channel for asynchronous failures — a disk write that failed, a component that failed to render. In tests, point it at `t.Errorf`.
+This is the only channel for asynchronous failures: a disk write that failed, a component that failed to render. In tests, point it at `t.Errorf`.
 
 ## 2. Sizing the ring buffer
 
@@ -90,7 +116,7 @@ Every retained trace holds its spans, so memory is roughly:
 RingBufferSize × (trace overhead ≈ 400B + spans × (span overhead ≈ 200B + attributes))
 ```
 
-200 traces × 30 spans ≈ 1.5 MB. A busy service with 100 spans per trace and a 1000-trace buffer is closer to 25 MB — measurable, so size it deliberately. `MaxSpansPerTrace` is the guard rail against one pathological request pinning memory until it rotates out.
+200 traces × 30 spans ≈ 1.5 MB. A busy service with 100 spans per trace and a 1000-trace buffer is closer to 25 MB, measurable, so size it deliberately. `MaxSpansPerTrace` is the guard rail against one pathological request pinning memory until it rotates out.
 
 ## 2.1 Storage
 
@@ -167,7 +193,7 @@ An unsampled request does not create a trace or spans. `oida.Start` inside an un
 
 ## 4. Multiple tracers
 
-One process can run several tracers — an HTTP tracer with a small buffer and a job tracer with a large one:
+One process can run several tracers, such as an HTTP tracer with a small buffer and a job tracer with a large one:
 
 ```go
 httpOpts := oida.NewOptions()
@@ -317,4 +343,103 @@ opts.Enabled = false     // at construction
 tracer.SetEnabled(false) // at runtime
 ```
 
-A disabled tracer stops recording immediately; existing traces stay in the ring buffer until `Reset()` clears them. Nothing else in the process changes — spans started against a disabled tracer are nil.
+A disabled tracer stops recording immediately; existing traces stay in the ring buffer until `Reset()` clears them. Nothing else in the process changes: spans started against a disabled tracer are nil.
+
+## 8. Authentication
+
+Besides `Authorize`, the front end has three access mechanisms: a network allow list, users behind a login screen, and bearer tokens. They stack in this order: `Authorize` first, then the allow list, then credentials. A request rejected by `Authorize` or the allow list receives a 404, and a request missing credentials is redirected to the login screen (a browser) or receives a 401 (a JSON or plain text request). With none of the fields set, every request is served, as before.
+
+### 8.1 Allowed networks
+
+```go
+opts.AllowedNetworks = []string{"127.0.0.0/8", "10.0.0.0/8", "fd00::/8"}
+```
+
+Entries are CIDR prefixes, IPv4 and IPv6 both. The peer is `http.Request.RemoteAddr`, so behind a reverse proxy the list sees the proxy address, not the client's. An allow list on its own asks for no credentials.
+
+### 8.2 Users and the login screen
+
+```go
+opts.Users = map[string]string{
+	"admin": "$2b$05$.CFyywyis4bpZ5xVynOfRO9K0cpkOEOym43FeIPXz23bwvQ3wEEOm", // htpasswd -nbB admin secret
+}
+opts.UsersFile = "/etc/billing-api/htpasswd"
+```
+
+Password hashes are bcrypt: `htpasswd -nbB admin secret` produces one, and a hash in any other format never matches. The file holds one `username:hash` per line, with blank lines and `#` comments skipped, and is read once when the front end is built. Entries in `Users` override entries from the file.
+
+Any configured user puts the front end behind `{OIDA_PATH}/login`. A successful login sets the `oida_session` cookie: an HS256 JWT with the username as its `sub` claim, valid for twelve hours, scoped to `Options.Path` and `HttpOnly`.
+
+`AuthorizeUser` authenticates logins the configured users did not, so an existing directory can answer instead of a password file:
+
+```go
+opts.AuthorizeUser = func(ctx context.Context, username, password string) error {
+	return directory.Bind(ctx, username, password)
+}
+```
+
+Returning nil grants a session naming the given username.
+
+### 8.3 Signing secret and bearer tokens
+
+```go
+opts.SigningSecret = os.Getenv("OIDA_SIGNING_SECRET")
+```
+
+The secret signs the session cookie and verifies `Authorization: Bearer` tokens, so a script can mint a token instead of driving the form:
+
+```go
+auth, err := oida.NewAuth(opts)
+if err != nil {
+	return err
+}
+token, err := auth.Session("ci")
+```
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/debug/oida/traces?format=json'
+```
+
+Any HS256 JWT signed with the secret is accepted; a `sub` claim names the user and an `exp` claim bounds its life. With `SigningSecret` empty and users configured, a per-process secret is generated: logins keep working, but sessions do not survive a restart and no externally minted token verifies. `SigningSecret` set on its own also puts the front end behind credentials; the login form has no user to accept, so a bearer token is the way in.
+
+### 8.4 In YAML
+
+The four fields carry yaml tags like the rest; `AuthorizeUser` is a function and is set in code.
+
+```yaml
+oida:
+  allowed_networks:
+    - 127.0.0.0/8
+    - 10.0.0.0/8
+  users:
+    admin: $2b$05$.CFyywyis4bpZ5xVynOfRO9K0cpkOEOym43FeIPXz23bwvQ3wEEOm
+  users_file: /etc/billing-api/htpasswd
+  signing_secret: change-me
+```
+
+## 9. From the environment
+
+`oida.Configure` applies the environment to the options. A variable applies only where the code left the field at its `NewOptions` default, so options set in code win. Lists are comma separated.
+
+| Variable                   | Option             | When unset                               |
+|----------------------------|--------------------|------------------------------------------|
+| `OIDA_SERVICE_NAME`        | `ServiceName`      | the name passed to `NewOptions`          |
+| `OIDA_PATH`                | `Path`             | `/debug/oida`                            |
+| `OIDA_ENABLED`             | `Enabled`          | `false`: recording stays off             |
+| `OIDA_RING_BUFFER_SIZE`    | `RingBufferSize`   | `200`                                    |
+| `OIDA_TOP_REQUESTS`        | `TopRequests`      | `20`                                     |
+| `OIDA_MAX_SPANS_PER_TRACE` | `MaxSpansPerTrace` | `1000`                                   |
+| `OIDA_SAMPLE_RATE`         | `SampleRate`       | `100`; out of `[0,100]` clamps           |
+| `OIDA_TRACK_MEMORY_USE`    | `TrackMemoryUse`   | `true`                                   |
+| `OIDA_TRUST_REQUEST_ID`    | `TrustRequestID`   | `false`                                  |
+| `OIDA_REFRESH_INTERVAL`    | `RefreshInterval`  | `5`                                      |
+| `OIDA_LIVE_STREAM`         | `LiveStream`       | `true`                                   |
+| `OIDA_IGNORE_PATHS`        | `IgnorePaths`      | `/healthz,/readyz,/metrics,/favicon.ico` |
+| `OIDA_ALLOWED_NETWORKS`    | `AllowedNetworks`  | none: every peer is served               |
+| `OIDA_AUTH`                | `Users`            | none: no sign in screen                  |
+| `OIDA_USERS_FILE`          | `UsersFile`        | none                                     |
+| `OIDA_SIGNING_SECRET`      | `SigningSecret`    | none: a per-process secret is generated  |
+
+`OIDA_AUTH` holds one `username:password` pair, hashed at startup so the options carry a bcrypt hash the way a configured deployment would. This is how the demo serves its sign in screen without a line of auth code.
+
+The demo binary reads two more variables of its own: `OIDA_ADDR` (listen address, `:8080` when unset) and `OIDA_DEMO_INTERVAL` (background trace interval, `5m`; `0` records only real requests).

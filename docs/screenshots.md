@@ -51,3 +51,9 @@ Under the drawing sits a bar carrying the legend and a count, and behind the cou
 Tables side by side: the request details on the left, the request cost on the right. Labels down the left of each, values down the right, one row per property. Between them sits what the transaction recorded about itself, here the memory limit it ran under and what it used of it. A trace that recorded no attributes of its own shows the two tables and no gap where the third would be.
 
 ![The request, transaction and system fact tables, and the page footer](assets/detail-footer.png)
+
+## The sign in screen
+
+Drawn when the service configures authentication, which the demo does with `OIDA_AUTH=username:password`. A browser without a session lands here: one card, labels above the inputs, the one amber action, and none of the recorded data rendered around it. A failed login keeps the username and says what to do next; a successful one sets the session cookie and returns to the page the browser asked for. Scripts and API callers skip the form with an `Authorization: Bearer` token signed with the configured secret.
+
+![The sign in screen: one card with the username and password fields](assets/login.png)

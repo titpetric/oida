@@ -40,8 +40,8 @@ var styleSheet = sync.OnceValue(func() string {
 })
 
 // assetMarker is the placeholder the stylesheet uses for its own asset URLs.
-// The sheet is served from {Path}/assets/ and also inlined into a document at
-// {Path}, so a relative URL cannot be right in both places.
+// The sheet is served from {OIDA_PATH}/assets/ and also inlined into a document at
+// {OIDA_PATH}, so a relative URL cannot be right in both places.
 const assetMarker = "asset:"
 
 // styleSheetFor returns the stylesheet with its asset URLs pointed at base.

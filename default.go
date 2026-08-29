@@ -37,7 +37,15 @@ func defaultTracer() *Tracer {
 
 // Configure replaces the process wide tracer with one built from opts and
 // returns it. Call it once during startup, before wiring the middleware.
+//
+// Configure also applies the environment: every OIDA_* variable listed on
+// optionsFromEnv, including the OIDA_AUTH=username:password sign in opt-in.
+// A variable applies only where the code left the field at its default, so
+// options set in code win over the environment.
 func Configure(opts Options) (*Tracer, error) {
+	if err := optionsFromEnv(&opts); err != nil {
+		return nil, err
+	}
 	tracer, err := New(opts)
 	if err != nil {
 		return nil, err

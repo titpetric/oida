@@ -3,10 +3,15 @@
 // /debug/oida.
 //
 // Wire it into a service in three calls: configure the tracer, mount it, add
-// the middleware. The tracer is an http.Handler serving the debug front end,
-// so it mounts like any other handler and no second import is needed:
+// the middleware. Recording is opt-in: enable it in code, or leave the field
+// alone and set OIDA_ENABLED=true in the environment. The tracer is an
+// http.Handler serving the debug front end, so it mounts like any other
+// handler and no second import is needed:
 //
-//	tracer, err := oida.Configure(oida.NewOptions("billing-api"))
+//	opts := oida.NewOptions("billing-api")
+//	opts.Enabled = true
+//
+//	tracer, err := oida.Configure(opts)
 //	if err != nil {
 //		return err
 //	}
