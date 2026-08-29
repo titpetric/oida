@@ -296,8 +296,8 @@ func (p Page) DurationShare(trace oida.Trace) float64 {
 
 // Composition returns the timeline of a trace scaled to the slowest trace on
 // the page, so one row of bars compares traces against each other rather than
-// against themselves. The shape of a request — how much of it was database,
-// how much was waiting on someone else — is the thing worth seeing in a list.
+// against themselves. The shape of a request (how much of it was database,
+// how much was waiting on someone else) is the thing worth seeing in a list.
 func (p Page) Composition(trace oida.Trace) []Segment {
 	segments := Timeline(trace)
 	if p.Slowest <= 0 || trace.Duration <= 0 {

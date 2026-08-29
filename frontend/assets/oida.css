@@ -1,4 +1,4 @@
-/* oida — flight recorder console.
+/* oida: flight recorder console.
    Dark first, monospace throughout, hairlines instead of boxes. Chrome stays
    neutral so the only saturated ink on the page is the span kind. */
 
@@ -1686,4 +1686,83 @@ td.plot .bar.plot {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ------------------------------------------------------------ memory graph */
+
+/* The memory the spans reported, as one step line across the same stretch of
+   time as the drawing above it. The line wears the accent because it is the
+   one series on the plot; the wash under it is the same ink at a whisper, and
+   every word on the plot stays in text ink. */
+.memory-note {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.memory-graph {
+  position: relative;
+  height: 6rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.memory-graph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.memory-graph .line {
+  fill: none;
+  stroke: var(--signal);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.memory-graph .wash {
+  fill: var(--signal-wash);
+  stroke: none;
+}
+
+.memory-graph .limit {
+  stroke: var(--text-dim);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.memory-graph .hit {
+  fill: transparent;
+}
+
+/* The newest reading gets the dot and the figure; the rest answer on hover
+   and in the memory column of the span table. */
+.memory-graph .mark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--signal);
+  border: 2px solid var(--ink-2);
+  transform: translate(-50%, -50%);
+}
+
+.memory-graph .reading {
+  position: absolute;
+  transform: translate(calc(-100% - 0.55rem), -50%);
+  padding: 0 0.25rem;
+  background: var(--ink-2);
+  color: var(--text);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.memory-graph .limit-note {
+  position: absolute;
+  left: 0.4rem;
+  margin-top: 3px;
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  white-space: nowrap;
 }

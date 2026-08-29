@@ -197,9 +197,12 @@ func TestHandlerRendersTransactionMemory(t *testing.T) {
 		}
 	}
 
-	// Once in the memory column, once in the attributes of that span.
-	if got := strings.Count(body, "10.0 KiB"); got != 2 {
-		t.Errorf("the first reading is rendered %d times, want 2", got)
+	// Once in the memory column, once in the attributes of that span, once in
+	// the hover title of its stretch of the memory graph, and once per axis
+	// tick where it is still the level in use, which is four of the five here.
+	// The graph markup itself is asserted black box, in tests/memory_test.go.
+	if got := strings.Count(body, "10.0 KiB"); got != 7 {
+		t.Errorf("the first reading is rendered %d times, want 7", got)
 	}
 }
 

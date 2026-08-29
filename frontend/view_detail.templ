@@ -30,6 +30,9 @@ templ Detail(page Page) {
 				<h2>Transaction</h2>
 			</div>
 			@waves(page)
+			if page.Memory.Spans {
+				@memoryGraph(page)
+			}
 			// Where the time went, and the way into the detail behind it. The
 			// legend is the answer on its own, so it is always here; the spans
 			// are the working, and they fold away until they are asked for.
