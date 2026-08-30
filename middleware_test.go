@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/titpetric/oida/model"
 )
 
 // newTestServer returns a mux with the middleware and the front end mounted on
@@ -28,7 +30,7 @@ func newTestServer(t *testing.T, apply func(*Options)) (http.Handler, *Tracer) {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	})
-	return TracingMiddleware(opts)(mux), tracer
+	return tracer.Middleware(mux), tracer
 }
 
 func TestMiddlewareRecordsRequest(t *testing.T) {
@@ -40,7 +42,7 @@ func TestMiddlewareRecordsRequest(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status %d", response.Code)
 	}
-	if id := response.Header().Get(RequestIDHeader); !ValidID(id) {
+	if id := response.Header().Get(RequestIDHeader); !model.ValidID(id) {
 		t.Fatalf("response carries no trace id: %q", id)
 	}
 

@@ -15,7 +15,7 @@ go get github.com/titpetric/oida@latest
 ```go
 import "github.com/titpetric/oida"
 
-tracer, err := oida.Configure(oida.NewOptions("billing-api"))
+tracer, err := oida.New(oida.NewOptions("billing-api"))
 if err != nil {
 	return err
 }
@@ -32,6 +32,8 @@ mux := http.NewServeMux()
 mux.Handle("/debug/oida/", tracer)
 ```
 
+`oida.Mount(r, tracer)` does the same on either router, registering the subtree patterns each one understands.
+
 Instrument work below the middleware:
 
 ```go
@@ -46,13 +48,15 @@ Open `http://localhost:8080/debug/oida`.
 
 - HTTP requests and background jobs
 - Nested spans with kinds, attributes, errors, and source locations
-- Bounded in-memory retention or disk retention across restarts
+- Bounded in-memory retention, or disk documents that outlive the process, chosen in code or from the environment
 - Rate sampling and custom sampling rules
 - Live activity, retained traces, route statistics, and trace details
 - HTML for browsers, JSON for tools, and plain text for terminals
 - Nil-safe instrumentation when tracing is absent or a request is not sampled
 
 ## Documentation
+
+`github.com/titpetric/oida` is the public API: one import covers instrumenting, mounting and configuring. [docs/api.md](docs/api.md) is its generated reference. The `frontend`, `model` and `storage` packages serve the root package and carry no compatibility promise of their own.
 
 | Guide                                            | Contents                                                    |
 |--------------------------------------------------|-------------------------------------------------------------|

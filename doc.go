@@ -11,7 +11,7 @@
 //	opts := oida.NewOptions("billing-api")
 //	opts.Enabled = true
 //
-//	tracer, err := oida.Configure(opts)
+//	tracer, err := oida.New(opts)
 //	if err != nil {
 //		return err
 //	}
@@ -23,6 +23,13 @@
 //
 //	r := chi.NewRouter()
 //	r.Mount("/debug/oida", tracer)
+//
+// Mount registers the front end on either router, adding the subtree patterns
+// each one understands:
+//
+//	if err := oida.Mount(mux, tracer); err != nil {
+//		return err
+//	}
 //
 // The middleware records every sampled request into the tracer:
 //
@@ -39,12 +46,13 @@
 // in processes where oida is disabled, where the request was not sampled, or
 // where no trace is in the context.
 //
-// The project is three packages. This one records and serves: the tracer, the
-// middleware, the options and the storage. Package model holds the recorded
-// data and the configuration and depends on nothing; the types it defines are
-// aliased here, so instrumenting a service needs this import alone. Package
-// frontend renders the dashboard, reads the model alone, and is imported here
-// so the tracer can serve it.
+// The project is four packages. This one records and serves: the tracer, the
+// middleware and the options. Package model holds the recorded data and the
+// configuration and depends on nothing; the types it defines are aliased here,
+// so instrumenting a service needs this import alone. Package storage holds
+// the retention drivers, which New builds from the environment.
+// Package frontend renders the dashboard, reads the model alone, and is
+// imported here so the tracer can serve it.
 //
 // Nothing in this package writes to stdout or stderr. Storage and rendering
 // failures are reported through Options.OnError.

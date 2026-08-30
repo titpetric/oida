@@ -1,9 +1,11 @@
-package oida
+package storage
+
+import "github.com/titpetric/oida/model"
 
 // ring is a fixed size ring buffer of completed traces. It is not safe for
 // concurrent use; the tracer holds its lock around every call.
 type ring struct {
-	items []*Trace
+	items []*model.Trace
 	next  int
 	full  bool
 }
@@ -14,12 +16,12 @@ func newRing(size int) *ring {
 	if size < 0 {
 		size = 0
 	}
-	return &ring{items: make([]*Trace, size)}
+	return &ring{items: make([]*model.Trace, size)}
 }
 
 // push stores a trace, overwriting the oldest one when the buffer is full. It
 // reports whether a trace was evicted.
-func (r *ring) push(t *Trace) bool {
+func (r *ring) push(t *model.Trace) bool {
 	if r == nil || len(r.items) == 0 || t == nil {
 		return t != nil
 	}
@@ -52,11 +54,11 @@ func (r *ring) cap() int {
 }
 
 // list returns the retained traces, newest first.
-func (r *ring) list() []*Trace {
+func (r *ring) list() []*model.Trace {
 	if r == nil || len(r.items) == 0 {
 		return nil
 	}
-	out := make([]*Trace, 0, r.len())
+	out := make([]*model.Trace, 0, r.len())
 	for i := range r.len() {
 		index := (r.next - 1 - i + len(r.items)*2) % len(r.items)
 		if trace := r.items[index]; trace != nil {
@@ -67,7 +69,7 @@ func (r *ring) list() []*Trace {
 }
 
 // find returns the retained trace with the given ID.
-func (r *ring) find(id string) (*Trace, bool) {
+func (r *ring) find(id string) (*model.Trace, bool) {
 	if r == nil || id == "" {
 		return nil, false
 	}

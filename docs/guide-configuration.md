@@ -1,40 +1,17 @@
 # Configuration
 
-`oida.Options` is the single configuration struct. `oida.NewOptions()` returns the defaults; take it and override what you need, so new fields keep their sensible values when you upgrade.
+`oida.Options` is the single configuration struct. `oida.NewOptions(serviceName)` returns the defaults; take it and override what you need, so new fields keep their sensible values when you upgrade.
 
 ```go
-opts := oida.NewOptions()
-opts.ServiceName = "billing-api"
+opts := oida.NewOptions("billing-api")
 opts.SampleRate = 25
 ```
 
 ## 1. Reference
 
-```go
-type Options struct {
-	Path             string   `yaml:"path"`
-	ServiceName      string   `yaml:"service_name"`
-	Enabled          bool     `yaml:"enabled"`
-	RingBufferSize   int      `yaml:"ring_buffer_size"`
-	TopRequests      int      `yaml:"top_requests"`
-	MaxSpansPerTrace int      `yaml:"max_spans_per_trace"`
-	SampleRate       float64  `yaml:"sample_rate"`
-	TrackMemoryUse   bool     `yaml:"track_memory_use"`
-	TrustRequestID   bool     `yaml:"trust_request_id"`
-	IgnorePaths      []string `yaml:"ignore_paths"`
-	RefreshInterval  int      `yaml:"refresh_interval"`
-	LiveStream       bool     `yaml:"live_stream"`
-	CaptureLogs      bool     `yaml:"capture_logs"`
-
-	Sampler   Sampler                    `yaml:"-"`
-	Storage   Storage                    `yaml:"-"`
-	RouteFunc func(*http.Request) string `yaml:"-"`
-	OnError   func(error)                `yaml:"-"`
-	Authorize func(*http.Request) bool   `yaml:"-"`
-	Clock     func() time.Time           `yaml:"-"`
-	Tracer    *Tracer                    `yaml:"-"`
-}
-```
+Every field, its default and what it does. The struct is declared in
+`model/options.go` and aliased as `oida.Options`; the yaml tag of a field is
+its name in snake case.
 
 Field: `Options.Path`<br>Default: `/debug/oida`<br>Meaning: Mount path of the UI. Must be absolute; trailing slashes are trimmed. Also implicitly added to `IgnorePaths`.
 
@@ -62,9 +39,11 @@ Field: `Options.LiveStream`<br>Default: `true`<br>Meaning: Serve the live view o
 
 Field: `Options.CaptureLogs`<br>Default: `true`<br>Meaning: Record `Info` and `Error` log entries on traces. When false, `Info` does nothing and `Error` records its text through `RecordError` on the active span.
 
+Field: `Options.ReadEnv`<br>Default: `true` from `NewOptions`, `false` in a literal<br>Meaning: Apply the `OIDA_*` environment to these options inside `New`. Turn it off for a tracer that must ignore the deployment, such as one built in a library or a test.
+
 Field: `Options.Sampler`<br>Default: nil<br>Meaning: Overrides `SampleRate` entirely when set.
 
-Field: `Options.Storage`<br>Default: nil<br>Meaning: Retention backend. Nil builds `NewStorageMemory(RingBufferSize)`.
+Field: `Options.Storage`<br>Default: nil<br>Meaning: Retention backend. Nil builds the memory driver with `RingBufferSize` slots.
 
 Field: `Options.RouteFunc`<br>Default: nil<br>Meaning: Returns the routed pattern of a request, so statistics group by route. An empty result means group by path. Nil falls back to `http.Request.Pattern`.
 
@@ -84,11 +63,11 @@ Field: `Options.SigningSecret`<br>Default: none<br>Meaning: Signs the session co
 
 Field: `Options.Clock`<br>Default: `time.Now`<br>Meaning: Time source. Tests inject a deterministic clock.
 
-Field: `Options.Tracer`<br>Default: nil<br>Meaning: Explicit recorder for `TracingMiddleware`, `Handler` and `Mount`. Nil resolves the process default.
+Field: `Options.Tracer`<br>Default: nil<br>Meaning: The recorder `frontend.Handler` renders. The root package needs no such round trip: `Mount` and `Middleware` take the tracer itself.
 
 ### 1.1 Route patterns
 
-Statistics group by `HTTP.Route` when the router provides one. The standard library sets `http.Request.Pattern`, which oida reads with no configuration. chi keeps the pattern in its route context, so hand it over explicitly:
+Statistics group by `Trace.HTTP.Route` when the router provides one. The standard library sets `http.Request.Pattern`, which oida reads with no configuration. chi keeps the pattern in its route context, so hand it over explicitly:
 
 ```go
 opts.RouteFunc = func(r *http.Request) string {
@@ -123,29 +102,33 @@ RingBufferSize × (trace overhead ≈ 400B + spans × (span overhead ≈ 200B + 
 
 ## 2.1 Storage
 
-Retention is a pluggable interface. The default keeps traces in memory:
+Retention is a pluggable interface with two drivers, and the environment picks between them. The default keeps traces in a memory ring buffer sized by `RingBufferSize`. Disk storage keeps the documents after the process is gone, which is what you want when the interesting trace is the one that happened right before it died:
 
-```go
-opts.Storage = oida.NewStorageMemory(500) // implicit when Storage is nil
+```bash
+OIDA_STORAGE_DRIVER=disk
+OIDA_STORAGE_DISK_PATH=/var/lib/myservice/traces
+OIDA_STORAGE_DISK_LIMIT=5000
+OIDA_STORAGE_DISK_LIST=true
+OIDA_STORAGE_DISK_EXPIRE=168h
 ```
 
-Disk storage survives a restart, which is what you want when the interesting trace is the one that happened right before the process died:
-
-```go
-storage, err := oida.NewStorageDisk(5000, "/var/lib/myservice/traces")
-if err != nil {
-	return err
-}
-opts.Storage = storage
-```
-
-`NewStorageDisk` creates the folder, verifies it is writable, and prunes the oldest documents past the limit on every save. With no path it uses a folder under `os.TempDir()`. Documents are JSON, one per trace, named after the trace ID and readable with `jq`:
+`New` creates the folder, verifies it is writable, and fails when it cannot. The driver then prunes the oldest documents past the limit on every save. Reads never touch the folder: it keeps the same window in a memory ring, and only `Load` falls back to a document the ring evicted. The ring holds the traces this process recorded, so that is what the dashboard lists; documents written by an earlier one are read by ID. With no path it uses a folder under `os.TempDir()`. Documents are JSON, one per trace, named after the trace ID and readable with `jq`:
 
 ```bash
 jq '.spans[] | select(.kind == "database") | {name, duration_ns}' /var/lib/myservice/traces/*.json
 ```
 
-Add `StorageDisk.Prune(ctx, maxAge)` to a ticker if you want an age bound as well as a count bound. Keep the limit within a few thousand documents when the dashboard needs to list disk-backed traces frequently.
+The memory driver reads `OIDA_STORAGE_MEMORY_SIZE` the same way, falling back to `RingBufferSize`. A disk setting given on its own selects the disk driver, since that is the only thing it can mean, while naming one driver and configuring the other fails `New` rather than being quietly dropped.
+
+`OIDA_STORAGE_DISK_EXPIRE` and `OIDA_STORAGE_DISK_LIST` act once, when the tracer is built, in that order. The first prunes the folder of documents older than the duration, which bounds it by age the way the limit bounds it by count; a process that wants that continuously puts `Prune` on a ticker of its own. The second reads the folder into the ring, at most `OIDA_STORAGE_DISK_LIMIT` documents newest first, so the dashboard opens on what earlier runs recorded. It is off by default because it costs a directory listing and a decode per document at startup.
+
+Retaining traces anywhere else means implementing `oida.Storage` and setting `Options.Storage`, which wins over every variable above:
+
+```go
+opts.Storage = myStorage{db: db}
+```
+
+Add `Prune(ctx, maxAge)` to a ticker if you want an age bound as well as a count bound; it is part of the Storage interface, and a driver with nothing to prune returns nil. Keep the limit within a few thousand documents when the dashboard needs to list disk-backed traces frequently.
 
 Anything satisfying `oida.Storage` can provide retention.
 
@@ -196,98 +179,9 @@ An unsampled request does not create a trace or spans. `oida.Start` inside an un
 
 ## 4. Multiple tracers
 
-One process can run several tracers, such as an HTTP tracer with a small buffer and a job tracer with a large one:
+One tracer per process is the intended shape. You can compose multiple tracers to isolate the buffers between tenants, and thus support multi-tenancy in your app: build one per tenant, give each its own `Options` with its own `Path` and `RingBufferSize`, and wire each tenant's router with its own `tracer.Middleware` and `oida.Mount`.
 
-```go
-httpOpts := oida.NewOptions()
-httpOpts.Path = "/debug/oida"
-httpOpts.RingBufferSize = 200
-httpTracer, err := oida.New(httpOpts)
-if err != nil {
-	return err
-}
-httpOpts.Tracer = httpTracer
-
-jobOpts := oida.NewOptions()
-jobOpts.Path = "/debug/oida/jobs"
-jobOpts.ServiceName = "billing-jobs"
-jobOpts.RingBufferSize = 2000
-jobTracer, err := oida.New(jobOpts)
-if err != nil {
-	return err
-}
-jobOpts.Tracer = jobTracer
-
-if err := frontend.Mount(r, httpOpts); err != nil {
-	return err
-}
-if err := frontend.Mount(r, jobOpts); err != nil {
-	return err
-}
-```
-
-Traces belong to whichever tracer created them, so the two UIs stay separate. `oida.Start` follows the trace in the context and never consults a global.
-
-### 4.1 One dashboard per virtual host
-
-The same property gives you virtual hosts: build a tracer per hostname, mount each dashboard on that host's router, and the data never mixes. Both dashboards can live at the same path, because they are reached through different hosts.
-
-```go
-// vhost wires one hostname: its own tracer, middleware and dashboard.
-func vhost(name string) (http.Handler, error) {
-	opts := oida.NewOptions()
-	opts.ServiceName = name
-	opts.RouteFunc = chiRoute
-
-	tracer, err := oida.New(opts)
-	if err != nil {
-		return nil, err
-	}
-	opts.Tracer = tracer
-
-	r := chi.NewRouter()
-	r.Use(oida.TracingMiddleware(opts))
-	if err := frontend.Mount(r, opts); err != nil {
-		return nil, err
-	}
-
-	r.Get("/", index)
-	return r, nil
-}
-
-shop, err := vhost("shop.example")
-if err != nil {
-	return err
-}
-admin, err := vhost("admin.example")
-if err != nil {
-	return err
-}
-
-hosts := map[string]http.Handler{
-	"shop.example":  shop,
-	"admin.example": admin,
-}
-
-root := chi.NewRouter()
-root.HandleFunc("/*", func(w http.ResponseWriter, r *http.Request) {
-	handler, ok := hosts[stripPort(r.Host)]
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	handler.ServeHTTP(w, r)
-})
-```
-
-`chi.HostRouter` style dispatch works the same way; all oida needs is that each hostname's requests pass through that hostname's middleware.
-
-Two things to keep in mind:
-
-- Use `oida.New`, not `oida.Configure`. The process default tracer is a single instance; two hosts sharing it would share a ring buffer.
-- Ring buffers are per host, so `RingBufferSize` is a per host budget. Ten hosts at 500 traces each retain 5000 traces.
-
-A single tracer with the host filter is the other option: one dashboard, filter by host, and per host counts on the statistics view. That shares one memory budget across hosts and lets you compare them side by side. Separate tracers give isolation; one tracer gives comparison.
+Nothing is shared between them. A trace belongs to the tracer that started it, `oida.Start` follows the trace in the context, and the package holds no process wide tracer for either to fall back on. `RingBufferSize` is a per tracer budget, so ten tenants at 500 traces each retain 5000.
 
 ## 5. Loading from YAML
 
@@ -317,19 +211,19 @@ type Config struct {
 	Oida oida.Options `yaml:"oida"`
 }
 
-cfg := Config{Oida: oida.NewOptions()} // defaults first
+cfg := Config{Oida: oida.NewOptions("billing-api")} // defaults first
 if err := yaml.Unmarshal(data, &cfg); err != nil {
 	return err
 }
 cfg.Oida.Authorize = adminOnly
-tracer, err := oida.Configure(cfg.Oida)
+tracer, err := oida.New(cfg.Oida)
 ```
 
 Note the ordering: unmarshal *into* the defaults, so keys absent from the file keep their default rather than becoming zero.
 
 ## 6. Validation
 
-`Options.Validate() error` is called by `New`, `Configure` and `Mount`:
+`Options.Validate() error` is called by `New` and `Mount`:
 
 | Condition                                                                         | Error                  |
 |-----------------------------------------------------------------------------------|------------------------|
@@ -337,7 +231,7 @@ Note the ordering: unmarshal *into* the defaults, so keys absent from the file k
 | `SampleRate` outside `[0,100]` or NaN                                             | `ErrInvalidSampleRate` |
 | `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace` or `RefreshInterval` negative | `ErrInvalidOptions`    |
 
-Start with `NewOptions()` before applying overrides. This keeps defaults for fields you do not set while preserving meaningful zero values such as `SampleRate = 0`, `RingBufferSize = 0`, and `RefreshInterval = 0`.
+Start with `NewOptions(serviceName)` before applying overrides. This keeps defaults for fields you do not set while preserving meaningful zero values such as `SampleRate = 0`, `RingBufferSize = 0`, and `RefreshInterval = 0`.
 
 ## 7. Turning it off
 
@@ -422,7 +316,9 @@ oida:
 
 ## 9. From the environment
 
-`oida.Configure` applies the environment to the options. A variable applies only where the code left the field at its `NewOptions` default, so options set in code win. Lists are comma separated.
+`oida.New` applies the environment to the options when `Options.ReadEnv` is set, which is what `NewOptions` returns. A variable applies only where the code left the field at its `NewOptions` default, so options set in code win. Lists are comma separated.
+
+A variable set to nothing is a variable unset. Values are trimmed before they are read, so an empty string, whitespace, and a list of separators with no entries all leave the option at the default in the table below rather than at the zero value. That is what a compose file writes for a setting left alone. A value that is set to something is strict: anything that does not parse fails `New` instead of falling back.
 
 | Variable                   | Option             | When unset                               |
 |----------------------------|--------------------|------------------------------------------|
@@ -440,6 +336,12 @@ oida:
 | `OIDA_CAPTURE_LOGS`        | `CaptureLogs`      | `true`                                   |
 | `OIDA_IGNORE_PATHS`        | `IgnorePaths`      | `/healthz,/readyz,/metrics,/favicon.ico` |
 | `OIDA_ALLOWED_NETWORKS`    | `AllowedNetworks`  | none: every peer is served               |
+| `OIDA_STORAGE_DRIVER`      | `Storage`          | `memory`; `disk` is the other driver     |
+| `OIDA_STORAGE_MEMORY_SIZE` | `Storage`          | `OIDA_RING_BUFFER_SIZE`                  |
+| `OIDA_STORAGE_DISK_PATH`   | `Storage`          | none: a folder under the temp directory  |
+| `OIDA_STORAGE_DISK_LIMIT`  | `Storage`          | `OIDA_RING_BUFFER_SIZE`                  |
+| `OIDA_STORAGE_DISK_LIST`   | `Storage`          | `false`: the ring starts with this run   |
+| `OIDA_STORAGE_DISK_EXPIRE` | `Storage`          | none: documents are dropped by count     |
 | `OIDA_AUTH`                | `Users`            | none: no sign in screen                  |
 | `OIDA_USERS_FILE`          | `UsersFile`        | none                                     |
 | `OIDA_SIGNING_SECRET`      | `SigningSecret`    | none: a per-process secret is generated  |

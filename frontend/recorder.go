@@ -49,8 +49,5 @@ func (nopRecorder) SetEnabled(bool) {}
 // Reset implements model.Recorder.
 func (nopRecorder) Reset() {}
 
-// Storage implements model.Recorder.
-func (nopRecorder) Storage() model.Storage { return nil }
-
 // ReportError implements model.Recorder.
 func (nopRecorder) ReportError(error) {}

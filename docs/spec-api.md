@@ -1,61 +1,52 @@
 # Public API
 
-Three import paths:
+One import path: `github.com/titpetric/oida`. The root package is the public API and [api.md](api.md) is its generated reference. The `model`, `frontend` and `storage` packages serve it and carry no compatibility promise of their own, so an integration never has to name one.
 
-| Package    | Import path                          | Contents                                                                          |
-|------------|--------------------------------------|-----------------------------------------------------------------------------------|
-| `oida`     | `github.com/titpetric/oida`          | Tracer, middleware, options, storage, instrumentation                             |
-| `frontend` | `github.com/titpetric/oida/frontend` | The dashboard: `Handler`, `Mount`, `MountServeMux`                                |
-| `model`    | `github.com/titpetric/oida/model`    | Recorded data. Its types are aliased into `oida`, so this import is rarely needed |
-
-Most services use `NewOptions`, `Configure`, `TracingMiddleware`, `frontend.Mount`, and `Start`.
+Most services use `NewOptions`, `New`, `Mount`, `Start` and the tracer's own `Middleware`.
 
 ## Setup
 
 ```go
 func NewOptions(serviceName string) Options
 func New(opts Options) (*Tracer, error)
-func Configure(opts Options) (*Tracer, error)
-func Default() *Tracer
-func Resolve(opts Options) (*Tracer, error)
-func MustResolve(opts Options) *Tracer
 
-func TracingMiddleware(opts Options) func(http.Handler) http.Handler
+func (t *Tracer) Middleware(next http.Handler) http.Handler
 
 func (t *Tracer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ```
 
-`*Tracer` implements `http.Handler` and serves the dashboard, so mounting it needs no second import. The `frontend` package remains the rendering implementation and keeps its entry points for callers wiring the dashboard from options:
+`*Tracer` implements `http.Handler` and serves the dashboard, so mounting it needs no second import. `Mount` registers it under the patterns a router serves a subtree with:
 
 ```go
-package frontend
-
-func Handler(opts oida.Options) http.Handler
-func HandlerFor(recorder oida.Recorder) http.Handler
-func Mount(r Router, opts oida.Options) error
-func MountServeMux(mux *http.ServeMux, opts oida.Options) error
+func Mount(r Router, t *Tracer) error
 ```
 
-`Configure` creates the process-wide tracer. Set `opts.Tracer` to the returned value before wiring middleware and the dashboard so every entry point uses the same tracer.
+It wraps the `frontend` package, which renders the dashboard and keeps `Handler` and `HandlerFor` for callers reaching past the root.
+
+`New` is the only constructor. There is no process wide tracer: the tracer it returns is what the middleware and the dashboard are wired to, by hand rather than through the options.
 
 ```go
 opts := oida.NewOptions("billing-api")
-tracer, err := oida.Configure(opts)
+tracer, err := oida.New(opts)
 if err != nil {
 	return err
 }
-opts.Tracer = tracer
+
+r.Use(tracer.Middleware)
+oida.Mount(r, tracer)
 ```
 
-`frontend.Mount` accepts routers with this method:
+`Options.ReadEnv`, which `NewOptions` turns on, applies the `OIDA_*` environment to the options inside `New`. Options built as a literal leave it off, which is what a library or a test wants.
+
+`Mount` accepts routers with this method, the one `chi.Router` and `*http.ServeMux` share:
 
 ```go
 type Router interface {
-	Mount(pattern string, h http.Handler)
+	Handle(pattern string, h http.Handler)
 }
 ```
 
-Use `frontend.MountServeMux` with `http.ServeMux`. `HandlerFor` is the shortest path from a tracer to a dashboard, and takes its configuration from the tracer.
+Three patterns are registered: the bare path, the trailing slash form that is the subtree on a ServeMux, and the `/*` wildcard that is the subtree on chi; each router uses the ones it understands. Mounting the tracer itself is the shortest path to a dashboard, and takes its configuration from the tracer.
 
 The middleware skips disabled, ignored, and unsampled requests. Traced HTTP requests receive a `Request-Id` header. When `TrustRequestID` is true, a valid client-supplied trace ID is reused. Panics are recorded and then passed on to the application's recovery middleware.
 
@@ -72,7 +63,7 @@ func RecordError(ctx context.Context, err error)
 func TraceFromContext(ctx context.Context) *Trace
 func SpanFromContext(ctx context.Context) *Span
 func TraceID(ctx context.Context) string
-func WithTrace(ctx context.Context, trace *Trace) context.Context
+func WithTrace(ctx context.Context, t *Trace) context.Context
 ```
 
 `Start` returns a context that should be passed to nested work:
@@ -192,7 +183,6 @@ Use `StartTrace` when the caller needs control over completion, and always call 
 func (t *Tracer) Options() Options
 func (t *Tracer) Enabled() bool
 func (t *Tracer) SetEnabled(enabled bool)
-func (t *Tracer) Storage() Storage
 func (t *Tracer) Snapshot() Snapshot
 func (t *Tracer) Traces() []Trace
 func (t *Tracer) Trace(id string) (Trace, bool)
@@ -227,26 +217,27 @@ type Storage interface {
 	Len(ctx context.Context) (int, error)
 	Cap() int
 	Reset(ctx context.Context) error
+	Prune(ctx context.Context, maxAge time.Duration) error
+	Restore(ctx context.Context) error
 }
-
-func NewStorageMemory(size int) *StorageMemory
-func NewStorageDisk(limit int, paths ...string) (*StorageDisk, error)
-func (s *StorageDisk) Path() string
-func (s *StorageDisk) Prune(ctx context.Context, maxAge time.Duration) error
 ```
 
-Memory storage retains up to `size` traces. A size of zero retains none. Disk storage retains traces across restarts; `limit` controls the maximum count and `Prune` applies an age limit.
+The two drivers live in the storage package and are not constructed by hand: `New` builds one from the environment and assigns it to `Options.Storage`. Memory storage retains traces in a ring buffer and is the default, sized by `RingBufferSize`; a size of zero retains none.
+
+Disk storage is a write-through overlay of memory storage: a save goes to a JSON document and to the ring, and every read comes from the ring, so listing costs no disk access. `Load` falls back to the document folder for a trace the ring no longer holds. The ring holds what the running process recorded, so the dashboard lists its own traces, while the folder outlives the process: its documents stay reachable by ID and are aged out by `Prune`. `Prune` ages the archive out and leaves the ring alone: the ring is the recent window with its own size policy. `Restore` is the other direction, reading the newest documents back into the ring so a run opens on what earlier ones recorded. The memory driver has nothing to prune and nothing of its own to restore, and returns nil to both. A driver of your own implements the interface, returning nil from the methods it has nothing to do; embedding `oida.Storage` in the struct keeps it compiling when the interface grows, at the cost of a panic if something calls a method it never wrote.
+
+`OIDA_STORAGE_DRIVER` chooses between them, and the `OIDA_STORAGE_MEMORY_` and `OIDA_STORAGE_DISK_` variables carry their settings. A path that cannot be created, a driver name that is not one of the two, and settings addressed to the driver that was not chosen all fail `New` rather than being dropped. The [configuration guide](guide-configuration.md) lists the variables.
 
 ## Errors
 
-| Error                  | Meaning                                                            |
-|------------------------|--------------------------------------------------------------------|
-| `ErrNilRouter`         | `frontend.Mount` or `frontend.MountServeMux` received a nil router |
-| `ErrInvalidOptions`    | Base error for invalid configuration                               |
-| `ErrInvalidPath`       | `Options.Path` is not absolute                                     |
-| `ErrInvalidSampleRate` | `Options.SampleRate` is outside `[0,100]` or NaN                   |
-| `ErrTraceNotFound`     | A storage lookup did not find the trace                            |
-| `ErrDisabled`          | `StartTrace` was called on a disabled tracer                       |
+| Error                  | Meaning                                          |
+|------------------------|--------------------------------------------------|
+| `ErrNilRouter`         | `Mount` received a nil router                    |
+| `ErrInvalidOptions`    | Base error for invalid configuration             |
+| `ErrInvalidPath`       | `Options.Path` is not absolute                   |
+| `ErrInvalidSampleRate` | `Options.SampleRate` is outside `[0,100]` or NaN |
+| `ErrTraceNotFound`     | A storage lookup did not find the trace          |
+| `ErrDisabled`          | `StartTrace` was called on a disabled tracer     |
 
 Negative `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace`, or `RefreshInterval` values wrap `ErrInvalidOptions`.
 

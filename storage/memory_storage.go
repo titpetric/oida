@@ -1,29 +1,33 @@
-package oida
+package storage
 
 import (
 	"context"
 	"sync"
+
+	"github.com/titpetric/oida/model"
 )
 
-// StorageMemory retains completed traces in a bounded ring buffer. It is the
-// default storage: nothing leaves the process and memory use is bounded by the
-// configured size.
-type StorageMemory struct {
+// memoryStorage retains completed traces in a bounded ring buffer. It is the
+// built-in default, sized by Options.RingBufferSize: nothing leaves the
+// process and memory use is bounded by the configured size.
+type memoryStorage struct {
+	*unimplementedStorage
+
 	mu  sync.RWMutex
 	log *ring
 }
 
-var _ Storage = (*StorageMemory)(nil)
+var _ model.Storage = (*memoryStorage)(nil)
 
-// NewStorageMemory returns in-memory storage retaining size traces. A size of
+// NewMemoryStorage returns in-memory storage retaining size traces. A size of
 // zero or less retains nothing, which is useful when only the live view and the
 // lifetime counters are wanted.
-func NewStorageMemory(size int) *StorageMemory {
-	return &StorageMemory{log: newRing(size)}
+func NewMemoryStorage(size int) *memoryStorage {
+	return &memoryStorage{log: newRing(size)}
 }
 
 // Save retains a completed trace, evicting the oldest one when full.
-func (s *StorageMemory) Save(ctx context.Context, trace Trace) error {
+func (s *memoryStorage) Save(ctx context.Context, trace model.Trace) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -34,21 +38,21 @@ func (s *StorageMemory) Save(ctx context.Context, trace Trace) error {
 }
 
 // Load returns a retained trace.
-func (s *StorageMemory) Load(ctx context.Context, id string) (Trace, error) {
+func (s *memoryStorage) Load(ctx context.Context, id string) (model.Trace, error) {
 	if err := ctx.Err(); err != nil {
-		return Trace{}, err
+		return model.Trace{}, err
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	trace, ok := s.log.find(id)
 	if !ok {
-		return Trace{}, ErrTraceNotFound
+		return model.Trace{}, model.ErrTraceNotFound
 	}
 	return *trace, nil
 }
 
 // List returns retained traces, newest first.
-func (s *StorageMemory) List(ctx context.Context, limit int) ([]Trace, error) {
+func (s *memoryStorage) List(ctx context.Context, limit int) ([]model.Trace, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -59,7 +63,7 @@ func (s *StorageMemory) List(ctx context.Context, limit int) ([]Trace, error) {
 	if limit > 0 && len(retained) > limit {
 		retained = retained[:limit]
 	}
-	out := make([]Trace, 0, len(retained))
+	out := make([]model.Trace, 0, len(retained))
 	for _, trace := range retained {
 		out = append(out, *trace)
 	}
@@ -67,7 +71,7 @@ func (s *StorageMemory) List(ctx context.Context, limit int) ([]Trace, error) {
 }
 
 // Len returns the number of retained traces.
-func (s *StorageMemory) Len(ctx context.Context) (int, error) {
+func (s *memoryStorage) Len(ctx context.Context) (int, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
@@ -77,14 +81,14 @@ func (s *StorageMemory) Len(ctx context.Context) (int, error) {
 }
 
 // Cap returns the retention limit.
-func (s *StorageMemory) Cap() int {
+func (s *memoryStorage) Cap() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.log.cap()
 }
 
 // Reset drops every retained trace.
-func (s *StorageMemory) Reset(ctx context.Context) error {
+func (s *memoryStorage) Reset(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

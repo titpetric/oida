@@ -24,7 +24,7 @@ func newTestServer(t *testing.T, apply func(*oida.Options)) (http.Handler, *oida
 		t.Fatalf("MountServeMux: %v", err)
 	}
 
-	return oida.TracingMiddleware(opts)(mux), tracer
+	return tracer.Middleware(mux), tracer
 }
 
 func TestHandlerAuthorization(t *testing.T) {

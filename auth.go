@@ -9,7 +9,9 @@ import "github.com/titpetric/oida/model"
 type Auth = model.Auth
 
 // NewAuth builds the authentication state out of the options, or nil when no
-// authentication option is set. See model.NewAuth.
+// authentication option is set: no allow list, no users and no signing secret
+// leaves the front end open. Session mints a token from it, which is how a
+// deployment issues one for a job that reads the dashboard API.
 func NewAuth(opts Options) (*Auth, error) {
 	return model.NewAuth(opts)
 }

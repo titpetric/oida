@@ -62,6 +62,12 @@ type Options struct {
 	// not lost.
 	CaptureLogs bool `yaml:"capture_logs"`
 
+	// ReadEnv applies the OIDA_* environment to these options when the tracer
+	// is built. NewOptions turns it on, so a service configured in code still
+	// takes its deployment settings from the environment; options built as a
+	// literal leave it off.
+	ReadEnv bool `yaml:"read_env"`
+
 	// Sampler decides whether a request is traced. It replaces SampleRate.
 	Sampler Sampler `yaml:"-"`
 
@@ -94,7 +100,7 @@ type Options struct {
 	Clock func() time.Time `yaml:"-"`
 
 	// Tracer is the recorder used by the middleware and the front end. A nil
-	// recorder resolves the process default.
+	// recorder records nothing.
 	Tracer Recorder `yaml:"-"`
 
 	// AllowedNetworks restricts the debug front end to peers inside these
@@ -140,6 +146,7 @@ func NewOptions(serviceName string) Options {
 		SampleRate:       100,
 		TrackMemoryUse:   true,
 		CaptureLogs:      true,
+		ReadEnv:          true,
 		RefreshInterval:  5,
 		LiveStream:       true,
 		IgnorePaths: []string{

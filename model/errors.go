@@ -12,6 +12,10 @@ var (
 	// ErrNilRouter is returned when Mount is called without a router.
 	ErrNilRouter = errors.New("oida: router is nil")
 
+	// ErrNoTracer is returned when Mount is called without a tracer, which is
+	// a dashboard with nothing to show.
+	ErrNoTracer = errors.New("oida: options carry no tracer")
+
 	// ErrInvalidOptions is the base error for every configuration failure.
 	ErrInvalidOptions = errors.New("oida: invalid options")
 
