@@ -24,6 +24,7 @@ type Options struct {
 	IgnorePaths      []string `yaml:"ignore_paths"`
 	RefreshInterval  int      `yaml:"refresh_interval"`
 	LiveStream       bool     `yaml:"live_stream"`
+	CaptureLogs      bool     `yaml:"capture_logs"`
 
 	Sampler   Sampler                    `yaml:"-"`
 	Storage   Storage                    `yaml:"-"`
@@ -58,6 +59,8 @@ Field: `Options.IgnorePaths`<br>Default: `/healthz`, `/readyz`, `/metrics`, `/fa
 Field: `Options.RefreshInterval`<br>Default: `5`<br>Meaning: Fallback refresh of the live view, in seconds, used when the browser cannot stream. 0 disables it.
 
 Field: `Options.LiveStream`<br>Default: `true`<br>Meaning: Serve the live view over server sent events, so traces appear as recorded. False falls back to the meta refresh and 404s the stream route.
+
+Field: `Options.CaptureLogs`<br>Default: `true`<br>Meaning: Record `Info` and `Error` log entries on traces. When false, `Info` does nothing and `Error` records its text through `RecordError` on the active span.
 
 Field: `Options.Sampler`<br>Default: nil<br>Meaning: Overrides `SampleRate` entirely when set.
 
@@ -434,6 +437,7 @@ oida:
 | `OIDA_TRUST_REQUEST_ID`    | `TrustRequestID`   | `false`                                  |
 | `OIDA_REFRESH_INTERVAL`    | `RefreshInterval`  | `5`                                      |
 | `OIDA_LIVE_STREAM`         | `LiveStream`       | `true`                                   |
+| `OIDA_CAPTURE_LOGS`        | `CaptureLogs`      | `true`                                   |
 | `OIDA_IGNORE_PATHS`        | `IgnorePaths`      | `/healthz,/readyz,/metrics,/favicon.ico` |
 | `OIDA_ALLOWED_NETWORKS`    | `AllowedNetworks`  | none: every peer is served               |
 | `OIDA_AUTH`                | `Users`            | none: no sign in screen                  |

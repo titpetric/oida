@@ -40,9 +40,10 @@ func clockNow(o Options) time.Time {
 // carries.
 func traceOptionsFor(o Options) model.TraceOptions {
 	return model.TraceOptions{
-		Service:  o.ServiceName,
-		MaxSpans: o.MaxSpansPerTrace,
-		Clock:    o.Clock,
+		Service:     o.ServiceName,
+		MaxSpans:    o.MaxSpansPerTrace,
+		Clock:       o.Clock,
+		CaptureLogs: o.CaptureLogs,
 	}
 }
 

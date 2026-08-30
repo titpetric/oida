@@ -20,7 +20,10 @@ type Trace struct {
 	StartedAt time.Time     `json:"started_at"`
 	UpdatedAt time.Time     `json:"updated_at"`
 	Duration  time.Duration `json:"duration_ns"`
-	Error     string        `json:"error,omitempty"`
+
+	// ErrorText is the message of the error recorded on the trace. The JSON
+	// key stays "error"; the Go name makes room for the Error log method.
+	ErrorText string `json:"error,omitempty"`
 
 	// InFlight reports whether the trace was still running when it was copied.
 	InFlight bool `json:"in_flight,omitempty"`
@@ -32,8 +35,8 @@ type Trace struct {
 	// memory limit it ran under.
 	Attributes Attributes `json:"attributes,omitempty"`
 
-	Spans        []*Span `json:"spans,omitempty"`
-	DroppedSpans int     `json:"dropped_spans,omitempty"`
+	Spans        Spans `json:"spans,omitempty"`
+	DroppedSpans int   `json:"dropped_spans,omitempty"`
 
 	// mu is a pointer so trace values can be copied into snapshots without
 	// copying a lock. It is nil on inert copies.
@@ -48,6 +51,15 @@ type Trace struct {
 	stateTime map[State]time.Duration
 	memStats  runtime.MemStats
 	finished  bool
+
+	// Logs are the log lines recorded while the trace ran, in write order,
+	// each linked to the span that was active when it was written. They are
+	// bounded by the span limit; excess entries are counted in DroppedLogs.
+	Logs        []LogEntry `json:"logs,omitempty"`
+	DroppedLogs int        `json:"dropped_logs,omitempty"`
+
+	// captureLogs gates Info and Error, set once from TraceOptions.
+	captureLogs bool
 }
 
 // NewTrace returns a trace ready to record spans. The recorder passes the parts
@@ -67,6 +79,8 @@ func NewTrace(id, name string, opts TraceOptions) *Trace {
 		maxSpans:  opts.MaxSpans,
 		changedAt: now,
 		stateTime: make(map[State]time.Duration, len(states)),
+
+		captureLogs: opts.CaptureLogs,
 	}
 }
 
@@ -128,6 +142,18 @@ func (t *Trace) Root() *Span {
 	return t.Spans[0]
 }
 
+// Current returns the innermost open span: the most recently started span that
+// has not ended. It is nil on a nil trace and when no span is open, so a
+// caller holding only the trace can still attribute work to the active span.
+func (t *Trace) Current() *Span {
+	if t == nil {
+		return nil
+	}
+	t.lock()
+	defer t.unlock()
+	return t.openSpan()
+}
+
 // SetState transitions the trace state, accumulating the time spent in the
 // previous state.
 func (t *Trace) SetState(state State) {
@@ -156,7 +182,7 @@ func (t *Trace) RecordError(err error) {
 	t.lock()
 	defer t.unlock()
 	t.err = err
-	t.Error = err.Error()
+	t.ErrorText = err.Error()
 	now := t.time()
 	t.stateTime[t.State] += now.Sub(t.changedAt)
 	t.State = StateError
@@ -241,8 +267,8 @@ func (t *Trace) Err() error {
 	switch {
 	case t.err != nil:
 		return t.err
-	case t.Error != "":
-		return errors.New(t.Error)
+	case t.ErrorText != "":
+		return errors.New(t.ErrorText)
 	default:
 		return nil
 	}
@@ -346,6 +372,12 @@ func (t *Trace) Clone() Trace {
 	}
 	if copied.Duration == 0 {
 		copied.Duration = t.time().Sub(t.StartedAt)
+	}
+	if len(t.Logs) > 0 {
+		copied.Logs = make([]LogEntry, 0, len(t.Logs))
+		for _, entry := range t.Logs {
+			copied.Logs = append(copied.Logs, entry.clone())
+		}
 	}
 	return copied
 }
@@ -479,4 +511,42 @@ func firstKind(kinds []Kind) Kind {
 		}
 	}
 	return KindInternal
+}
+
+// Info records an informational log entry on the trace, attributed to the
+// innermost open span when one is open. No context is needed: a caller holding
+// only the trace still lands the entry on the right span.
+//
+//	trace.Info("cache warmed", "keys", 128)
+//
+// Args are slog-style key/value pairs, kept on LogEntry.Attributes; the
+// message is stored verbatim. When log capture is disabled it does nothing.
+// Safe to call on a nil trace.
+func (t *Trace) Info(message string, args ...any) {
+	if !t.logsEnabled() {
+		return
+	}
+	t.appendLog(LevelInfo, 0, message, args)
+}
+
+// Error records an error-level log entry on the trace, attributed to the
+// innermost open span when one is open. It only logs: the trace state and
+// Trace.ErrorText are untouched, which is RecordError's job. When log capture
+// is disabled it records the formatted text through RecordError instead, on
+// the innermost open span when one is open, so the message is not lost. Safe
+// to call on a nil trace.
+func (t *Trace) Error(message string, args ...any) {
+	if t == nil {
+		return
+	}
+	if !t.logsEnabled() {
+		err := errors.New(formatLogText(message, args))
+		if span := t.Current(); span != nil {
+			span.RecordError(err)
+			return
+		}
+		t.RecordError(err)
+		return
+	}
+	t.appendLog(LevelError, 0, message, args)
 }

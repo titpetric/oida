@@ -46,6 +46,12 @@ Under the drawing sits a bar carrying the legend and a count, and behind the cou
 
 ![The legend bar and the span table folded out from behind it, one row per span with its memory reading](assets/detail-spans.png)
 
+## One trace: the log
+
+The spans and the log are two readings of the same transaction, so they share one place on the page: a tab bar switches between them, the spans first, driven by the stylesheet so it works with scripting off. Each entry is what the code wrote through `Info` or `Error` while the request ran: its offset from the start of the trace, its level, the span that was active when it was written wearing its kind's colour, and the message with its key=value attributes. Here a report request tells its whole story, session to audit event, with two shards blowing their budget in red. A trace that wrote nothing shows the tab with a zero and a line saying how to record an entry.
+
+![The log tab: one row per entry with its offset, level, active span and message](assets/detail-logs.png)
+
 ## One trace: the request
 
 Tables side by side: the request details on the left, the request cost on the right. Labels down the left of each, values down the right, one row per property. Between them sits what the transaction recorded about itself, here the memory limit it ran under and what it used of it. A trace that recorded no attributes of its own shows the two tables and no gap where the third would be.

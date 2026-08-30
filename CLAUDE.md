@@ -80,7 +80,7 @@ by `compose.yml` on <http://localhost:8097>.
   Assets live in `frontend/assets/`, are embedded with `//go:embed all:assets`,
   and are served at `{Options.Path}/assets/`. Dropping a file in that folder is
   all it takes to serve it.
-- Generated templ output (`view_*_templ.go`) is committed. Regenerate after
+- Generated templ output (`*_templ.go`) is committed. Regenerate after
   editing a `.templ` file.
 - Instrumentation is nil-safe: every `*Span` and `*Trace` method tolerates a nil
   receiver.

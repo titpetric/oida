@@ -27,6 +27,7 @@ import (
 //	OIDA_TRUST_REQUEST_ID    false
 //	OIDA_REFRESH_INTERVAL    5
 //	OIDA_LIVE_STREAM         true
+//	OIDA_CAPTURE_LOGS        true
 //	OIDA_IGNORE_PATHS        /healthz,/readyz,/metrics,/favicon.ico
 //	OIDA_ALLOWED_NETWORKS    none (every peer is served)
 //	OIDA_AUTH                none (no sign in screen)
@@ -62,6 +63,9 @@ func optionsFromEnv(opts *Options) error {
 		return err
 	}
 	if err := envBool("OIDA_LIVE_STREAM", &opts.LiveStream, defaults.LiveStream); err != nil {
+		return err
+	}
+	if err := envBool("OIDA_CAPTURE_LOGS", &opts.CaptureLogs, defaults.CaptureLogs); err != nil {
 		return err
 	}
 

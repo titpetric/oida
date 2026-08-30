@@ -87,8 +87,8 @@ func TestMiddlewareRecordsPanic(t *testing.T) {
 	if len(traces) != 1 || traces[0].State != StateError {
 		t.Fatalf("unexpected traces: %+v", traces)
 	}
-	if !strings.Contains(traces[0].Error, "deliberate") {
-		t.Fatalf("panic not recorded: %q", traces[0].Error)
+	if !strings.Contains(traces[0].ErrorText, "deliberate") {
+		t.Fatalf("panic not recorded: %q", traces[0].ErrorText)
 	}
 }
 

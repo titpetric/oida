@@ -53,7 +53,7 @@ templ liveSection(page Page) {
 			<tbody id="oida-feed">
 				for _, trace := range page.Feed {
 					<tr
-						class={ "row", templ.KV("failed", trace.Error != "" || trace.State == model.StateError),
+						class={ "row", templ.KV("failed", trace.ErrorText != "" || trace.State == model.StateError),
 							templ.KV("running", trace.InFlight) }
 						data-key={ trace.ID }
 						data-href={ page.TraceURL(trace.ID) }
@@ -63,7 +63,7 @@ templ liveSection(page Page) {
 								<span class="status running" title={ trace.State.Label() }>{ string(trace.State) }</span>
 							} else if trace.HTTP != nil && trace.HTTP.Status > 0 {
 								<span class={ statusClass(trace.HTTP.Status) }>{ strconv.Itoa(trace.HTTP.Status) }</span>
-							} else if trace.Error != "" {
+							} else if trace.ErrorText != "" {
 								<span class="status s5xx">fail</span>
 							} else {
 								<span class="status job">job</span>

@@ -12,6 +12,9 @@ type (
 	// Span is one timed operation within a trace.
 	Span = model.Span
 
+	// Spans is the recorded span list of a trace, searchable with Find.
+	Spans = model.Spans
+
 	// Attributes is a set of key/value pairs recorded on a trace or a span.
 	Attributes = model.Attributes
 
@@ -99,3 +102,14 @@ func IsBytes(key string) bool {
 func ValidID(id string) bool {
 	return model.ValidID(id)
 }
+
+// LogEntry is one log line recorded on a trace by Trace.Info, Trace.Error and
+// their Span counterparts. No context is involved: a trace attributes the
+// entry to its innermost open span, and a span uses its own id.
+type LogEntry = model.LogEntry
+
+// Log levels recorded by Trace.Info and Trace.Error.
+const (
+	LevelInfo  = model.LevelInfo
+	LevelError = model.LevelError
+)

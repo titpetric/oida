@@ -41,12 +41,6 @@ func Start(ctx context.Context, name string, kind ...Kind) (context.Context, *Sp
 	return model.Start(ctx, name, kind...)
 }
 
-// StartSpan records a span without deriving a context. Use it for leaf spans
-// that will not nest.
-func StartSpan(ctx context.Context, name string, kind ...Kind) *Span {
-	return model.StartSpan(ctx, name, kind...)
-}
-
 // Do runs fn inside a span, records the returned error on it and ends it. The
 // error is returned unchanged.
 func Do(ctx context.Context, name string, fn func(context.Context) error, kind ...Kind) error {

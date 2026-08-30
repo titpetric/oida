@@ -95,7 +95,7 @@ templ sortLink(page Page, key SortKey, label string) {
 // bound request are told apart without opening either.
 templ traceRow(trace model.Trace, page Page) {
 	<tr
-		class={ "row", templ.KV("failed", trace.Error != "" || trace.State == model.StateError) }
+		class={ "row", templ.KV("failed", trace.ErrorText != "" || trace.State == model.StateError) }
 		data-href={ page.TraceURL(trace.ID) }
 	>
 		<td class="c-medium">
@@ -106,7 +106,7 @@ templ traceRow(trace model.Trace, page Page) {
 		<td>
 			if trace.HTTP != nil && trace.HTTP.Status > 0 {
 				<span class={ statusClass(trace.HTTP.Status) }>{ strconv.Itoa(trace.HTTP.Status) }</span>
-			} else if trace.Error != "" {
+			} else if trace.ErrorText != "" {
 				<span class="status s5xx">fail</span>
 			} else {
 				<span class="status job">job</span>

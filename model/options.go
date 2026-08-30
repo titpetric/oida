@@ -56,6 +56,12 @@ type Options struct {
 	// traces appear as they happen instead of on a timer.
 	LiveStream bool `yaml:"live_stream"`
 
+	// CaptureLogs records Trace.Info and Trace.Error log entries on traces.
+	// Disabled, Info does nothing and Error records its formatted text as an
+	// error on the active span, the way RecordError does, so the message is
+	// not lost.
+	CaptureLogs bool `yaml:"capture_logs"`
+
 	// Sampler decides whether a request is traced. It replaces SampleRate.
 	Sampler Sampler `yaml:"-"`
 
@@ -133,6 +139,7 @@ func NewOptions(serviceName string) Options {
 		MaxSpansPerTrace: 1000,
 		SampleRate:       100,
 		TrackMemoryUse:   true,
+		CaptureLogs:      true,
 		RefreshInterval:  5,
 		LiveStream:       true,
 		IgnorePaths: []string{
