@@ -42,15 +42,14 @@ func run() error {
 		return ""
 	}
 
-	tracer, err := oida.Configure(opts)
+	tracer, err := oida.New(opts)
 	if err != nil {
 		return err
 	}
-	opts.Tracer = tracer
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-	r.Use(oida.TracingMiddleware(opts))
+	r.Use(tracer.Middleware)
 
 	r.Mount(opts.Path, tracer)
 
@@ -70,10 +69,10 @@ func run() error {
 
 Order matters:
 
-- `oida.TracingMiddleware` goes **after** `middleware.Recoverer` is registered if you want the recoverer to catch panics first. oida re-panics after recording, so either order records the failure; putting oida inside the recoverer keeps the 500 response behaviour of chi.
+- `tracer.Middleware` goes **after** `middleware.Recoverer` is registered if you want the recoverer to catch panics first. oida re-panics after recording, so either order records the failure; putting oida inside the recoverer keeps the 500 response behaviour of chi.
 - The tracer can be mounted on the router the middleware records, or on any router in the same process: the tracer is shared, not the router.
 - Routes registered *before* `r.Use` panic in chi; register middleware first.
-- `frontend.Mount(r, opts)` from `github.com/titpetric/oida/frontend` still works and mounts the same handler, for callers wiring the UI from options rather than from a tracer.
+- `oida.Mount(r, tracer)` mounts the same handler and adds the subtree patterns a router serves it under.
 
 > **Note**: chi provides `middleware.RealIP`, oida does not require it. The client IP is resolved from the `Forwarded` and `X-Forwarded-For` headers on any router (see [spec-model.md](spec-model.md)); add RealIP when your own handlers read `r.RemoteAddr`.
 
@@ -106,7 +105,7 @@ mux.HandleFunc("GET /users/{id}", getUser)
 opts := oida.NewOptions("billing-api")
 opts.Enabled = true
 
-tracer, err := oida.Configure(opts)
+tracer, err := oida.New(opts)
 if err != nil {
 	return err
 }
@@ -116,7 +115,7 @@ handler := tracer.Middleware(mux)
 return http.ListenAndServe(":8080", handler)
 ```
 
-The subtree pattern `/debug/oida/` covers the whole UI; `ServeMux` redirects a request for the bare `/debug/oida` to it. `frontend.MountServeMux(mux, opts)` remains and registers both patterns, so the bare path serves without the redirect.
+The subtree pattern `/debug/oida/` covers the whole UI; `ServeMux` redirects a request for the bare `/debug/oida` to it. `oida.Mount(mux, tracer)` registers both patterns, so the bare path serves without the redirect; the same call mounts on a chi router.
 
 ## 4. Protecting the endpoint
 
@@ -192,7 +191,7 @@ Work that does not arrive over HTTP still gets a trace:
 
 ```go
 func (w *Worker) tick(ctx context.Context) error {
-	return oida.Default().Observe(ctx, "worker.tick", func(ctx context.Context) error {
+	return w.tracer.Observe(ctx, "worker.tick", func(ctx context.Context) error {
 		ctx, span := oida.Start(ctx, "drain queue", oida.KindQueue)
 		defer span.End()
 		return w.drain(ctx)
@@ -221,7 +220,7 @@ func TestUsers(t *testing.T) {
 
 `tests.NewServerWithTracer(t)` returns the tracer alongside the handler when you want to assert on the recorded traces themselves. Both fail the test on any `OnError` callback, so a broken storage backend shows up as a test failure rather than silence.
 
-For your own service, build an explicit tracer instead of `Default()` so packages can run in parallel:
+For your own service, build the tracer yourself and hold it where the work is, so packages can run in parallel:
 
 ```go
 tracer, err := oida.New(oida.NewOptions("billing-api"))
@@ -235,4 +234,4 @@ curl -s -H 'Accept: application/json' localhost:8080/debug/oida/traces | jq '.[0
 curl -s localhost:8080/debug/oida/stats            # plain text, curl user agent
 ```
 
-If the log is empty, check in order: the middleware is registered, the sampler is not rejecting everything (`SampleRate`), the tracer is shared between the middleware and the handler (`opts.Tracer`), and the request path is not in `IgnorePaths`.
+If the log is empty, check in order: the middleware is registered, the sampler is not rejecting everything (`SampleRate`), the middleware and the mounted dashboard are the same tracer, and the request path is not in `IgnorePaths`.

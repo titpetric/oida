@@ -45,9 +45,9 @@ type handler struct {
 
 var _ http.Handler = (*handler)(nil)
 
-// Handler returns the debug front end handler for the recorder in opts, or the
-// process default when none is set. Invalid options degrade to their defaults;
-// use Mount when the error matters.
+// Handler returns the debug front end handler for the recorder in opts, which
+// serves an empty dashboard when there is none. Invalid options degrade to
+// their defaults; use Mount when the error matters.
 func Handler(opts model.Options) http.Handler {
 	opts = opts.WithDefaults()
 	return newHandler(opts, opts.Tracer)
@@ -74,14 +74,11 @@ func newHandler(opts model.Options, recorder model.Recorder) *handler {
 	return &handler{opts: opts, recorder: recorder, auth: auth}
 }
 
-// tracer returns the recorder the request reads: the bound one, the process
-// default, or an empty recorder while neither exists.
+// tracer returns the recorder the request reads: the bound one, or an empty
+// recorder while the dashboard is mounted without one.
 func (h *handler) tracer() model.Recorder {
 	if h.recorder != nil {
 		return h.recorder
-	}
-	if recorder := model.DefaultRecorder(); recorder != nil {
-		return recorder
 	}
 	return nopRecorder{}
 }

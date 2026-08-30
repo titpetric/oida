@@ -20,7 +20,7 @@ handler and no second import is needed:
 opts := oida.NewOptions("billing-api")
 opts.Enabled = true
 
-tracer, err := oida.Configure(opts)
+tracer, err := oida.New(opts)
 if err != nil {
 	return err
 }
@@ -34,6 +34,15 @@ A chi router mounts the same tracer with its own call:
 ```go
 r := chi.NewRouter()
 r.Mount("/debug/oida", tracer)
+```
+
+Mount registers the front end on either router, adding the subtree patterns
+each one understands:
+
+```go
+if err := oida.Mount(mux, tracer); err != nil {
+	return err
+}
 ```
 
 The middleware records every sampled request into the tracer:
@@ -55,12 +64,13 @@ Every instrumentation call is nil safe, so instrumented code runs unchanged
 in processes where oida is disabled, where the request was not sampled, or
 where no trace is in the context.
 
-The project is three packages. This one records and serves: the tracer, the
-middleware, the options and the storage. Package model holds the recorded
-data and the configuration and depends on nothing; the types it defines are
-aliased here, so instrumenting a service needs this import alone. Package
-frontend renders the dashboard, reads the model alone, and is imported here
-so the tracer can serve it.
+The project is four packages. This one records and serves: the tracer, the
+middleware and the options. Package model holds the recorded data and the
+configuration and depends on nothing; the types it defines are aliased here,
+so instrumenting a service needs this import alone. Package storage holds
+the retention drivers, which New builds from the environment.
+Package frontend renders the dashboard, reads the model alone, and is
+imported here so the tracer can serve it.
 
 Nothing in this package writes to stdout or stderr. Storage and rendering
 failures are reported through Options.OnError.
@@ -105,14 +115,15 @@ type Options = model.Options
 </details>
 
 <details>
-<summary><code>type Recorder</code></summary>
+<summary><code>type Router</code></summary>
 
 ```go
-// Recorder is the substitutable surface of Tracer: the write side the
-// instrumentation records through, and the read side the debug front end
-// renders from. Code that only needs to record and read back traces can depend
-// on this interface instead of the concrete tracer.
-type Recorder = model.Recorder
+// Router is the one method chi and the standard library share: chi.Router,
+// *chi.Mux and *http.ServeMux all register handlers with Handle, so one
+// interface mounts the front end on either, and oida depends on neither.
+type Router interface {
+	Handle(pattern string, h http.Handler)
+}
 ```
 
 </details>
@@ -122,8 +133,12 @@ type Recorder = model.Recorder
 
 ```go
 // Sampler decides whether a request is traced. The decision is taken before a
-// trace is allocated, so rejecting a request costs one interface call.
-type Sampler = model.Sampler
+// trace is allocated, so rejecting a request costs one interface call. The
+// definition is a copy of the model's; interfaces are structural, so a sampler
+// written against either spelling works everywhere one is accepted.
+type Sampler interface {
+	Sample(r *http.Request) bool
+}
 ```
 
 </details>
@@ -142,43 +157,41 @@ type SamplerFunc = model.SamplerFunc
 <summary><code>type Storage</code></summary>
 
 ```go
-// Storage retains completed traces. Implementations must be safe for concurrent
-// use: the tracer writes from request goroutines and reads from the debug front
-// end at the same time.
+// Storage is what a storage driver implements to retain completed traces.
+// Implementations must be safe for concurrent use: the tracer writes from
+// request goroutines and reads from the debug front end at the same time.
 //
-// Two implementations ship with this package: StorageMemory, a bounded ring
-// buffer, and StorageDisk, a bounded folder of JSON documents.
-type Storage = model.Storage
-```
+// Two drivers ship with the package, a bounded memory ring buffer and a
+// bounded folder of JSON documents, and Configure builds either one from the
+// environment. Set this field to retain traces somewhere else.
+type Storage interface {
+	// Save retains a completed trace.
+	Save(ctx context.Context, trace Trace) error
 
-</details>
+	// Load returns a retained trace, or ErrTraceNotFound.
+	Load(ctx context.Context, id string) (Trace, error)
 
-<details>
-<summary><code>type StorageDisk</code></summary>
+	// List returns retained traces newest first, at most limit of them. A limit
+	// of zero or less returns everything retained.
+	List(ctx context.Context, limit int) ([]Trace, error)
 
-```go
-// StorageDisk retains completed traces as JSON documents in a folder, so traces
-// survive a process restart. Trace IDs are lexicographically sortable, so the
-// folder listing is chronological and pruning drops the oldest documents.
-type StorageDisk struct {
-	mu    sync.Mutex
-	path  string
-	limit int
-}
-```
+	// Len returns the number of retained traces.
+	Len(ctx context.Context) (int, error)
 
-</details>
+	// Cap returns the retention limit, or zero when unbounded.
+	Cap() int
 
-<details>
-<summary><code>type StorageMemory</code></summary>
+	// Reset drops every retained trace.
+	Reset(ctx context.Context) error
 
-```go
-// StorageMemory retains completed traces in a bounded ring buffer. It is the
-// default storage: nothing leaves the process and memory use is bounded by the
-// configured size.
-type StorageMemory struct {
-	mu  sync.RWMutex
-	log *ring
+	// Prune drops retained traces older than maxAge. A driver with nothing
+	// to prune returns nil.
+	Prune(ctx context.Context, maxAge time.Duration) error
+
+	// Restore fills the read path from what the driver persisted, so a new
+	// process can list what an earlier one recorded. A driver holding nothing
+	// of its own returns nil.
+	Restore(ctx context.Context) error
 }
 ```
 
@@ -222,7 +235,7 @@ type Tracer struct {
 </details>
 
 <details>
-<summary><code>type Trace, Span, Spans, Attributes, Kind, State, HTTPInfo, MemoryUse, Memory, PoolEstimate, StateDuration, Statistic, HostStat, Stats, Snapshot</code></summary>
+<summary><code>type Trace, Span, Attributes, Kind, State, Snapshot</code></summary>
 
 ```go
 // The recorded data lives in the model package, so the front end can read it
@@ -235,9 +248,6 @@ type (
 	// Span is one timed operation within a trace.
 	Span = model.Span
 
-	// Spans is the recorded span list of a trace, searchable with Find.
-	Spans = model.Spans
-
 	// Attributes is a set of key/value pairs recorded on a trace or a span.
 	Attributes = model.Attributes
 
@@ -247,31 +257,8 @@ type (
 	// State is the scoreboard state of an in-flight trace.
 	State = model.State
 
-	// HTTPInfo describes the request a trace was created for.
-	HTTPInfo = model.HTTPInfo
-
-	// MemoryUse holds the allocation deltas observed while a trace ran.
-	MemoryUse = model.MemoryUse
-
-	// Memory describes current process memory and GC pressure.
-	Memory = model.Memory
-
-	// PoolEstimate is a heuristic concurrency estimate.
-	PoolEstimate = model.PoolEstimate
-
-	// StateDuration is the lifetime trace time observed in one state.
-	StateDuration = model.StateDuration
-
-	// Statistic aggregates one group of traces in the rolling window.
-	Statistic = model.Statistic
-
-	// HostStat aggregates the traffic of one host.
-	HostStat = model.HostStat
-
-	// Stats contains the most frequent trace groups in the rolling window.
-	Stats = model.Stats
-
-	// Snapshot is the complete read model of a tracer at one point in time.
+	// Snapshot is the complete read model of a tracer at one point in time,
+	// which is what the dashboard renders and what Tracer.Snapshot returns.
 	Snapshot = model.Snapshot
 )
 ```
@@ -279,17 +266,6 @@ type (
 </details>
 
 ## Consts
-
-<details>
-<summary><code>const BackgroundHost</code></summary>
-
-```go
-// BackgroundHost is the host label of traces that did not arrive over the
-// network: cron ticks, queue consumers, startup work.
-const BackgroundHost = model.BackgroundHost
-```
-
-</details>
 
 <details>
 <summary><code>const DefaultPath</code></summary>
@@ -417,7 +393,7 @@ var (
 </details>
 
 <details>
-<summary><code>var ErrNilRouter, ErrInvalidOptions, ErrInvalidPath, ErrInvalidSampleRate, ErrTraceNotFound, ErrDisabled</code></summary>
+<summary><code>var ErrNilRouter, ErrNoTracer, ErrInvalidOptions, ErrInvalidPath, ErrInvalidSampleRate, ErrTraceNotFound, ErrDisabled</code></summary>
 
 ```go
 // The errors this package returns. Every configuration failure wraps
@@ -427,6 +403,10 @@ var (
 var (
 	// ErrNilRouter is returned when Mount is called without a router.
 	ErrNilRouter = model.ErrNilRouter
+
+	// ErrNoTracer is returned when Mount is called without a tracer, which is
+	// a dashboard with nothing to show.
+	ErrNoTracer = model.ErrNoTracer
 
 	// ErrInvalidOptions is the base error for every configuration failure.
 	ErrInvalidOptions = model.ErrInvalidOptions
@@ -450,44 +430,21 @@ var (
 
 ## Function symbols
 
-- `func Configure (opts Options) (*Tracer, error)`
-- `func Default () *Tracer`
 - `func Do (ctx context.Context, name string, fn func(context.Context) error, kind ...Kind) error`
-- `func IsBytes (key string) bool`
-- `func MustResolve (opts Options) *Tracer`
+- `func Mount (r Router, t *Tracer) error`
 - `func New (opts Options) (*Tracer, error)`
 - `func NewAuth (opts Options) (*Auth, error)`
 - `func NewOptions (serviceName string) Options`
 - `func NewRateSampler (rate float64) Sampler`
-- `func NewStorageDisk (limit int, paths ...string) (*StorageDisk, error)`
-- `func NewStorageMemory (size int) *StorageMemory`
 - `func RecordError (ctx context.Context, err error)`
-- `func Resolve (opts Options) (*Tracer, error)`
 - `func SpanFromContext (ctx context.Context) *Span`
 - `func Start (ctx context.Context, name string, kind ...Kind) (context.Context, *Span)`
 - `func StartAuto (ctx context.Context, symbol any, kind ...Kind) (context.Context, *Span)`
 - `func StartRequest (r *http.Request, name string, kind ...Kind) (*http.Request, *Span)`
 - `func StartSpan (ctx context.Context, name string, kind ...Kind) *Span`
 - `func TraceFromContext (ctx context.Context) *Trace`
-- `func TraceHost (trace Trace) string`
 - `func TraceID (ctx context.Context) string`
-- `func TracingMiddleware (opts Options) func(http.Handler) http.Handler`
-- `func ValidID (id string) bool`
 - `func WithTrace (ctx context.Context, t *Trace) context.Context`
-- `func (*StorageDisk) Cap () int`
-- `func (*StorageDisk) Len (ctx context.Context) (int, error)`
-- `func (*StorageDisk) List (ctx context.Context, limit int) ([]Trace, error)`
-- `func (*StorageDisk) Load (ctx context.Context, id string) (Trace, error)`
-- `func (*StorageDisk) Path () string`
-- `func (*StorageDisk) Prune (ctx context.Context, maxAge time.Duration) error`
-- `func (*StorageDisk) Reset (ctx context.Context) error`
-- `func (*StorageDisk) Save (ctx context.Context, trace Trace) error`
-- `func (*StorageMemory) Cap () int`
-- `func (*StorageMemory) Len (ctx context.Context) (int, error)`
-- `func (*StorageMemory) List (ctx context.Context, limit int) ([]Trace, error)`
-- `func (*StorageMemory) Load (ctx context.Context, id string) (Trace, error)`
-- `func (*StorageMemory) Reset (ctx context.Context) error`
-- `func (*StorageMemory) Save (ctx context.Context, trace Trace) error`
 - `func (*Tracer) Enabled () bool`
 - `func (*Tracer) Finish (trace *Trace)`
 - `func (*Tracer) Live () []Trace`
@@ -500,33 +457,9 @@ var (
 - `func (*Tracer) SetEnabled (enabled bool)`
 - `func (*Tracer) Snapshot () Snapshot`
 - `func (*Tracer) StartTrace (ctx context.Context, name string) (context.Context, *Trace, error)`
-- `func (*Tracer) Storage () Storage`
 - `func (*Tracer) Subscribe () (<-chan struct{}, func())`
 - `func (*Tracer) Trace (id string) (Trace, bool)`
 - `func (*Tracer) Traces () []Trace`
-
-### Configure
-
-Configure replaces the process wide tracer with one built from opts and
-returns it. Call it once during startup, before wiring the middleware.
-
-Configure also applies the environment: every OIDA_* variable listed on
-optionsFromEnv, including the OIDA_AUTH=username:password sign in opt-in.
-A variable applies only where the code left the field at its default, so
-options set in code win over the environment.
-
-```go
-func Configure(opts Options) (*Tracer, error)
-```
-
-### Default
-
-Default returns the process wide tracer, creating it with the default options
-on first use. Prefer an explicit tracer from New in libraries and tests.
-
-```go
-func Default() *Tracer
-```
 
 ### Do
 
@@ -537,27 +470,33 @@ error is returned unchanged.
 func Do(ctx context.Context, name string, fn func(context.Context) error, kind ...Kind) error
 ```
 
-### IsBytes
+### Mount
 
-IsBytes reports whether an attribute key holds a size in bytes.
+Mount registers the debug front end of t on r, under the path t was
+configured with. Mounting the tracer itself, r.Handle(path, tracer), is
+equivalent; this call adds the patterns each router uses to serve a subtree.
 
-```go
-func IsBytes(key string) bool
-```
+Three patterns are registered: the bare path, the trailing slash form that
+is the subtree on a ServeMux, and the /* wildcard that is the subtree on
+chi. Each router uses the ones it understands.
 
-### MustResolve
-
-MustResolve returns the tracer for opts, falling back to the default tracer
-when the options are invalid. It backs the entry points that cannot report an
-error.
+It returns an error when r or t is nil.
 
 ```go
-func MustResolve(opts Options) *Tracer
+func Mount(r Router, t *Tracer) error
 ```
 
 ### New
 
-New returns a tracer configured with opts.
+New returns a tracer built from opts. Nothing is stored in a package level
+variable: the tracer a request records into is the one in its context, and
+the tracer an entry point uses is the one in Options.Tracer.
+
+With Options.ReadEnv set, which is what NewOptions returns, the OIDA_*
+environment is applied to opts first. A variable applies only where the code
+left the field at its default, so options set in code win over the
+environment, and a variable set to nothing leaves the default alone. The
+configuration guide lists them.
 
 ```go
 func New(opts Options) (*Tracer, error)
@@ -566,7 +505,9 @@ func New(opts Options) (*Tracer, error)
 ### NewAuth
 
 NewAuth builds the authentication state out of the options, or nil when no
-authentication option is set. See model.NewAuth.
+authentication option is set: no allow list, no users and no signing secret
+leaves the front end open. Session mints a token from it, which is how a
+deployment issues one for a job that reads the dashboard API.
 
 ```go
 func NewAuth(opts Options) (*Auth, error)
@@ -589,26 +530,6 @@ rate of 100 or more traces everything, a rate of 0 or less traces nothing.
 func NewRateSampler(rate float64) Sampler
 ```
 
-### NewStorageDisk
-
-NewStorageDisk creates the storage folder, verifies that it is writable, and
-retains at most limit traces. A limit of zero or less is unbounded. With no
-path it uses a folder in the operating system temporary directory.
-
-```go
-func NewStorageDisk(limit int, paths ...string) (*StorageDisk, error)
-```
-
-### NewStorageMemory
-
-NewStorageMemory returns in-memory storage retaining size traces. A size of
-zero or less retains nothing, which is useful when only the live view and the
-lifetime counters are wanted.
-
-```go
-func NewStorageMemory(size int) *StorageMemory
-```
-
 ### RecordError
 
 RecordError records err on the innermost span in ctx and on its trace.
@@ -625,16 +546,6 @@ nil error, a context without a trace and an unsampled request are no-ops.
 
 ```go
 func RecordError(ctx context.Context, err error)
-```
-
-### Resolve
-
-Resolve returns the tracer the options point at: the explicit one when set,
-the process default otherwise. The first resolution of the default configures
-it from opts. The front end resolves the tracer it serves this way.
-
-```go
-func Resolve(opts Options) (*Tracer, error)
 ```
 
 ### SpanFromContext
@@ -717,15 +628,6 @@ TraceFromContext returns the trace in ctx, or nil.
 func TraceFromContext(ctx context.Context) *Trace
 ```
 
-### TraceHost
-
-TraceHost returns the host a trace belongs to. Background traces have none,
-so they group under BackgroundHost rather than an empty string.
-
-```go
-func TraceHost(trace Trace) string
-```
-
 ### TraceID
 
 TraceID returns the identifier of the trace in ctx, or an empty string. It is
@@ -736,25 +638,6 @@ cheapest correlation key for logs.
 func TraceID(ctx context.Context) string
 ```
 
-### TracingMiddleware
-
-TracingMiddleware returns middleware recording every sampled request into the
-tracer resolved from opts. It is compatible with chi's Use, with alice, and
-with any func(http.Handler) http.Handler chain.
-
-```go
-func TracingMiddleware(opts Options) func(http.Handler) http.Handler
-```
-
-### ValidID
-
-ValidID reports whether id looks like a trace identifier this package
-records. It keeps hostile input out of lookups and out of rendered links.
-
-```go
-func ValidID(id string) bool
-```
-
 ### WithTrace
 
 WithTrace returns a context carrying the trace. Spans started from the
@@ -762,119 +645,6 @@ returned context, or any context derived from it, are recorded on it.
 
 ```go
 func WithTrace(ctx context.Context, t *Trace) context.Context
-```
-
-### Cap
-
-Cap returns the retention limit.
-
-```go
-func (*StorageDisk) Cap() int
-```
-
-### Len
-
-Len returns the number of stored trace documents.
-
-```go
-func (*StorageDisk) Len(ctx context.Context) (int, error)
-```
-
-### List
-
-List reads stored traces, newest first.
-
-```go
-func (*StorageDisk) List(ctx context.Context, limit int) ([]Trace, error)
-```
-
-### Load
-
-Load reads a stored trace document.
-
-```go
-func (*StorageDisk) Load(ctx context.Context, id string) (Trace, error)
-```
-
-### Path
-
-Path returns the folder traces are written to.
-
-```go
-func (*StorageDisk) Path() string
-```
-
-### Prune
-
-Prune removes trace documents older than maxAge.
-
-```go
-func (*StorageDisk) Prune(ctx context.Context, maxAge time.Duration) error
-```
-
-### Reset
-
-Reset removes every stored trace document.
-
-```go
-func (*StorageDisk) Reset(ctx context.Context) error
-```
-
-### Save
-
-Save writes a trace document atomically and prunes the oldest documents over
-the retention limit.
-
-```go
-func (*StorageDisk) Save(ctx context.Context, trace Trace) error
-```
-
-### Cap
-
-Cap returns the retention limit.
-
-```go
-func (*StorageMemory) Cap() int
-```
-
-### Len
-
-Len returns the number of retained traces.
-
-```go
-func (*StorageMemory) Len(ctx context.Context) (int, error)
-```
-
-### List
-
-List returns retained traces, newest first.
-
-```go
-func (*StorageMemory) List(ctx context.Context, limit int) ([]Trace, error)
-```
-
-### Load
-
-Load returns a retained trace.
-
-```go
-func (*StorageMemory) Load(ctx context.Context, id string) (Trace, error)
-```
-
-### Reset
-
-Reset drops every retained trace.
-
-```go
-func (*StorageMemory) Reset(ctx context.Context) error
-```
-
-### Save
-
-Save retains a completed trace, evicting the oldest one when full.
-
-```go
-func (*StorageMemory) Save(ctx context.Context, trace Trace) error
 ```
 
 ### Enabled
@@ -903,7 +673,16 @@ func (*Tracer) Live() []Trace
 
 ### Middleware
 
-Middleware records requests handled by next.
+Middleware records every sampled request handled by next. It is compatible
+with chi's Use, with alice, and with any func(http.Handler) http.Handler
+chain:
+
+```go
+r.Use(tracer.Middleware)
+```
+
+A nil tracer passes every request through, so instrumented wiring runs
+unchanged in a process that built none.
 
 ```go
 func (*Tracer) Middleware(next http.Handler) http.Handler
@@ -920,7 +699,10 @@ func (*Tracer) Observe(ctx context.Context, name string, fn func(context.Context
 
 ### Options
 
-Options returns the options the tracer was built with.
+Options returns the options the tracer was built with, as a copy the caller
+owns. The retention driver and the recorder itself are left out, and the
+list and map are cloned: a reader of the configuration has no business
+reaching the storage behind it or rewriting what the tracer runs on.
 
 ```go
 func (*Tracer) Options() Options
@@ -991,14 +773,6 @@ must complete it with Finish.
 func (*Tracer) StartTrace(ctx context.Context, name string) (context.Context, *Trace, error)
 ```
 
-### Storage
-
-Storage returns the storage backing the tracer.
-
-```go
-func (*Tracer) Storage() Storage
-```
-
 ### Subscribe
 
 Subscribe returns a channel notified whenever a trace starts or completes,
@@ -1020,7 +794,9 @@ func (*Tracer) Subscribe() (<-chan struct{}, func())
 
 ### Trace
 
-Trace returns the retained or in flight trace with the given ID.
+Trace returns the retained or in flight trace with the given ID. A retained
+trace is read only, the way Traces returns them; an in flight one is a copy
+the caller owns.
 
 ```go
 func (*Tracer) Trace(id string) (Trace, bool)
@@ -1028,7 +804,9 @@ func (*Tracer) Trace(id string) (Trace, bool)
 
 ### Traces
 
-Traces returns the retained traces, newest first.
+Traces returns the retained traces, newest first. The result is read only:
+its spans are the ones the front end renders, so recording into them is not
+a caller's to do.
 
 ```go
 func (*Tracer) Traces() []Trace

@@ -206,14 +206,21 @@ func SourceText(filename string, line int) string {
 
 // Inert returns a copy of the span detached from the trace that recorded it,
 // safe to embed in a render model or hand to a consumer. Copying a span value
-// on its own would carry the lock and the back reference with it.
+// on its own would carry the lock and the back reference with it, and would
+// read the fields of a span another goroutine is still recording into.
 func (s *Span) Inert() Span {
 	if s == nil {
 		return Span{}
 	}
+	s.lock()
+	defer s.unlock()
+
 	copied := *s
 	copied.mu = nil
 	copied.trace = nil
+	if s.Attributes != nil {
+		copied.Attributes = maps.Clone(s.Attributes)
+	}
 	return copied
 }
 

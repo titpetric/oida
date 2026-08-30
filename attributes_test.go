@@ -4,6 +4,8 @@ import (
 	"context"
 	"math"
 	"testing"
+
+	"github.com/titpetric/oida/model"
 )
 
 func TestAttributesInt64(t *testing.T) {
@@ -44,7 +46,7 @@ func TestIsBytes(t *testing.T) {
 		"rows":          false,
 		"":              false,
 	} {
-		if got := IsBytes(key); got != want {
+		if got := model.IsBytes(key); got != want {
 			t.Errorf("IsBytes(%q) = %v, want %v", key, got, want)
 		}
 	}

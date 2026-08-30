@@ -14,6 +14,10 @@ var (
 	// ErrNilRouter is returned when Mount is called without a router.
 	ErrNilRouter = model.ErrNilRouter
 
+	// ErrNoTracer is returned when Mount is called without a tracer, which is
+	// a dashboard with nothing to show.
+	ErrNoTracer = model.ErrNoTracer
+
 	// ErrInvalidOptions is the base error for every configuration failure.
 	ErrInvalidOptions = model.ErrInvalidOptions
 

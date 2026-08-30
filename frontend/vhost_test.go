@@ -92,7 +92,7 @@ func hostRouter(t *testing.T, service, span string) vhost {
 		t.Fatalf("MountServeMux: %v", err)
 	}
 
-	return vhost{tracer: tracer, handler: oida.TracingMiddleware(opts)(mux)}
+	return vhost{tracer: tracer, handler: tracer.Middleware(mux)}
 }
 
 // dashboard fetches one host's trace list.

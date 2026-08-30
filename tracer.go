@@ -3,6 +3,7 @@ package oida
 import (
 	"context"
 	"errors"
+	"maps"
 	"math"
 	"net/http"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/titpetric/oida/model"
+	"github.com/titpetric/oida/storage"
 )
 
 // Tracer records traces into a ring buffer and serves the debug front end. The
@@ -49,17 +51,32 @@ type Tracer struct {
 	requests map[string]uint64
 }
 
-var _ Recorder = (*Tracer)(nil)
+// The front end renders whatever satisfies model.Recorder, and this is what
+// it is given.
+var _ model.Recorder = (*Tracer)(nil)
 
-// New returns a tracer configured with opts.
+// New returns a tracer built from opts. Nothing is stored in a package level
+// variable: the tracer a request records into is the one in its context, and
+// the tracer an entry point uses is the one in Options.Tracer.
+//
+// With Options.ReadEnv set, which is what NewOptions returns, the OIDA_*
+// environment is applied to opts first. A variable applies only where the code
+// left the field at its default, so options set in code win over the
+// environment, and a variable set to nothing leaves the default alone. The
+// configuration guide lists them.
 func New(opts Options) (*Tracer, error) {
+	if opts.ReadEnv {
+		if err := optionsFromEnv(&opts); err != nil {
+			return nil, err
+		}
+	}
 	opts = opts.WithDefaults()
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
 
 	if opts.Storage == nil {
-		opts.Storage = NewStorageMemory(opts.RingBufferSize)
+		opts.Storage = storage.NewMemoryStorage(opts.RingBufferSize)
 	}
 
 	tracer := &Tracer{
@@ -76,12 +93,20 @@ func New(opts Options) (*Tracer, error) {
 	return tracer, nil
 }
 
-// Options returns the options the tracer was built with.
+// Options returns the options the tracer was built with, as a copy the caller
+// owns. The retention driver and the recorder itself are left out, and the
+// list and map are cloned: a reader of the configuration has no business
+// reaching the storage behind it or rewriting what the tracer runs on.
 func (t *Tracer) Options() Options {
 	if t == nil {
 		return NewOptions("")
 	}
-	return t.opts
+	opts := t.opts
+	opts.Storage = nil
+	opts.Tracer = nil
+	opts.IgnorePaths = slices.Clone(t.opts.IgnorePaths)
+	opts.Users = maps.Clone(t.opts.Users)
+	return opts
 }
 
 // Enabled reports whether the tracer records traces.
@@ -128,7 +153,7 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 }
 
 // begin registers a new trace as active.
-func (t *Tracer) begin(id, name string, info *HTTPInfo) *Trace {
+func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	trace := model.NewTrace(id, name, traceOptionsFor(t.opts))
 	trace.HTTP = info
 	if t.opts.TrackMemoryUse {
@@ -213,14 +238,6 @@ func (t *Tracer) onError(err error) {
 	t.opts.OnError(err)
 }
 
-// Storage returns the storage backing the tracer.
-func (t *Tracer) Storage() Storage {
-	if t == nil {
-		return nil
-	}
-	return t.storage
-}
-
 // Snapshot returns a race free copy of the tracer state. Nothing in the result
 // aliases live state.
 func (t *Tracer) Snapshot() Snapshot {
@@ -278,7 +295,7 @@ func (t *Tracer) Snapshot() Snapshot {
 	}
 
 	limit := memoryLimit()
-	pool := PoolEstimate{Samples: samples}
+	pool := model.PoolEstimate{Samples: samples}
 	if samples > 0 {
 		pool.AverageAllocatedBytes = allocated / samples
 		if pool.AverageAllocatedBytes > 0 {
@@ -306,7 +323,7 @@ func (t *Tracer) Snapshot() Snapshot {
 		Errors:     failed,
 		SLA:        sla,
 		StateTime:  model.StateDurations(stateTime),
-		Memory: Memory{
+		Memory: model.Memory{
 			HeapAlloc:     mem.HeapAlloc,
 			HeapInuse:     mem.HeapInuse,
 			HeapObjects:   mem.HeapObjects,
@@ -325,7 +342,9 @@ func (t *Tracer) Snapshot() Snapshot {
 	}
 }
 
-// Traces returns the retained traces, newest first.
+// Traces returns the retained traces, newest first. The result is read only:
+// its spans are the ones the front end renders, so recording into them is not
+// a caller's to do.
 func (t *Tracer) Traces() []Trace {
 	if t == nil {
 		return nil
@@ -358,7 +377,9 @@ func (t *Tracer) Live() []Trace {
 	return out
 }
 
-// Trace returns the retained or in flight trace with the given ID.
+// Trace returns the retained or in flight trace with the given ID. A retained
+// trace is read only, the way Traces returns them; an in flight one is a copy
+// the caller owns.
 func (t *Tracer) Trace(id string) (Trace, bool) {
 	if t == nil || id == "" {
 		return Trace{}, false
@@ -399,11 +420,33 @@ func (t *Tracer) Reset() {
 	clear(t.requests)
 }
 
-// Middleware records requests handled by next.
+// Middleware records every sampled request handled by next. It is compatible
+// with chi's Use, with alice, and with any func(http.Handler) http.Handler
+// chain:
+//
+//	r.Use(tracer.Middleware)
+//
+// A nil tracer passes every request through, so instrumented wiring runs
+// unchanged in a process that built none.
 func (t *Tracer) Middleware(next http.Handler) http.Handler {
-	opts := t.Options()
-	opts.Tracer = t
-	return TracingMiddleware(opts)(next)
+	if next == nil {
+		next = http.NotFoundHandler()
+	}
+	if t == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !t.Enabled() || ignoredPath(t.opts, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !t.sampler.Sample(r) {
+			t.countUnsampled(r.Host)
+			next.ServeHTTP(w, r)
+			return
+		}
+		serveTraced(t, t.opts, next, w, r)
+	})
 }
 
 // countUnsampled records a request the sampler rejected. Sampled units of work
@@ -459,59 +502,4 @@ func memoryLimit() uint64 {
 		return 0
 	}
 	return slices.Min(limits)
-}
-
-// Configure replaces the process wide tracer with one built from opts and
-// returns it. Call it once during startup, before wiring the middleware.
-//
-// Configure also applies the environment: every OIDA_* variable listed on
-// optionsFromEnv, including the OIDA_AUTH=username:password sign in opt-in.
-// A variable applies only where the code left the field at its default, so
-// options set in code win over the environment.
-func Configure(opts Options) (*Tracer, error) {
-	if err := optionsFromEnv(&opts); err != nil {
-		return nil, err
-	}
-	tracer, err := New(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	model.SetDefaultRecorder(tracer)
-	return tracer, nil
-}
-
-// Resolve returns the tracer the options point at: the explicit one when set,
-// the process default otherwise. The first resolution of the default configures
-// it from opts. The front end resolves the tracer it serves this way.
-func Resolve(opts Options) (*Tracer, error) {
-	if tracer, ok := opts.Tracer.(*Tracer); ok && tracer != nil {
-		return tracer, nil
-	}
-	if tracer := defaultTracer(); tracer != nil {
-		return tracer, nil
-	}
-
-	defaultMu.Lock()
-	defer defaultMu.Unlock()
-	if tracer := defaultTracer(); tracer != nil {
-		return tracer, nil
-	}
-	tracer, err := New(opts)
-	if err != nil {
-		return nil, err
-	}
-	model.SetDefaultRecorder(tracer)
-	return tracer, nil
-}
-
-// MustResolve returns the tracer for opts, falling back to the default tracer
-// when the options are invalid. It backs the entry points that cannot report an
-// error.
-func MustResolve(opts Options) *Tracer {
-	tracer, err := Resolve(opts)
-	if err != nil || tracer == nil {
-		return Default()
-	}
-	return tracer
 }

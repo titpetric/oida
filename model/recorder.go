@@ -42,9 +42,6 @@ type Recorder interface {
 	// Reset drops every retained trace and the lifetime counters.
 	Reset()
 
-	// Storage returns the storage backing the recorder.
-	Storage() Storage
-
 	// ReportError forwards a failure to Options.OnError.
 	ReportError(err error)
 }

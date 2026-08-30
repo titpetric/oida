@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,4 +109,57 @@ func TestMountNilTracer(t *testing.T) {
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("nil tracer returned %d, want 404", response.Code)
 	}
+}
+
+func TestMountRouter(t *testing.T) {
+	router := &stubRouter{}
+	if err := oida.Mount(router, mountedTracer(t)); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
+
+	// The three patterns cover both router families: the bare path, the
+	// trailing slash subtree of a ServeMux, and the /* subtree of chi.
+	want := []string{oida.DefaultPath, oida.DefaultPath + "/", oida.DefaultPath + "/*"}
+	if len(router.patterns) != len(want) {
+		t.Fatalf("mounted on %v, want %v", router.patterns, want)
+	}
+	for i, pattern := range want {
+		if router.patterns[i] != pattern {
+			t.Fatalf("mounted on %v, want %v", router.patterns, want)
+		}
+	}
+
+	checkDashboard(t, router.handler)
+}
+
+func TestMountServeMuxOptions(t *testing.T) {
+	mux := http.NewServeMux()
+	if err := oida.Mount(mux, mountedTracer(t)); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
+
+	checkDashboard(t, mux)
+}
+
+func TestMountValidation(t *testing.T) {
+	if err := oida.Mount(nil, mountedTracer(t)); !errors.Is(err, oida.ErrNilRouter) {
+		t.Errorf("Mount(nil) returned %v, want oida.ErrNilRouter", err)
+	}
+	if err := oida.Mount(&stubRouter{}, nil); !errors.Is(err, oida.ErrNoTracer) {
+		t.Errorf("Mount without a tracer returned %v, want oida.ErrNoTracer", err)
+	}
+}
+
+// stubRouter records what was mounted on it. It stands in for the routers oida
+// does not import, and satisfies oida.Router the way chi.Router and
+// *http.ServeMux do.
+type stubRouter struct {
+	patterns []string
+	handler  http.Handler
+}
+
+// Handle implements oida.Router.
+func (r *stubRouter) Handle(pattern string, h http.Handler) {
+	r.patterns = append(r.patterns, pattern)
+	r.handler = h
 }

@@ -12,9 +12,6 @@ type (
 	// Span is one timed operation within a trace.
 	Span = model.Span
 
-	// Spans is the recorded span list of a trace, searchable with Find.
-	Spans = model.Spans
-
 	// Attributes is a set of key/value pairs recorded on a trace or a span.
 	Attributes = model.Attributes
 
@@ -24,31 +21,8 @@ type (
 	// State is the scoreboard state of an in-flight trace.
 	State = model.State
 
-	// HTTPInfo describes the request a trace was created for.
-	HTTPInfo = model.HTTPInfo
-
-	// MemoryUse holds the allocation deltas observed while a trace ran.
-	MemoryUse = model.MemoryUse
-
-	// Memory describes current process memory and GC pressure.
-	Memory = model.Memory
-
-	// PoolEstimate is a heuristic concurrency estimate.
-	PoolEstimate = model.PoolEstimate
-
-	// StateDuration is the lifetime trace time observed in one state.
-	StateDuration = model.StateDuration
-
-	// Statistic aggregates one group of traces in the rolling window.
-	Statistic = model.Statistic
-
-	// HostStat aggregates the traffic of one host.
-	HostStat = model.HostStat
-
-	// Stats contains the most frequent trace groups in the rolling window.
-	Stats = model.Stats
-
-	// Snapshot is the complete read model of a tracer at one point in time.
+	// Snapshot is the complete read model of a tracer at one point in time,
+	// which is what the dashboard renders and what Tracer.Snapshot returns.
 	Snapshot = model.Snapshot
 )
 
@@ -81,27 +55,6 @@ const (
 	StateClosing    = model.StateClosing
 	StateError      = model.StateError
 )
-
-// BackgroundHost is the host label of traces that did not arrive over the
-// network: cron ticks, queue consumers, startup work.
-const BackgroundHost = model.BackgroundHost
-
-// TraceHost returns the host a trace belongs to. Background traces have none,
-// so they group under BackgroundHost rather than an empty string.
-func TraceHost(trace Trace) string {
-	return model.TraceHost(trace)
-}
-
-// IsBytes reports whether an attribute key holds a size in bytes.
-func IsBytes(key string) bool {
-	return model.IsBytes(key)
-}
-
-// ValidID reports whether id looks like a trace identifier this package
-// records. It keeps hostile input out of lookups and out of rendered links.
-func ValidID(id string) bool {
-	return model.ValidID(id)
-}
 
 // LogEntry is one log line recorded on a trace by Trace.Info, Trace.Error and
 // their Span counterparts. No context is involved: a trace attributes the

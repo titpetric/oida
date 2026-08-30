@@ -6,19 +6,23 @@ server-side rendered front end at `/debug/oida`. See [README.md](README.md) and
 
 ## Packages
 
-- `model/` holds the recorded data and the configuration: `Trace`, `Span`,
-  `Snapshot`, `Stats`, `Options`, plus the `Storage`, `Sampler` and `Recorder`
-  interfaces. It imports nothing from this project, which is what keeps the
-  other two apart.
+- `model/` holds the recorded data, the configuration and the interfaces
+  between them. It imports nothing from this project, which is what keeps the
+  other packages apart.
 - `frontend/` renders: templ views, the view model, the plain text and the
   HTTP handler. It imports `model` alone and never the root package; an
   `oida.` reference from `frontend` is an import cycle.
-- `oida` (root) records and serves: tracer, middleware, storage,
-  instrumentation. It imports both of the others, aliases the model types
-  (`oida.Options`, `oida.Trace`, ...), and `(*Tracer).ServeHTTP` serves the
-  front end, so a service instruments and mounts with one import.
+- `storage/` holds the retention drivers. It imports `model` alone.
+- `oida` (root) records and serves: tracer, middleware, instrumentation. It
+  imports the other three and serves the front end, so a service instruments
+  and mounts with one import.
 
-The dependency runs one way, `oida` to `frontend` to `model`.
+The dependency runs one way, `oida` to `frontend` and `storage`, both to
+`model`.
+
+The root package is the public API. `docs/api.md` is its generated reference,
+and the sub-packages carry no compatibility promise of their own: what an
+integration needs from them gets an alias or a wrapper in the root.
 
 ## Verifying changes
 

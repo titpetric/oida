@@ -11,33 +11,6 @@ import (
 // RequestIDHeader carries the trace identifier on the request and the response.
 const RequestIDHeader = "Request-Id"
 
-// TracingMiddleware returns middleware recording every sampled request into the
-// tracer resolved from opts. It is compatible with chi's Use, with alice, and
-// with any func(http.Handler) http.Handler chain.
-func TracingMiddleware(opts Options) func(http.Handler) http.Handler {
-	opts = opts.WithDefaults()
-	tracer := MustResolve(opts)
-	sampler := samplerFor(opts)
-
-	return func(next http.Handler) http.Handler {
-		if next == nil {
-			next = http.NotFoundHandler()
-		}
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !tracer.Enabled() || ignoredPath(opts, r.URL.Path) {
-				next.ServeHTTP(w, r)
-				return
-			}
-			if !sampler.Sample(r) {
-				tracer.countUnsampled(r.Host)
-				next.ServeHTTP(w, r)
-				return
-			}
-			serveTraced(tracer, opts, next, w, r)
-		})
-	}
-}
-
 // serveTraced records one request.
 func serveTraced(tracer *Tracer, opts Options, next http.Handler, w http.ResponseWriter, r *http.Request) {
 	id := requestID(r, opts)
@@ -49,7 +22,7 @@ func serveTraced(tracer *Tracer, opts Options, next http.Handler, w http.Respons
 	r.Header.Set(RequestIDHeader, id)
 	w.Header().Set(RequestIDHeader, id)
 
-	info := &HTTPInfo{
+	info := &model.HTTPInfo{
 		Method:        r.Method,
 		URI:           r.URL.RequestURI(),
 		Host:          r.Host,

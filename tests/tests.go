@@ -15,7 +15,6 @@ import (
 	chi "github.com/go-chi/chi/v5"
 
 	"github.com/titpetric/oida"
-	"github.com/titpetric/oida/frontend"
 )
 
 // Path is the mount path of the debug front end on the test server.
@@ -38,8 +37,8 @@ func NewServerWithTracer(t testing.TB) (http.Handler, *oida.Tracer) {
 
 	opts := oida.NewOptions("oida-tests")
 	opts.Enabled = true
+	opts.ReadEnv = false
 	opts.Path = Path
-	opts.Storage = oida.NewStorageMemory(64)
 	opts.RingBufferSize = 64
 	opts.SampleRate = 100
 	opts.RefreshInterval = 0
@@ -58,9 +57,9 @@ func NewServerWithTracer(t testing.TB) (http.Handler, *oida.Tracer) {
 	opts.Tracer = tracer
 
 	router := chi.NewRouter()
-	router.Use(oida.TracingMiddleware(opts))
-	if err := frontend.Mount(router, opts); err != nil {
-		t.Fatalf("frontend.Mount: %v", err)
+	router.Use(tracer.Middleware)
+	if err := oida.Mount(router, tracer); err != nil {
+		t.Fatalf("oida.Mount: %v", err)
 	}
 
 	router.Get("/", handleIndex)

@@ -13,8 +13,8 @@ type Router interface {
 }
 
 // Mount registers the debug front end on r under Options.Path, wired to the
-// tracer in opts, or to the process default when none is set. Mounting the
-// tracer itself, r.Mount(opts.Path, tracer), is equivalent.
+// tracer in Options.Tracer. Mounting the tracer itself, r.Mount(opts.Path,
+// tracer), is equivalent.
 //
 //	r := chi.NewRouter()
 //	r.Use(oida.TracingMiddleware(opts))

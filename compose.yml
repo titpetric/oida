@@ -19,6 +19,7 @@ services:
       # OIDA_LIVE_STREAM: "true"
       # OIDA_CAPTURE_LOGS: "true"
       # OIDA_IGNORE_PATHS: "/healthz,/readyz,/metrics,/favicon.ico"
+      # OIDA_STORAGE_PATH: ""                                         # unset: memory; a path selects the disk driver
       # OIDA_ALLOWED_NETWORKS: ""                                    # unset: every peer is served
       # OIDA_AUTH: ""                                                # username:password puts the UI behind a sign in
       # OIDA_USERS_FILE: ""                                          # htpasswd style file, username:bcrypt per line

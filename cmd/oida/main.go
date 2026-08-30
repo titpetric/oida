@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -54,7 +55,7 @@ func run() error {
 		fmt.Fprintln(os.Stderr, "oida:", err)
 	}
 
-	tracer, err := oida.Configure(opts)
+	tracer, err := oida.New(opts)
 	if err != nil {
 		return err
 	}
@@ -63,7 +64,7 @@ func run() error {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
-	r.Use(oida.TracingMiddleware(opts))
+	r.Use(tracer.Middleware)
 	r.Use(trackMemory)
 
 	// The tracer is an http.Handler serving the debug front end.
@@ -75,7 +76,7 @@ func run() error {
 
 	go generateLoad(ctx, tracer)
 
-	addr := os.Getenv("OIDA_ADDR")
+	addr := strings.TrimSpace(os.Getenv("OIDA_ADDR"))
 	if addr == "" {
 		addr = ":8080"
 	}
@@ -219,7 +220,7 @@ func report(w http.ResponseWriter, r *http.Request) {
 // OIDA_DEMO_INTERVAL; set it to 0 to record only real requests.
 func generateLoad(ctx context.Context, tracer *oida.Tracer) {
 	interval := 5 * time.Minute
-	if value := os.Getenv("OIDA_DEMO_INTERVAL"); value != "" {
+	if value := strings.TrimSpace(os.Getenv("OIDA_DEMO_INTERVAL")); value != "" {
 		parsed, err := time.ParseDuration(value)
 		if err != nil || parsed <= 0 {
 			return

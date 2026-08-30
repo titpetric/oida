@@ -1,11 +1,13 @@
 package oida
 
 import (
+	"context"
 	"math"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,6 +32,12 @@ import (
 //	OIDA_CAPTURE_LOGS        true
 //	OIDA_IGNORE_PATHS        /healthz,/readyz,/metrics,/favicon.ico
 //	OIDA_ALLOWED_NETWORKS    none (every peer is served)
+//	OIDA_STORAGE_DRIVER      memory (disk is the other driver)
+//	OIDA_STORAGE_MEMORY_SIZE OIDA_RING_BUFFER_SIZE
+//	OIDA_STORAGE_DISK_PATH   none (a folder under the temporary directory)
+//	OIDA_STORAGE_DISK_LIMIT  OIDA_RING_BUFFER_SIZE
+//	OIDA_STORAGE_DISK_LIST   false: the ring starts with this process's traces
+//	OIDA_STORAGE_DISK_EXPIRE none (documents are dropped by count alone)
 //	OIDA_AUTH                none (no sign in screen)
 //	OIDA_USERS_FILE          none
 //	OIDA_SIGNING_SECRET      none (a per-process secret is generated)
@@ -41,16 +49,16 @@ func optionsFromEnv(opts *Options) error {
 	defaults := NewOptions("")
 
 	if opts.ServiceName == "" {
-		opts.ServiceName = os.Getenv("OIDA_SERVICE_NAME")
+		opts.ServiceName = envValue("OIDA_SERVICE_NAME")
 	}
-	if value := os.Getenv("OIDA_PATH"); value != "" && opts.Path == defaults.Path {
+	if value := envValue("OIDA_PATH"); value != "" && opts.Path == defaults.Path {
 		opts.Path = value
 	}
-	if value := os.Getenv("OIDA_USERS_FILE"); value != "" && opts.UsersFile == "" {
+	if value := envValue("OIDA_USERS_FILE"); value != "" && opts.UsersFile == "" {
 		opts.UsersFile = value
 	}
 	if opts.SigningSecret == "" {
-		opts.SigningSecret = os.Getenv("OIDA_SIGNING_SECRET")
+		opts.SigningSecret = envValue("OIDA_SIGNING_SECRET")
 	}
 
 	if err := envBool("OIDA_ENABLED", &opts.Enabled, defaults.Enabled); err != nil {
@@ -82,7 +90,7 @@ func optionsFromEnv(opts *Options) error {
 		return err
 	}
 
-	if value := os.Getenv("OIDA_SAMPLE_RATE"); value != "" && opts.SampleRate == defaults.SampleRate {
+	if value := envValue("OIDA_SAMPLE_RATE"); value != "" && opts.SampleRate == defaults.SampleRate {
 		rate, err := strconv.ParseFloat(value, 64)
 		if err != nil || math.IsNaN(rate) {
 			return invalidOption("OIDA_SAMPLE_RATE", "must be a number")
@@ -91,20 +99,128 @@ func optionsFromEnv(opts *Options) error {
 		opts.SampleRate = min(max(rate, 0), 100)
 	}
 
-	if value := os.Getenv("OIDA_IGNORE_PATHS"); value != "" && slices.Equal(opts.IgnorePaths, defaults.IgnorePaths) {
-		opts.IgnorePaths = splitList(value)
+	if list := splitList(envValue("OIDA_IGNORE_PATHS")); len(list) > 0 && slices.Equal(opts.IgnorePaths, defaults.IgnorePaths) {
+		opts.IgnorePaths = list
 	}
-	if value := os.Getenv("OIDA_ALLOWED_NETWORKS"); value != "" && opts.AllowedNetworks == nil {
-		opts.AllowedNetworks = splitList(value)
+	if list := splitList(envValue("OIDA_ALLOWED_NETWORKS")); len(list) > 0 && opts.AllowedNetworks == nil {
+		opts.AllowedNetworks = list
+	}
+
+	if err := storageFromEnv(opts); err != nil {
+		return err
 	}
 
 	return authFromEnv(opts)
 }
 
+// The storage drivers OIDA_STORAGE_DRIVER selects.
+const (
+	driverMemory = "memory"
+	driverDisk   = "disk"
+)
+
+// storageFromEnv builds the retention driver the environment asks for.
+// Storage set in code wins, so the variables are read only when the field is
+// nil.
+//
+// A driver takes its settings from the variables carrying its name, and the
+// two are sized by RingBufferSize until one says otherwise. The driver
+// defaults to memory, and to disk when a disk setting is given on its own,
+// which is the only thing such a setting can mean. Naming one driver and
+// configuring the other is a contradiction and fails, as does a path that
+// cannot be created or written.
+func storageFromEnv(opts *Options) error {
+	if opts.Storage != nil {
+		return nil
+	}
+	driver := envValue("OIDA_STORAGE_DRIVER")
+	path := envValue("OIDA_STORAGE_DISK_PATH")
+	diskSet := path != "" ||
+		envValue("OIDA_STORAGE_DISK_LIMIT") != "" ||
+		envValue("OIDA_STORAGE_DISK_LIST") != "" ||
+		envValue("OIDA_STORAGE_DISK_EXPIRE") != ""
+
+	switch driver {
+	case "":
+		if !diskSet {
+			return storageMemoryFromEnv(opts)
+		}
+	case driverMemory:
+		if diskSet {
+			return invalidOption("OIDA_STORAGE_DRIVER", "the memory driver has no OIDA_STORAGE_DISK_ settings")
+		}
+		return storageMemoryFromEnv(opts)
+	case driverDisk:
+	default:
+		return invalidOption("OIDA_STORAGE_DRIVER", "must be "+driverMemory+" or "+driverDisk)
+	}
+
+	limit := opts.RingBufferSize
+	if err := envInt("OIDA_STORAGE_DISK_LIMIT", &limit, limit); err != nil {
+		return err
+	}
+	list := false
+	if err := envBool("OIDA_STORAGE_DISK_LIST", &list, false); err != nil {
+		return err
+	}
+	expire, err := envDuration("OIDA_STORAGE_DISK_EXPIRE")
+	if err != nil {
+		return err
+	}
+	var paths []string
+	if path != "" {
+		paths = append(paths, path)
+	}
+	store, err := newStorageDisk(limit, paths...)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	// Ageing the folder out comes first, so nothing about to be dropped is
+	// read back. This is one pass, at startup: a process that wants a folder
+	// aged out continuously puts Prune on a ticker of its own.
+	if expire > 0 {
+		if err := store.Prune(ctx, expire); err != nil {
+			return err
+		}
+	}
+	// Reading the folder back is off by default: it costs a listing and a
+	// decode per document at startup, and a dashboard that lists what this
+	// process recorded is what most deployments want.
+	if list {
+		if err := store.Restore(ctx); err != nil {
+			return err
+		}
+	}
+	opts.Storage = store
+	return nil
+}
+
+// storageMemoryFromEnv builds the memory driver, which is what an unset
+// driver resolves to. It is left nil at its default size, so the tracer builds
+// it from RingBufferSize the way it does for options that never saw the
+// environment.
+func storageMemoryFromEnv(opts *Options) error {
+	size := opts.RingBufferSize
+	if err := envInt("OIDA_STORAGE_MEMORY_SIZE", &size, size); err != nil {
+		return err
+	}
+	if size == opts.RingBufferSize {
+		return nil
+	}
+	store, err := newStorageMemory(size)
+	if err != nil {
+		return err
+	}
+	opts.Storage = store
+	return nil
+}
+
 // authFromEnv applies the environment's authentication opt-in: OIDA_AUTH is
 // one username:password pair. Users configured in code win.
 func authFromEnv(opts *Options) error {
-	credentials := os.Getenv("OIDA_AUTH")
+	credentials := envValue("OIDA_AUTH")
 	if credentials == "" || opts.Users != nil || opts.UsersFile != "" || opts.AuthorizeUser != nil {
 		return nil
 	}
@@ -120,9 +236,16 @@ func authFromEnv(opts *Options) error {
 	return nil
 }
 
+// envValue reads one variable, with a value of nothing but whitespace read as
+// an unset one. Every read goes through here, so a variable set to the empty
+// string leaves the option at its default rather than at the zero value.
+func envValue(name string) string {
+	return strings.TrimSpace(os.Getenv(name))
+}
+
 // envBool applies a boolean variable when the field still holds its default.
 func envBool(name string, field *bool, unset bool) error {
-	value := os.Getenv(name)
+	value := envValue(name)
 	if value == "" || *field != unset {
 		return nil
 	}
@@ -134,9 +257,27 @@ func envBool(name string, field *bool, unset bool) error {
 	return nil
 }
 
+// envDuration reads a duration variable, such as 168h. It is unset as zero,
+// and a value that is not a positive duration fails rather than being read as
+// one.
+func envDuration(name string) (time.Duration, error) {
+	value := envValue(name)
+	if value == "" {
+		return 0, nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, invalidOption(name, "must be a duration, such as 168h")
+	}
+	if parsed <= 0 {
+		return 0, invalidOption(name, "must be a positive duration")
+	}
+	return parsed, nil
+}
+
 // envInt applies an integer variable when the field still holds its default.
 func envInt(name string, field *int, unset int) error {
-	value := os.Getenv(name)
+	value := envValue(name)
 	if value == "" || *field != unset {
 		return nil
 	}

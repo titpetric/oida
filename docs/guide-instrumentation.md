@@ -7,7 +7,7 @@ ctx, span := oida.Start(ctx, "what happened", oida.KindDatabase)
 defer span.End()
 ```
 
-Take the returned `ctx` and pass it down. That is what makes the next `Start` a child instead of a sibling. If you drop the context, the span still records — it just lands flat at the parent's depth.
+Take the returned `ctx` and pass it down. That is what makes the next `Start` a child instead of a sibling. If you drop the context, the span still records; it just lands flat at the parent's depth.
 
 Everything is nil-safe. A package instrumented with oida works in a process that never configured a tracer, in unit tests, and in requests that were not sampled.
 
@@ -43,15 +43,15 @@ The name is read through reflection and the runtime symbol table, so it does not
 
 Pass a `Kind` as the third argument. It drives the colour in the timeline and the grouping of the segment sweep, so a trace reads as "40% database, 30% external, 20% template" at a glance.
 
-| Kind           | Use for                                                      |
-|----------------|--------------------------------------------------------------|
-| `KindHTTP`     | The inbound request span — the middleware creates it for you |
-| `KindDatabase` | SQL, Redis-as-store, any query against your own data         |
-| `KindExternal` | Outbound calls to services you do not own                    |
-| `KindTemplate` | Rendering, serialization, response construction              |
-| `KindCache`    | Cache get/set where a miss falls through to another span     |
-| `KindQueue`    | Publishing to or consuming from a queue                      |
-| `KindInternal` | Everything else — the default                                |
+| Kind           | Use for                                                     |
+|----------------|-------------------------------------------------------------|
+| `KindHTTP`     | The inbound request span; the middleware creates it for you |
+| `KindDatabase` | SQL, Redis-as-store, any query against your own data        |
+| `KindExternal` | Outbound calls to services you do not own                   |
+| `KindTemplate` | Rendering, serialization, response construction             |
+| `KindCache`    | Cache get/set where a miss falls through to another span    |
+| `KindQueue`    | Publishing to or consuming from a queue                     |
+| `KindInternal` | Everything else, and the default                            |
 
 The zero value is `KindInternal`, so `oida.Start(ctx, "compute")` is fine.
 
@@ -134,7 +134,7 @@ tx.SetAttribute("isolation", "serializable")
 
 ### 5.3 Outbound HTTP
 
-A `RoundTripper` gives you every outbound call for free:
+A `RoundTripper` records every outbound call with no change at the call sites:
 
 ```go
 type Transport struct{ Base http.RoundTripper }
@@ -159,7 +159,7 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 ```
 
-Use `r.URL.Redacted()` — it strips userinfo credentials.
+Use `r.URL.Redacted()`: it strips userinfo credentials.
 
 ### 5.4 Cache lookups
 
@@ -204,7 +204,7 @@ Concurrent siblings overlap in the timeline; the segment sweep attributes each s
 span.SetSource("internal/billing/repo.go", 42)
 ```
 
-Optional, and nothing in oida sets it for you: the file and line are whatever the caller passes, normally the repo-relative path and the line of the `Start` call. The span table gains a Source column showing `file:L42` when a trace has any, and omits the column when it has none. Do not compute it with `runtime.Caller` on hot paths — it is not free.
+Optional, and nothing in oida sets it for you: the file and line are whatever the caller passes, normally the repo-relative path and the line of the `Start` call. The span table gains a Source column showing `file:L42` when a trace has any, and omits the column when it has none. Do not compute it with `runtime.Caller` on hot paths; it is not free.
 
 ## 6. Trace-level operations
 
@@ -248,7 +248,7 @@ span.SetAttribute(oida.AttrMemoryUsage, runtimeUsage())
 span.End()
 ```
 
-This is worth recording when the runtime can charge allocations to one request, which an interpreter can and Go cannot: in Go the heap belongs to the process, and what oida can say about it is in `Trace.Memory` instead. Both keys are optional and independent — a runtime that knows the usage but not the limit records the usage.
+This is worth recording when the runtime can charge allocations to one request, which an interpreter can and Go cannot: in Go the heap belongs to the process, and what oida can say about it is in `Trace.Memory` instead. Both keys are optional and independent: a runtime that knows the usage but not the limit records the usage.
 
 ### 6.2 Logging
 
@@ -271,7 +271,7 @@ The entries live in one slice, `Trace.Logs`, each carrying its level, its offset
 
 - Loops with thousands of iterations. Span one loop, attribute the count. `MaxSpansPerTrace` will otherwise drop the tail and `DroppedSpans` will grow.
 - Functions that take nanoseconds. The span costs more than the work.
-- Anything holding a lock you also need for the work — `SetAttribute` takes the span mutex, so build the value first, then set it once.
+- Anything holding a lock you also need for the work: `SetAttribute` takes the span mutex, so build the value first, then set it once.
 
 ## 8. Testing instrumented code
 
@@ -296,4 +296,4 @@ func TestRepoSpans(t *testing.T) {
 }
 ```
 
-Use an explicit `New` rather than `Default()` in tests so parallel packages do not share a ring buffer.
+Each test builds its own tracer, so parallel packages do not share a ring buffer. Set `opts.ReadEnv = false` to keep the environment of whoever runs the suite out of it.

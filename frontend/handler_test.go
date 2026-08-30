@@ -13,6 +13,7 @@ import (
 
 	"github.com/titpetric/oida"
 	"github.com/titpetric/oida/frontend"
+	"github.com/titpetric/oida/model"
 )
 
 // renderedTracer returns a tracer holding one trace with nested spans, and the
@@ -362,7 +363,7 @@ func TestHandlerHealthDots(t *testing.T) {
 		w.WriteHeader(code)
 	})
 
-	traffic := oida.TracingMiddleware(opts)(mux)
+	traffic := tracer.Middleware(mux)
 	for _, code := range []int{200, 302, 404, 500} {
 		traffic.ServeHTTP(httptest.NewRecorder(),
 			httptest.NewRequest(http.MethodGet, "http://one.example/"+strconv.Itoa(code), nil))
@@ -492,9 +493,13 @@ var hostSeeds = []hostSeed{
 func seedHosts(t *testing.T) (*oida.Tracer, http.Handler) {
 	t.Helper()
 
-	tracer, clock := newTestTracer(t, nil)
-	opts := tracer.Options()
-	opts.Tracer = tracer
+	// A request carrying the header is turned down by the sampler, which is
+	// how the host view gets traffic without a trace behind it.
+	tracer, clock := newTestTracer(t, func(o *oida.Options) {
+		o.Sampler = oida.SamplerFunc(func(r *http.Request) bool {
+			return r.Header.Get("X-Reject-Sample") == ""
+		})
+	})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /orders", func(w http.ResponseWriter, r *http.Request) {
@@ -512,7 +517,7 @@ func seedHosts(t *testing.T) (*oida.Tracer, http.Handler) {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	traffic := oida.TracingMiddleware(opts)(mux)
+	traffic := tracer.Middleware(mux)
 	for _, seed := range hostSeeds {
 		traffic.ServeHTTP(httptest.NewRecorder(),
 			httptest.NewRequest(http.MethodGet, "http://"+seed.host+"/orders", nil))
@@ -645,14 +650,12 @@ func TestHandlerHostStatistics(t *testing.T) {
 
 	// A request the sampler rejected is still traffic, and the host view is the
 	// only place it shows up.
-	rejected := tracer.Options()
-	rejected.Tracer = tracer
-	rejected.SampleRate = 0
-	oida.TracingMiddleware(rejected)(http.NotFoundHandler()).ServeHTTP(httptest.NewRecorder(),
-		httptest.NewRequest(http.MethodGet, "http://shop.example/orders", nil))
+	rejected := httptest.NewRequest(http.MethodGet, "http://shop.example/orders", nil)
+	rejected.Header.Set("X-Reject-Sample", "yes")
+	tracer.Middleware(http.NotFoundHandler()).ServeHTTP(httptest.NewRecorder(), rejected)
 
 	stats := tracer.Snapshot().Statistics.Hosts
-	byHost := make(map[string]oida.HostStat, len(stats))
+	byHost := make(map[string]model.HostStat, len(stats))
 	for _, host := range stats {
 		byHost[host.Host] = host
 	}

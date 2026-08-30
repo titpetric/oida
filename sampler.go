@@ -8,8 +8,12 @@ import (
 )
 
 // Sampler decides whether a request is traced. The decision is taken before a
-// trace is allocated, so rejecting a request costs one interface call.
-type Sampler = model.Sampler
+// trace is allocated, so rejecting a request costs one interface call. The
+// definition is a copy of the model's; interfaces are structural, so a sampler
+// written against either spelling works everywhere one is accepted.
+type Sampler interface {
+	Sample(r *http.Request) bool
+}
 
 // SamplerFunc adapts a function to the Sampler interface.
 type SamplerFunc = model.SamplerFunc

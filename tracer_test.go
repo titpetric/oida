@@ -16,6 +16,9 @@ func newTestTracer(t *testing.T, apply func(*Options)) (*Tracer, *testClock) {
 	opts := NewOptions("test")
 	opts.Enabled = true
 	opts.TrackMemoryUse = false
+	// A unit test reads no environment: the deployment settings of whoever
+	// runs it are not part of what is under test.
+	opts.ReadEnv = false
 	opts.Clock = clock.Now
 	opts.OnError = func(err error) { t.Errorf("oida: %v", err) }
 	if apply != nil {
