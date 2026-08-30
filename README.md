@@ -4,7 +4,7 @@
 
 Oida is a Go importable package that implements in-process telemetry and provides a rich interface for observation. Its goal is to be an observability platform for small and big projects that benefit from local observability. The project started as an extension of [titpetric/phpscript](https://github.com/titpetric/phpscript) which got separated out to handle more concerns than just server status. The name of the project comes from my Austrian-roots friend Martin. The word itself is likely to mean various things depending on context; whole conversations can be had just by repeating the words in different tone.
 
-[Docs](docs/README.md) | [Install](#install) | [Import](#import) | [Use with stdlib](#use-with-stdlib) | [Use with go-chi](#use-with-go-chi) | [API](docs/api.md) | [Features](#features)
+[Docs](docs/README.md) | [Install](#install) | [Import](#import) | [Use with stdlib](#use-with-stdlib) | [Use with go-chi](#use-with-go-chi) | [Integration](#integration) | [Features](#features)
 
 ## Install
 
@@ -17,21 +17,6 @@ go get github.com/titpetric/oida@latest
 ```go
 import "github.com/titpetric/oida"
 ```
-
-One import covers instrumenting, mounting and configuring. The middleware records the request; spans record what the request did:
-
-```go
-func GetUsers(ctx context.Context) (UserList, error) {
-	ctx, span := oida.Start(ctx, "SELECT users", oida.KindDatabase)
-	defer span.End()
-
-	span.SetAttribute("limit", 100)
-
-	// implementation...
-}
-```
-
-Pass the returned `ctx` down, and the next `oida.Start` records a child span. The kind drives the colour in the timeline and the grouping of the segment sweep; the [span kinds](docs/spec-model.md#span-kinds) and the [attribute keys](docs/spec-model.md#attributes) the dashboard reads are documented with the rest of the data model. Every call is nil-safe, so instrumented code runs unchanged where no tracer was built, or where the request was not sampled.
 
 ## Use with stdlib
 
@@ -53,6 +38,8 @@ if err := oida.Mount(mux, tracer); err != nil {
 
 return http.ListenAndServe(":8080", tracer.Middleware(mux))
 ```
+
+`tracer.Middleware` wraps the mux, so every sampled request through it is recorded. `Options.Path` is added to `IgnorePaths`, so browsing the dashboard records nothing of its own.
 
 ## Use with go-chi
 
@@ -76,9 +63,40 @@ if err := oida.Mount(r, tracer); err != nil {
 return http.ListenAndServe(":8080", r)
 ```
 
+chi takes the same middleware through `r.Use`. Register it before the routes it records: chi panics on a `Use` that follows a route.
+
 `oida.Mount` serves the dashboard under the path the tracer was configured with, and takes a `chi.Router` or an `*http.ServeMux` alike. The tracer is an `http.Handler` of its own, so `mux.Handle("/debug/oida/", tracer)` works where one pattern is enough.
 
 Recording is opt-in: set `opts.Enabled` in code, or leave it alone and set `OIDA_ENABLED=true` in the environment. Open `http://localhost:8080/debug/oida`.
+
+## Integration
+
+`getUser` is the handler both routers register. The middleware records the request; spans record what the request did:
+
+```go
+func getUser(w http.ResponseWriter, r *http.Request) {
+	users, err := listUsers(r.Context())
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(users)
+}
+
+func listUsers(ctx context.Context) (UserList, error) {
+	_, span := oida.Start(ctx, "SELECT users", oida.KindDatabase)
+	defer span.End()
+
+	span.SetAttribute("limit", 100)
+
+	users := UserList{"alice", "bob"} // implementation...
+
+	span.SetAttribute("rows", len(users))
+	return users, nil
+}
+```
+
+Pass the context down, and the next `oida.Start` records a child span under this one. The kind drives the colour in the timeline and the grouping of the segment sweep; the [span kinds](docs/spec-model.md#span-kinds) and the [attribute keys](docs/spec-model.md#attributes) the dashboard reads are documented with the rest of the data model. Every call is nil-safe, so instrumented code runs unchanged where no tracer was built, or where the request was not sampled.
 
 ## Features
 
@@ -95,3 +113,6 @@ Recording is opt-in: set `opts.Enabled` in code, or leave it alone and set `OIDA
 ## License
 
 MIT
+
+```
+```
