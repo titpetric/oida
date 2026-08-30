@@ -1,14 +1,10 @@
 # oida - in process telemetry for go services
 
-[Docs](docs/README.md) | [Install](#install) | [Import](#import) | [Use with stdlib](#use-with-stdlib) | [Use with go-chi](#use-with-go-chi) | [API](docs/api.md) | [Features](#features)
-
 ![The oida masthead: service identity, process facts, and the instrument row](docs/assets/header.png)
 
 Oida is a go importable package that implements in-process telemetry and provides a rich interface for observation. Its goal is to be an observability platform for small and big projects that benefit from local observability. The project started as an extension of [titpetric/phpscript](https://github.com/titpetric/phpscript) which got separated out to handle more concerns than just server status. The name of the project comes from my austrian-roots friend Martin. The word itself is likely to mean various things depending on context; whole conversations can be had just by repeating the words in different tone.
 
-It records what a Go service does and serves the result at `/debug/oida`. A trace is one unit of work, an HTTP request or a background job. The spans under it are the operations that unit of work performed, each with its duration, attributes and errors. Traces are held in a ring buffer inside the process, so there is no collector to run and nothing leaves the machine.
-
-Use it to see which requests are slow, which operations failed, how work nests, what memory a request used, and to read the log lines a request wrote.
+[Docs](docs/README.md) | [Install](#install) | [Import](#import) | [Use with stdlib](#use-with-stdlib) | [Use with go-chi](#use-with-go-chi) | [API](docs/api.md) | [Features](#features)
 
 ## Install
 
