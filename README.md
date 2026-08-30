@@ -1,4 +1,4 @@
-# oida
+# oida - in process telemetry for go services
 
 [Docs](docs/README.md) | [Install](#install) | [Import](#import) | [Use with stdlib](#use-with-stdlib) | [Use with go-chi](#use-with-go-chi) | [API](docs/api.md) | [Features](#features)
 
