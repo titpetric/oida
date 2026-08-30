@@ -15,24 +15,27 @@ go get github.com/titpetric/oida@latest
 ```go
 import "github.com/titpetric/oida"
 
-tracer, err := oida.New(oida.NewOptions("billing-api"))
+opts := oida.NewOptions("billing-api")
+
+tracer, err := oida.New(opts)
 if err != nil {
 	return err
 }
 
 r := chi.NewRouter()
 r.Use(tracer.Middleware)
-r.Mount("/debug/oida", tracer)
+
+if err := oida.Mount(r, tracer); err != nil {
+	return err
+}
 ```
 
-The tracer is an `http.Handler` serving the dashboard, so it mounts the same way on the standard library mux:
+`oida.Mount` serves the dashboard under the path the tracer was configured with, and takes a `chi.Router` or an `*http.ServeMux` alike. The tracer is an `http.Handler` of its own, so mounting it directly works too:
 
 ```go
 mux := http.NewServeMux()
 mux.Handle("/debug/oida/", tracer)
 ```
-
-`oida.Mount(r, tracer)` does the same on either router, registering the subtree patterns each one understands.
 
 Instrument work below the middleware:
 
