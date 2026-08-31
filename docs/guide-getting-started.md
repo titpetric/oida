@@ -8,75 +8,21 @@ go get github.com/titpetric/oida@latest
 
 ## 2. chi/v5
 
-The complete wiring is three calls: configure the tracer, add the middleware, mount the tracer. The tracer is an `http.Handler` serving the UI, so no second import is needed.
+The complete wiring is three calls: configure the tracer, add the middleware, mount the tracer. [testdata/examples/chi/main_chi.go](../testdata/examples/chi/main_chi.go) is the program, built by `atkins examples` against this checkout:
 
 ```go
-package main
+r := chi.NewRouter()
+r.Use(tracer.Middleware)
+r.Get("/users/{id}", getUser)
 
-import (
-	"errors"
-	"net/http"
-	"time"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/titpetric/oida"
-)
-
-func main() {
-	if err := run(); err != nil {
-		panic(err)
-	}
-}
-
-func run() error {
-	opts := oida.NewOptions("billing-api")
-	opts.Enabled = true
-	opts.Path = "/debug/oida"
-	opts.RingBufferSize = 500
-	opts.SampleRate = 100
-	opts.RouteFunc = func(r *http.Request) string {
-		if route := chi.RouteContext(r.Context()); route != nil {
-			return route.RoutePattern()
-		}
-		return ""
-	}
-
-	tracer, err := oida.New(opts)
-	if err != nil {
-		return err
-	}
-
-	r := chi.NewRouter()
-	r.Use(middleware.Recoverer)
-	r.Use(tracer.Middleware)
-
-	r.Mount(opts.Path, tracer)
-
-	r.Get("/users/{id}", getUser)
-
-	server := &http.Server{
-		Addr:              ":8080",
-		Handler:           r,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-	return nil
+if err := oida.Mount(r, tracer); err != nil {
+	return err
 }
 ```
 
-Order matters:
+Register the middleware before the routes it records: chi panics on a `Use` that follows a route. Put it after `middleware.Recoverer` if you want the recoverer to catch panics first; oida re-panics after recording, so either order records the failure.
 
-- `tracer.Middleware` goes **after** `middleware.Recoverer` is registered if you want the recoverer to catch panics first. oida re-panics after recording, so either order records the failure; putting oida inside the recoverer keeps the 500 response behaviour of chi.
-- The tracer can be mounted on the router the middleware records, or on any router in the same process: the tracer is shared, not the router.
-- Routes registered *before* `r.Use` panic in chi; register middleware first.
-- `oida.Mount(r, tracer)` mounts the same handler and adds the subtree patterns a router serves it under.
-
-> **Note**: chi provides `middleware.RealIP`, oida does not require it. The client IP is resolved from the `Forwarded` and `X-Forwarded-For` headers on any router (see [spec-model.md](spec-model.md)); add RealIP when your own handlers read `r.RemoteAddr`.
-
-Visit `http://localhost:8080/debug/oida`.
+The tracer is an `http.Handler` serving the UI, so `r.Mount(opts.Path, tracer)` is the alternative to `oida.Mount` where one pattern is enough.
 
 ### 2.1 Mounting on a separate admin listener
 
@@ -98,24 +44,50 @@ With `net/http` you do not need it: oida reads `http.Request.Pattern`.
 
 ## 3. net/http
 
+[testdata/examples/std/main_std.go](../testdata/examples/std/main_std.go) is the same service on `*http.ServeMux`:
+
 ```go
 mux := http.NewServeMux()
 mux.HandleFunc("GET /users/{id}", getUser)
 
-opts := oida.NewOptions("billing-api")
-opts.Enabled = true
-
-tracer, err := oida.New(opts)
-if err != nil {
+if err := oida.Mount(mux, tracer); err != nil {
 	return err
 }
-mux.Handle("/debug/oida/", tracer)
 
-handler := tracer.Middleware(mux)
-return http.ListenAndServe(":8080", handler)
+return http.ListenAndServe(":8080", tracer.Middleware(mux))
 ```
 
-The subtree pattern `/debug/oida/` covers the whole UI; `ServeMux` redirects a request for the bare `/debug/oida` to it. `oida.Mount(mux, tracer)` registers both patterns, so the bare path serves without the redirect; the same call mounts on a chi router.
+The middleware wraps the mux rather than being registered on it, since `ServeMux` has no `Use`. The subtree pattern `/debug/oida/` covers the whole UI and `ServeMux` redirects the bare `/debug/oida` to it, so `mux.Handle("/debug/oida/", tracer)` is enough when the redirect does not bother you; `oida.Mount` registers both patterns and skips it.
+
+### 3.1 gorilla/mux
+
+`oida.Router` is the one method chi and `*http.ServeMux` share, `Handle(pattern string, h http.Handler)`. gorilla returns a `*mux.Route` from `Handle` for chaining, so `*mux.Router` does not satisfy it:
+
+```
+cannot use r (variable of type *mux.Router) as oida.Router value in argument to oida.Mount:
+  *mux.Router does not implement oida.Router (wrong type for method Handle)
+        have Handle(string, http.Handler) *mux.Route
+        want Handle(string, http.Handler)
+```
+
+`oida.RouterFunc` adapts any registration call to the interface. Adapting `r.Handle` is not enough: gorilla matches those paths exactly, so `/debug/oida` would serve and `/debug/oida/traces` would 404. Register by prefix instead, which is how gorilla serves a subtree:
+
+```go
+r := mux.NewRouter()
+r.Use(tracer.Middleware)
+r.HandleFunc("/users/{id}", getUser).Methods(http.MethodGet)
+
+mount := oida.RouterFunc(func(pattern string, h http.Handler) {
+	r.PathPrefix(pattern).Handler(h)
+})
+if err := oida.Mount(mount, tracer); err != nil {
+	return err
+}
+```
+
+The middleware needs no adapter: `mux.MiddlewareFunc` is `func(http.Handler) http.Handler`, which is what `tracer.Middleware` is. [testdata/examples/gorilla/main_gorilla_mux.go](../testdata/examples/gorilla/main_gorilla_mux.go) is the program.
+
+The same adapter fits any router with a chaining `Handle`, and any router that registers under a different method name.
 
 ## 4. Protecting the endpoint
 

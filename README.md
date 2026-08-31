@@ -20,80 +20,25 @@ import "github.com/titpetric/oida"
 
 ## Use with stdlib
 
-```go
-opts := oida.NewOptions("billing-api")
-opts.Enabled = true
-
-tracer, err := oida.New(opts)
-if err != nil {
-	return err
-}
-
-mux := http.NewServeMux()
-mux.HandleFunc("GET /users/{id}", getUser)
-
-if err := oida.Mount(mux, tracer); err != nil {
-	return err
-}
-
-return http.ListenAndServe(":8080", tracer.Middleware(mux))
-```
-
-`tracer.Middleware` wraps the mux, so every sampled request through it is recorded. `Options.Path` is added to `IgnorePaths`, so browsing the dashboard records nothing of its own.
+[testdata/examples/std/main_std.go](testdata/examples/std/main_std.go) is a service on `*http.ServeMux`: `oida.New` builds the tracer, `oida.Mount` registers the dashboard, and `tracer.Middleware` wraps the mux, so every sampled request through it is recorded. `Options.Path` is added to `IgnorePaths`, so browsing the dashboard records nothing of its own.
 
 ## Use with go-chi
 
-```go
-opts := oida.NewOptions("billing-api")
-opts.Enabled = true
+[testdata/examples/chi/main_chi.go](testdata/examples/chi/main_chi.go) is the same service on a `chi.Router`, which takes the middleware through `r.Use(tracer.Middleware)`. Register it before the routes it records: chi panics on a `Use` that follows a route.
 
-tracer, err := oida.New(opts)
-if err != nil {
-	return err
-}
-
-r := chi.NewRouter()
-r.Use(tracer.Middleware)
-r.Get("/users/{id}", getUser)
-
-if err := oida.Mount(r, tracer); err != nil {
-	return err
-}
-
-return http.ListenAndServe(":8080", r)
-```
-
-chi takes the same middleware through `r.Use`. Register it before the routes it records: chi panics on a `Use` that follows a route.
-
-`oida.Mount` serves the dashboard under the path the tracer was configured with, and takes a `chi.Router` or an `*http.ServeMux` alike. The tracer is an `http.Handler` of its own, so `mux.Handle("/debug/oida/", tracer)` works where one pattern is enough.
+`oida.Mount` serves the dashboard under the path the tracer was configured with, and takes a `chi.Router` or an `*http.ServeMux` alike. A router whose `Handle` returns a value, such as gorilla's, mounts through `oida.RouterFunc`; [testdata/examples/gorilla/main_gorilla_mux.go](testdata/examples/gorilla/main_gorilla_mux.go) is that wiring, and the [getting started guide](docs/guide-getting-started.md) explains it. The tracer is an `http.Handler` of its own, so `mux.Handle("/debug/oida/", tracer)` works where one pattern is enough.
 
 Recording is opt-in: set `opts.Enabled` in code, or leave it alone and set `OIDA_ENABLED=true` in the environment. Open `http://localhost:8080/debug/oida`.
 
 ## Integration
 
-`getUser` is the handler both routers register. The middleware records the request; spans record what the request did:
+`getUser` is the handler each example registers, and `listUsers` under it records the span:
 
 ```go
-func getUser(w http.ResponseWriter, r *http.Request) {
-	users, err := listUsers(r.Context())
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	_ = json.NewEncoder(w).Encode(users)
-}
+_, span := oida.Start(ctx, "SELECT users", oida.KindDatabase)
+defer span.End()
 
-func listUsers(ctx context.Context) (UserList, error) {
-	_, span := oida.Start(ctx, "SELECT users", oida.KindDatabase)
-	defer span.End()
-
-	span.SetAttribute("limit", 100)
-
-	users := UserList{"alice", "bob"} // implementation...
-
-	span.SetAttribute("rows", len(users))
-	return users, nil
-}
+span.SetAttribute("limit", 100)
 ```
 
 Pass the context down, and the next `oida.Start` records a child span under this one. The kind drives the colour in the timeline and the grouping of the segment sweep; the [span kinds](docs/spec-model.md#span-kinds) and the [attribute keys](docs/spec-model.md#attributes) the dashboard reads are documented with the rest of the data model. Every call is nil-safe, so instrumented code runs unchanged where no tracer was built, or where the request was not sampled.
@@ -108,7 +53,7 @@ Pass the context down, and the next `oida.Start` records a child span under this
 - HTML for browsers, JSON for tools, and plain text for terminals
 - Nil-safe instrumentation when tracing is absent or a request is not sampled
 
-`github.com/titpetric/oida` is the public API, and [docs/api.md](docs/api.md) is its generated reference. The `frontend`, `model` and `storage` packages serve the root package and carry no compatibility promise of their own. [docs/](docs/README.md) covers getting started, instrumentation, configuration, the data model and the dashboard.
+`github.com/titpetric/oida` is the public API, and [docs/api.md](docs/api.md) is its generated reference. The `frontend`, `model` and `storage` packages serve the root package and carry no compatibility promise of their own. [docs/](docs/README.md) covers getting started, instrumentation, configuration, the data model and the dashboard, and [testdata/examples/](testdata/examples/README.md) holds a runnable program per router.
 
 ## License
 

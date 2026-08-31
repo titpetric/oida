@@ -6,6 +6,7 @@ tasks:
       - task: go:fmt
       - task: go:test
       - task: go:build
+      - task: examples
       - task: docs:api
       - task: docker:build
 
@@ -23,6 +24,15 @@ tasks:
       - templ generate
       - goimports -w .
       - git diff --exit-code -- '*_templ.go'
+
+  examples:
+    desc: "Build the wiring examples the docs link to"
+    passthru: true
+    cmds:
+      # Their go.mod replaces oida with this checkout, so a change that breaks
+      # the documented wiring breaks here.
+      - go -C testdata/examples build ./...
+      - go -C testdata/examples vet ./...
 
   lint:
     passthru: true

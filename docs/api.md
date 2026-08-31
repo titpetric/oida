@@ -129,6 +129,24 @@ type Router interface {
 </details>
 
 <details>
+<summary><code>type RouterFunc</code></summary>
+
+```go
+// RouterFunc adapts a registration function to Router, for a router whose own
+// Handle does not fit:
+//
+//	oida.Mount(oida.RouterFunc(func(pattern string, h http.Handler) {
+//		r.PathPrefix(pattern).Handler(h)
+//	}), tracer)
+//
+// gorilla returns a *mux.Route from Handle and matches its paths exactly, so
+// its dashboard is registered by prefix.
+type RouterFunc func(pattern string, h http.Handler)
+```
+
+</details>
+
+<details>
 <summary><code>type Sampler</code></summary>
 
 ```go
@@ -460,6 +478,7 @@ var (
 - `func (*Tracer) Subscribe () (<-chan struct{}, func())`
 - `func (*Tracer) Trace (id string) (Trace, bool)`
 - `func (*Tracer) Traces () []Trace`
+- `func (RouterFunc) Handle (pattern string, h http.Handler)`
 
 ### Do
 
@@ -810,4 +829,12 @@ a caller's to do.
 
 ```go
 func (*Tracer) Traces() []Trace
+```
+
+### Handle
+
+Handle implements Router.
+
+```go
+func (RouterFunc) Handle(pattern string, h http.Handler)
 ```

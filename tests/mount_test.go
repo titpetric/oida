@@ -150,6 +150,38 @@ func TestMountValidation(t *testing.T) {
 	}
 }
 
+func TestMountRouterFunc(t *testing.T) {
+	// A router whose Handle returns a value, the way gorilla's returns a
+	// *mux.Route, does not satisfy oida.Router. RouterFunc is the adapter.
+	chained := &chainingRouter{}
+	mount := oida.RouterFunc(func(pattern string, h http.Handler) {
+		chained.Handle(pattern, h)
+	})
+
+	if err := oida.Mount(mount, mountedTracer(t)); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
+	if len(chained.patterns) != 3 {
+		t.Fatalf("mounted on %v, want three patterns", chained.patterns)
+	}
+	checkDashboard(t, chained.handler)
+}
+
+// chainingRouter registers handlers and returns itself, which is the shape
+// oida.Router cannot express and RouterFunc adapts.
+type chainingRouter struct {
+	patterns []string
+	handler  http.Handler
+}
+
+// Handle registers a handler and returns the router, the way gorilla returns
+// a route.
+func (r *chainingRouter) Handle(pattern string, h http.Handler) *chainingRouter {
+	r.patterns = append(r.patterns, pattern)
+	r.handler = h
+	return r
+}
+
 // stubRouter records what was mounted on it. It stands in for the routers oida
 // does not import, and satisfies oida.Router the way chi.Router and
 // *http.ServeMux do.
