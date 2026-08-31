@@ -45,10 +45,10 @@ type handler struct {
 
 var _ http.Handler = (*handler)(nil)
 
-// HandlerFor returns the debug front end handler of one recorder, configured
+// Handler returns the debug front end handler of one recorder, configured
 // the way that recorder is. It is the shortest path from a tracer to a
 // dashboard, and it is what the tracer's own ServeHTTP builds.
-func HandlerFor(recorder model.Recorder) http.Handler {
+func Handler(recorder model.Recorder) http.Handler {
 	opts := model.NewOptions("")
 	if recorder != nil {
 		opts = recorder.Options()

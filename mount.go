@@ -31,7 +31,7 @@ func Mount(r Router, t *Tracer) error {
 	}
 
 	path := t.Options().Path
-	h := frontend.HandlerFor(t)
+	h := frontend.Handler(t)
 	r.Handle(path, h)
 	r.Handle(path+"/", h)
 	r.Handle(path+"/*", h)

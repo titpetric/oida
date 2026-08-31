@@ -2,9 +2,9 @@
 // model behind them, and the HTTP handler that renders HTML for browsers, JSON
 // for tools and plain text for terminals.
 //
-// HandlerFor builds the handler of a tracer:
+// Handler builds the handler of a tracer:
 //
-//	handler := frontend.HandlerFor(tracer)
+//	handler := frontend.Handler(tracer)
 //
 // The tracer is an http.Handler serving this front end itself, and the root
 // package mounts it, so a service needs no import of this package.

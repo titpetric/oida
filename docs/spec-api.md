@@ -21,7 +21,7 @@ func (t *Tracer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 func Mount(r Router, t *Tracer) error
 ```
 
-It wraps the `frontend` package, which renders the dashboard and exposes `HandlerFor` for the root package to build the handler with.
+It wraps the `frontend` package, which renders the dashboard and exposes `Handler` for the root package to build the handler with.
 
 `New` is the only constructor. There is no process wide tracer: the tracer it returns is what the middleware and the dashboard are wired to, by hand rather than through the options.
 

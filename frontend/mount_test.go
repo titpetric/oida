@@ -17,8 +17,8 @@ func newTestServer(t *testing.T, apply func(*oida.Options)) (http.Handler, *oida
 	tracer, _ := newTestTracer(t, apply)
 
 	mux := http.NewServeMux()
-	mux.Handle(oida.DefaultPath+"/", frontend.HandlerFor(tracer))
-	mux.Handle(oida.DefaultPath, frontend.HandlerFor(tracer))
+	mux.Handle(oida.DefaultPath+"/", frontend.Handler(tracer))
+	mux.Handle(oida.DefaultPath, frontend.Handler(tracer))
 
 	return tracer.Middleware(mux), tracer
 }

@@ -34,7 +34,7 @@ func (t *Tracer) serveHTTP(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	t.handlerOnce.Do(func() {
-		t.handler = frontend.HandlerFor(t)
+		t.handler = frontend.Handler(t)
 	})
 	t.handler.ServeHTTP(w, r)
 	return nil

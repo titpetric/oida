@@ -16,7 +16,7 @@ import (
 func TestEventStreamPushesLiveSection(t *testing.T) {
 	tracer, _ := newTestTracer(t, nil)
 
-	server := httptest.NewServer(frontend.HandlerFor(tracer))
+	server := httptest.NewServer(frontend.Handler(tracer))
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -59,12 +59,12 @@ func TestEventStreamPushesLiveSection(t *testing.T) {
 func TestEventStreamDisabled(t *testing.T) {
 	tracer, _ := newTestTracer(t, func(o *oida.Options) { o.LiveStream = false })
 
-	response := request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/live/events", nil)
+	response := request(t, frontend.Handler(tracer), oida.DefaultPath+"/live/events", nil)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("disabled stream returned %d, want 404", response.Code)
 	}
 
-	body := request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/live", nil).Body.String()
+	body := request(t, frontend.Handler(tracer), oida.DefaultPath+"/live", nil).Body.String()
 	if strings.Contains(body, "data-events") {
 		t.Error("the live view advertises a stream while streaming is off")
 	}
@@ -76,14 +76,14 @@ func TestEventStreamDisabled(t *testing.T) {
 func TestLiveViewStreamOff(t *testing.T) {
 	tracer, _ := newTestTracer(t, nil)
 
-	streaming := request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/live", nil).Body.String()
+	streaming := request(t, frontend.Handler(tracer), oida.DefaultPath+"/live", nil).Body.String()
 	if !strings.Contains(streaming, "data-events") {
 		t.Fatal("the live view does not advertise the stream by default")
 	}
 
 	// ?stream=off renders the same page without holding a connection open,
 	// which is what screenshots and scrapers need.
-	static := request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/live?stream=off", nil).Body.String()
+	static := request(t, frontend.Handler(tracer), oida.DefaultPath+"/live?stream=off", nil).Body.String()
 	if strings.Contains(static, "data-events") {
 		t.Error("stream=off still advertises the event stream")
 	}
@@ -108,7 +108,7 @@ func TestLiveFeedHoldsRunningAndCompletedTraces(t *testing.T) {
 		t.Fatalf("Observe: %v", err)
 	}
 
-	body := request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/live?stream=off", nil).Body.String()
+	body := request(t, frontend.Handler(tracer), oida.DefaultPath+"/live?stream=off", nil).Body.String()
 	for _, want := range []string{"GET /slow", "GET /fast", `class="status running"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("feed misses %q", want)
@@ -121,7 +121,7 @@ func TestLiveFeedHoldsRunningAndCompletedTraces(t *testing.T) {
 	}
 
 	tracer.Finish(running)
-	body = request(t, frontend.HandlerFor(tracer), oida.DefaultPath+"/live?stream=off", nil).Body.String()
+	body = request(t, frontend.Handler(tracer), oida.DefaultPath+"/live?stream=off", nil).Body.String()
 	if strings.Contains(body, `class="status running"`) {
 		t.Error("a completed trace is still marked as running")
 	}

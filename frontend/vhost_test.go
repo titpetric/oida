@@ -87,7 +87,7 @@ func hostRouter(t *testing.T, service, span string) vhost {
 		oida.StartSpan(r.Context(), span, oida.KindDatabase).End()
 		_, _ = w.Write([]byte(service))
 	})
-	mux.Handle(opts.Path+"/", frontend.HandlerFor(tracer))
+	mux.Handle(opts.Path+"/", frontend.Handler(tracer))
 
 	return vhost{tracer: tracer, handler: tracer.Middleware(mux)}
 }
