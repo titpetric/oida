@@ -1,4 +1,4 @@
-package oida
+package internal
 
 import (
 	"net/http"
@@ -147,15 +147,15 @@ func TestRemoteAddr(t *testing.T) {
 					r.Header.Add(key, value)
 				}
 			}
-			if got := remoteAddr(r); got != tt.want {
-				t.Fatalf("remoteAddr() = %q, want %q", got, tt.want)
+			if got := RemoteAddr(r); got != tt.want {
+				t.Fatalf("RemoteAddr() = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestRemoteAddrNilRequest(t *testing.T) {
-	if got := remoteAddr(nil); got != "" {
-		t.Fatalf("remoteAddr(nil) = %q, want empty", got)
+	if got := RemoteAddr(nil); got != "" {
+		t.Fatalf("RemoteAddr(nil) = %q, want empty", got)
 	}
 }

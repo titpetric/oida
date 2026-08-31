@@ -1,4 +1,4 @@
-package oida
+package internal
 
 import "testing"
 

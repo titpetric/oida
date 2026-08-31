@@ -3,8 +3,6 @@ package oida
 import (
 	"context"
 	"time"
-
-	"github.com/titpetric/oida/storage"
 )
 
 // Storage is what a storage driver implements to retain completed traces.
@@ -42,15 +40,4 @@ type Storage interface {
 	// process can list what an earlier one recorded. A driver holding nothing
 	// of its own returns nil.
 	Restore(ctx context.Context) error
-}
-
-// newStorageMemory returns the ring buffer driver. The error is always nil,
-// matching newStorageDisk so the environment can build either one.
-func newStorageMemory(size int) (Storage, error) {
-	return storage.NewMemoryStorage(size), nil
-}
-
-// newStorageDisk returns the JSON document folder driver.
-func newStorageDisk(limit int, paths ...string) (Storage, error) {
-	return storage.NewDiskStorage(limit, paths...)
 }

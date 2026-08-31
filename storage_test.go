@@ -3,15 +3,17 @@ package oida
 import (
 	"context"
 	"testing"
+
+	"github.com/titpetric/oida/storage"
 )
 
 // TestTracerUsesConfiguredStorage pins the wiring the storage aliases exist
 // for: a driver from the storage package, set on Options.Storage, receives
 // the finished traces.
 func TestTracerUsesConfiguredStorage(t *testing.T) {
-	store, err := newStorageDisk(5, t.TempDir())
+	store, err := storage.NewDiskStorage(5, t.TempDir())
 	if err != nil {
-		t.Fatalf("newStorageDisk: %v", err)
+		t.Fatalf("NewDiskStorage: %v", err)
 	}
 
 	tracer, _ := newTestTracer(t, func(o *Options) { o.Storage = store })

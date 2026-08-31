@@ -1,22 +1,26 @@
-package oida
+package internal
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/titpetric/oida/model"
+)
 
 func TestOptionsDefaultsAndValidation(t *testing.T) {
-	opts := Options{}.WithDefaults()
-	if opts.Path != DefaultPath || opts.RingBufferSize != 200 || opts.SampleRate != 100 || opts.Clock == nil {
+	opts := model.Options{}.WithDefaults()
+	if opts.Path != model.DefaultPath || opts.RingBufferSize != 200 || opts.SampleRate != 100 || opts.Clock == nil {
 		t.Fatalf("unexpected defaults: %+v", opts)
 	}
 	if err := opts.Validate(); err != nil {
 		t.Fatalf("defaults are invalid: %v", err)
 	}
 
-	trimmed := Options{Path: "/debug/oida/"}.WithDefaults()
-	if trimmed.Path != DefaultPath {
+	trimmed := model.Options{Path: "/debug/oida/"}.WithDefaults()
+	if trimmed.Path != model.DefaultPath {
 		t.Fatalf("path is %q, want the trailing slash trimmed", trimmed.Path)
 	}
 
-	zeroes := NewOptions("")
+	zeroes := model.NewOptions("")
 	zeroes.RingBufferSize = 0
 	zeroes.TopRequests = 0
 	zeroes.MaxSpansPerTrace = 0
@@ -28,16 +32,16 @@ func TestOptionsDefaultsAndValidation(t *testing.T) {
 		t.Fatalf("explicit zero values were replaced: %+v", zeroes)
 	}
 
-	if !ignoredPath(opts, DefaultPath+"/stats") {
+	if !IgnoredPath(opts, model.DefaultPath+"/stats") {
 		t.Error("the front end path is traced")
 	}
-	if !ignoredPath(opts, "/healthz") || ignoredPath(opts, "/users/1") {
+	if !IgnoredPath(opts, "/healthz") || IgnoredPath(opts, "/users/1") {
 		t.Error("ignore paths do not match as documented")
 	}
 
-	prefixed := NewOptions("")
+	prefixed := model.NewOptions("")
 	prefixed.IgnorePaths = []string{"/assets/*"}
-	if !ignoredPath(prefixed, "/assets/app.css") || ignoredPath(prefixed, "/assetsx") {
+	if !IgnoredPath(prefixed, "/assets/app.css") || IgnoredPath(prefixed, "/assetsx") {
 		t.Error("prefix ignore patterns do not match as documented")
 	}
 }

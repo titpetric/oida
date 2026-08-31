@@ -1,10 +1,6 @@
 package oida
 
-import (
-	"fmt"
-
-	"github.com/titpetric/oida/model"
-)
+import "github.com/titpetric/oida/model"
 
 // The errors this package returns. Every configuration failure wraps
 // ErrInvalidOptions, so a caller can test for the class or for the case. The
@@ -34,8 +30,3 @@ var (
 	// ErrDisabled is returned when a trace is requested from a disabled tracer.
 	ErrDisabled = model.ErrDisabled
 )
-
-// invalidOption formats a field level configuration error.
-func invalidOption(field string, reason string) error {
-	return fmt.Errorf("%w: %s %s", ErrInvalidOptions, field, reason)
-}

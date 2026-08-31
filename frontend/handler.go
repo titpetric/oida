@@ -54,7 +54,6 @@ func Handler(recorder model.Recorder) http.Handler {
 		opts = recorder.Options()
 	}
 	opts = opts.WithDefaults()
-	opts.Tracer = recorder
 	return newHandler(opts, recorder)
 }
 

@@ -1,4 +1,4 @@
-package oida
+package internal
 
 import (
 	"context"
@@ -10,43 +10,24 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/titpetric/oida/model"
+	"github.com/titpetric/oida/storage"
 )
 
-// optionsFromEnv applies the environment to opts. A variable applies only
-// where the code left the field at its NewOptions default, so authentication
-// and tuning configured in code win over the environment.
+// OptionsFromEnv applies the OIDA_* environment to opts. A variable applies
+// only where the code left the field at its NewOptions default, so
+// authentication and tuning configured in code win over the environment, and a
+// variable set to nothing leaves the default alone.
 //
-// The variables, with the value the option keeps when one is unset:
-//
-//	OIDA_SERVICE_NAME        the name passed to NewOptions
-//	OIDA_PATH                /debug/oida
-//	OIDA_ENABLED             false: recording stays off
-//	OIDA_RING_BUFFER_SIZE    200
-//	OIDA_TOP_REQUESTS        20
-//	OIDA_MAX_SPANS_PER_TRACE 1000
-//	OIDA_SAMPLE_RATE         100
-//	OIDA_TRACK_MEMORY_USE    true
-//	OIDA_TRUST_REQUEST_ID    false
-//	OIDA_REFRESH_INTERVAL    5
-//	OIDA_LIVE_STREAM         true
-//	OIDA_CAPTURE_LOGS        true
-//	OIDA_IGNORE_PATHS        /healthz,/readyz,/metrics,/favicon.ico
-//	OIDA_ALLOWED_NETWORKS    none (every peer is served)
-//	OIDA_STORAGE_DRIVER      memory (disk is the other driver)
-//	OIDA_STORAGE_MEMORY_SIZE OIDA_RING_BUFFER_SIZE
-//	OIDA_STORAGE_DISK_PATH   none (a folder under the temporary directory)
-//	OIDA_STORAGE_DISK_LIMIT  OIDA_RING_BUFFER_SIZE
-//	OIDA_STORAGE_DISK_LIST   false: the ring starts with this process's traces
-//	OIDA_STORAGE_DISK_EXPIRE none (documents are dropped by count alone)
-//	OIDA_AUTH                none (no sign in screen)
-//	OIDA_USERS_FILE          none
-//	OIDA_SIGNING_SECRET      none (a per-process secret is generated)
-//
-// Lists are comma separated. OIDA_SAMPLE_RATE out of [0,100] clamps to the
-// nearest bound. OIDA_AUTH holds one username:password pair, hashed here so
-// the options carry a bcrypt hash the way a configured deployment would.
-func optionsFromEnv(opts *Options) error {
-	defaults := NewOptions("")
+// The variables and their defaults are the table in docs/guide-configuration.md,
+// which is where a deployment reads them; keeping the list in one place is what
+// keeps it true. Lists are comma separated. OIDA_SAMPLE_RATE out of [0,100]
+// clamps to the nearest bound. OIDA_AUTH holds one username:password pair,
+// hashed here so the options carry a bcrypt hash the way a configured
+// deployment would.
+func OptionsFromEnv(opts *model.Options) error {
+	defaults := model.NewOptions("")
 
 	if opts.ServiceName == "" {
 		opts.ServiceName = envValue("OIDA_SERVICE_NAME")
@@ -93,7 +74,7 @@ func optionsFromEnv(opts *Options) error {
 	if value := envValue("OIDA_SAMPLE_RATE"); value != "" && opts.SampleRate == defaults.SampleRate {
 		rate, err := strconv.ParseFloat(value, 64)
 		if err != nil || math.IsNaN(rate) {
-			return invalidOption("OIDA_SAMPLE_RATE", "must be a number")
+			return InvalidOption("OIDA_SAMPLE_RATE", "must be a number")
 		}
 		// Out of bounds clamps to the valid range instead of failing startup.
 		opts.SampleRate = min(max(rate, 0), 100)
@@ -129,7 +110,7 @@ const (
 // which is the only thing such a setting can mean. Naming one driver and
 // configuring the other is a contradiction and fails, as does a path that
 // cannot be created or written.
-func storageFromEnv(opts *Options) error {
+func storageFromEnv(opts *model.Options) error {
 	if opts.Storage != nil {
 		return nil
 	}
@@ -147,12 +128,12 @@ func storageFromEnv(opts *Options) error {
 		}
 	case driverMemory:
 		if diskSet {
-			return invalidOption("OIDA_STORAGE_DRIVER", "the memory driver has no OIDA_STORAGE_DISK_ settings")
+			return InvalidOption("OIDA_STORAGE_DRIVER", "the memory driver has no OIDA_STORAGE_DISK_ settings")
 		}
 		return storageMemoryFromEnv(opts)
 	case driverDisk:
 	default:
-		return invalidOption("OIDA_STORAGE_DRIVER", "must be "+driverMemory+" or "+driverDisk)
+		return InvalidOption("OIDA_STORAGE_DRIVER", "must be "+driverMemory+" or "+driverDisk)
 	}
 
 	limit := opts.RingBufferSize
@@ -171,7 +152,7 @@ func storageFromEnv(opts *Options) error {
 	if path != "" {
 		paths = append(paths, path)
 	}
-	store, err := newStorageDisk(limit, paths...)
+	store, err := storage.NewDiskStorage(limit, paths...)
 	if err != nil {
 		return err
 	}
@@ -201,7 +182,7 @@ func storageFromEnv(opts *Options) error {
 // driver resolves to. It is left nil at its default size, so the tracer builds
 // it from RingBufferSize the way it does for options that never saw the
 // environment.
-func storageMemoryFromEnv(opts *Options) error {
+func storageMemoryFromEnv(opts *model.Options) error {
 	size := opts.RingBufferSize
 	if err := envInt("OIDA_STORAGE_MEMORY_SIZE", &size, size); err != nil {
 		return err
@@ -209,24 +190,20 @@ func storageMemoryFromEnv(opts *Options) error {
 	if size == opts.RingBufferSize {
 		return nil
 	}
-	store, err := newStorageMemory(size)
-	if err != nil {
-		return err
-	}
-	opts.Storage = store
+	opts.Storage = storage.NewMemoryStorage(size)
 	return nil
 }
 
 // authFromEnv applies the environment's authentication opt-in: OIDA_AUTH is
 // one username:password pair. Users configured in code win.
-func authFromEnv(opts *Options) error {
+func authFromEnv(opts *model.Options) error {
 	credentials := envValue("OIDA_AUTH")
 	if credentials == "" || opts.Users != nil || opts.UsersFile != "" || opts.AuthorizeUser != nil {
 		return nil
 	}
 	username, password, ok := strings.Cut(credentials, ":")
 	if !ok || username == "" || password == "" {
-		return invalidOption("OIDA_AUTH", "must be username:password")
+		return InvalidOption("OIDA_AUTH", "must be username:password")
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -251,7 +228,7 @@ func envBool(name string, field *bool, unset bool) error {
 	}
 	parsed, err := strconv.ParseBool(value)
 	if err != nil {
-		return invalidOption(name, "must be true or false")
+		return InvalidOption(name, "must be true or false")
 	}
 	*field = parsed
 	return nil
@@ -267,10 +244,10 @@ func envDuration(name string) (time.Duration, error) {
 	}
 	parsed, err := time.ParseDuration(value)
 	if err != nil {
-		return 0, invalidOption(name, "must be a duration, such as 168h")
+		return 0, InvalidOption(name, "must be a duration, such as 168h")
 	}
 	if parsed <= 0 {
-		return 0, invalidOption(name, "must be a positive duration")
+		return 0, InvalidOption(name, "must be a positive duration")
 	}
 	return parsed, nil
 }
@@ -283,7 +260,7 @@ func envInt(name string, field *int, unset int) error {
 	}
 	parsed, err := strconv.Atoi(value)
 	if err != nil {
-		return invalidOption(name, "must be an integer")
+		return InvalidOption(name, "must be an integer")
 	}
 	*field = parsed
 	return nil

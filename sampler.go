@@ -1,60 +1,14 @@
 package oida
 
-import (
-	"net/http"
-	"sync/atomic"
-
-	"github.com/titpetric/oida/model"
-)
+import "net/http"
 
 // Sampler decides whether a request is traced. The decision is taken before a
 // trace is allocated, so rejecting a request costs one interface call. The
 // definition is a copy of the model's; interfaces are structural, so a sampler
 // written against either spelling works everywhere one is accepted.
+//
+// Options.SampleRate covers the common case. Set Options.Sampler to decide per
+// request on something the rate cannot express, such as a header or a route.
 type Sampler interface {
 	Sample(r *http.Request) bool
-}
-
-// SamplerFunc adapts a function to the Sampler interface.
-type SamplerFunc = model.SamplerFunc
-
-// rateSampler samples a fixed percentage of requests using a counter rather
-// than randomness, so the decision sequence is deterministic and testable.
-type rateSampler struct {
-	// every is the sampling period: one request in every N is traced. Zero
-	// disables sampling entirely.
-	every uint64
-
-	counter atomic.Uint64
-}
-
-var _ Sampler = (*rateSampler)(nil)
-
-// NewRateSampler returns a sampler tracing the given percentage of requests. A
-// rate of 100 or more traces everything, a rate of 0 or less traces nothing.
-func NewRateSampler(rate float64) Sampler {
-	switch {
-	case rate >= 100:
-		return &rateSampler{every: 1}
-	case rate <= 0:
-		return &rateSampler{every: 0}
-	default:
-		every := uint64(100/rate + 0.5)
-		if every < 1 {
-			every = 1
-		}
-		return &rateSampler{every: every}
-	}
-}
-
-// Sample implements Sampler.
-func (s *rateSampler) Sample(*http.Request) bool {
-	switch s.every {
-	case 0:
-		return false
-	case 1:
-		return true
-	default:
-		return s.counter.Add(1)%s.every == 0
-	}
 }

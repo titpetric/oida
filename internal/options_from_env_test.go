@@ -1,4 +1,4 @@
-package oida
+package internal
 
 import (
 	"context"
@@ -9,18 +9,44 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/titpetric/oida/model"
+	"github.com/titpetric/oida/storage"
 )
+
+// envOptions returns options with the environment applied, which is what the
+// tracer holds after it calls OptionsFromEnv.
+func envOptions(t *testing.T) model.Options {
+	t.Helper()
+
+	opts := model.NewOptions("env-test")
+	if err := OptionsFromEnv(&opts); err != nil {
+		t.Fatalf("OptionsFromEnv: %v", err)
+	}
+	return opts.WithDefaults()
+}
+
+// envRead applies the environment to default options and returns what it read
+// along with the failure, so a test asserts on either.
+func envRead(t *testing.T) (model.Options, error) {
+	t.Helper()
+
+	opts := model.NewOptions("env-test")
+	err := OptionsFromEnv(&opts)
+	return opts, err
+}
+
+// envReadInto applies the environment to options the caller configured.
+func envReadInto(opts *model.Options) (model.Options, error) {
+	err := OptionsFromEnv(opts)
+	return *opts, err
+}
 
 func TestEnvAuth(t *testing.T) {
 	t.Setenv("OIDA_AUTH", "admin:hunter2")
 	t.Setenv("OIDA_SIGNING_SECRET", "pre-shared")
 
-	tracer, err := New(NewOptions("env-test"))
-	if err != nil {
-		t.Fatalf("Configure: %v", err)
-	}
-
-	opts := tracer.Options()
+	opts := envOptions(t)
 	if opts.SigningSecret != "pre-shared" {
 		t.Errorf("signing secret is %q, want the environment's", opts.SigningSecret)
 	}
@@ -41,12 +67,7 @@ func TestEnvOptions(t *testing.T) {
 	t.Setenv("OIDA_IGNORE_PATHS", "/ping, /pong")
 	t.Setenv("OIDA_ALLOWED_NETWORKS", "127.0.0.0/8,10.0.0.0/8")
 
-	tracer, err := New(NewOptions("env-test"))
-	if err != nil {
-		t.Fatalf("Configure: %v", err)
-	}
-
-	opts := tracer.Options()
+	opts := envOptions(t)
 	if opts.Path != "/internal/oida" {
 		t.Errorf("path is %q", opts.Path)
 	}
@@ -72,17 +93,15 @@ func TestEnvKeepsConfigured(t *testing.T) {
 	t.Setenv("OIDA_SIGNING_SECRET", "environment")
 	t.Setenv("OIDA_RING_BUFFER_SIZE", "50")
 
-	opts := NewOptions("env-test")
+	opts := model.NewOptions("env-test")
 	opts.Users = map[string]string{"operator": "$2b$05$configured"}
 	opts.SigningSecret = "configured"
 	opts.RingBufferSize = 500
 
-	tracer, err := New(opts)
+	got, err := envReadInto(&opts)
 	if err != nil {
-		t.Fatalf("Configure: %v", err)
+		t.Fatalf("OptionsFromEnv: %v", err)
 	}
-
-	got := tracer.Options()
 	if _, ok := got.Users["admin"]; ok {
 		t.Error("the environment user overrode the configured users")
 	}
@@ -97,67 +116,51 @@ func TestEnvKeepsConfigured(t *testing.T) {
 func TestEnvRejectsBadValues(t *testing.T) {
 	t.Setenv("OIDA_AUTH", "no-separator")
 
-	if _, err := New(NewOptions("env-test")); !errors.Is(err, ErrInvalidOptions) {
-		t.Fatalf("err is %v, want ErrInvalidOptions for OIDA_AUTH", err)
+	if _, err := envRead(t); !errors.Is(err, model.ErrInvalidOptions) {
+		t.Fatalf("err is %v, want model.ErrInvalidOptions for OIDA_AUTH", err)
 	}
 
 	t.Setenv("OIDA_AUTH", "")
 	t.Setenv("OIDA_RING_BUFFER_SIZE", "many")
 
-	if _, err := New(NewOptions("env-test")); !errors.Is(err, ErrInvalidOptions) {
-		t.Fatalf("err is %v, want ErrInvalidOptions for OIDA_RING_BUFFER_SIZE", err)
+	if _, err := envRead(t); !errors.Is(err, model.ErrInvalidOptions) {
+		t.Fatalf("err is %v, want model.ErrInvalidOptions for OIDA_RING_BUFFER_SIZE", err)
 	}
 }
 
 func TestEnvClampsSampleRate(t *testing.T) {
 	t.Setenv("OIDA_SAMPLE_RATE", "250")
 
-	tracer, err := New(NewOptions("env-test"))
-	if err != nil {
-		t.Fatalf("Configure: %v", err)
-	}
-	if rate := tracer.Options().SampleRate; rate != 100 {
+	if rate := envOptions(t).SampleRate; rate != 100 {
 		t.Errorf("sample rate is %v, want 250 clamped to 100", rate)
 	}
 
 	t.Setenv("OIDA_SAMPLE_RATE", "-3")
 
-	tracer, err = New(NewOptions("env-test"))
-	if err != nil {
-		t.Fatalf("Configure: %v", err)
-	}
-	if rate := tracer.Options().SampleRate; rate != 0 {
+	if rate := envOptions(t).SampleRate; rate != 0 {
 		t.Errorf("sample rate is %v, want -3 clamped to 0", rate)
 	}
 }
 
 // envStorage builds the retention driver the environment asks for, which is
-// what the tracer would hold. Options.Storage is not readable back off a
-// tracer, so the env layer is exercised where it runs.
-func envStorage(t *testing.T) Storage {
+// what the tracer would hold.
+func envStorage(t *testing.T) model.Storage {
 	t.Helper()
 
-	opts := NewOptions("env-test")
-	if err := optionsFromEnv(&opts); err != nil {
-		t.Fatalf("optionsFromEnv: %v", err)
-	}
+	opts := envOptions(t)
 	if opts.Storage == nil {
 		// A nil driver is the memory default the tracer builds itself.
-		store, err := newStorageMemory(opts.RingBufferSize)
-		if err != nil {
-			t.Fatalf("newStorageMemory: %v", err)
-		}
-		return store
+		return storage.NewMemoryStorage(opts.RingBufferSize)
 	}
 	return opts.Storage
 }
 
 // storesDocument saves a trace through store and reports whether it landed in
 // dir as a document, which is what tells the disk driver from the memory one.
-func storesDocument(t *testing.T, store Storage, dir, id string) bool {
+func storesDocument(t *testing.T, store model.Storage, dir, id string) bool {
 	t.Helper()
 
-	if err := store.Save(context.Background(), Trace{ID: id, Name: "probe"}); err != nil {
+	if err := store.Save(context.Background(), model.Trace{ID: id, Name: "probe"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	name := filepath.Join(dir, id+".json")
@@ -176,7 +179,7 @@ func TestEnvStorageDiskPath(t *testing.T) {
 
 	// A path that cannot exist fails Configure; the error says why.
 	t.Setenv("OIDA_STORAGE_DISK_PATH", "/dev/null/never")
-	if _, err := New(NewOptions("env-test")); err == nil {
+	if _, err := envRead(t); err == nil {
 		t.Fatal("Configure accepted an impossible storage path")
 	}
 }
@@ -201,14 +204,14 @@ func TestEnvStorageDriver(t *testing.T) {
 
 func TestEnvStorageDriverRejects(t *testing.T) {
 	t.Setenv("OIDA_STORAGE_DRIVER", "postgres")
-	if _, err := New(NewOptions("env-test")); err == nil {
+	if _, err := envRead(t); err == nil {
 		t.Fatal("Configure accepted an unknown storage driver")
 	}
 
 	// Settings the named driver cannot honour are a contradiction, not a hint.
 	t.Setenv("OIDA_STORAGE_DRIVER", "memory")
 	t.Setenv("OIDA_STORAGE_DISK_PATH", t.TempDir())
-	if _, err := New(NewOptions("env-test")); err == nil {
+	if _, err := envRead(t); err == nil {
 		t.Fatal("Configure accepted a disk path for the memory driver")
 	}
 }
@@ -231,7 +234,7 @@ func TestEnvStorageSizes(t *testing.T) {
 
 	// A size that is not a number fails rather than falling back.
 	t.Setenv("OIDA_STORAGE_DISK_LIMIT", "many")
-	if _, err := New(NewOptions("env-test")); err == nil {
+	if _, err := envRead(t); err == nil {
 		t.Fatal("Configure accepted a non numeric disk limit")
 	}
 }
@@ -241,7 +244,7 @@ func TestEnvStorageDiskList(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Setenv("OIDA_STORAGE_DISK_PATH", dir)
-	if err := envStorage(t).Save(ctx, Trace{ID: "01ARZ3NDEKTSV4RRFFQ69G5FAV", Name: "seed"}); err != nil {
+	if err := envStorage(t).Save(ctx, model.Trace{ID: "01ARZ3NDEKTSV4RRFFQ69G5FAV", Name: "seed"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -266,7 +269,7 @@ func TestEnvStorageDiskExpire(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Setenv("OIDA_STORAGE_DISK_PATH", dir)
-	if err := envStorage(t).Save(ctx, Trace{ID: "01ARZ3NDEKTSV4RRFFQ69G5FAV", Name: "old"}); err != nil {
+	if err := envStorage(t).Save(ctx, model.Trace{ID: "01ARZ3NDEKTSV4RRFFQ69G5FAV", Name: "old"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -289,8 +292,8 @@ func TestEnvStorageDiskExpire(t *testing.T) {
 	// as one.
 	for _, value := range []string{"soon", "0", "-1h"} {
 		t.Setenv("OIDA_STORAGE_DISK_EXPIRE", value)
-		if _, err := New(NewOptions("env-test")); !errors.Is(err, ErrInvalidOptions) {
-			t.Errorf("OIDA_STORAGE_DISK_EXPIRE=%q gave %v, want ErrInvalidOptions", value, err)
+		if _, err := envRead(t); !errors.Is(err, model.ErrInvalidOptions) {
+			t.Errorf("OIDA_STORAGE_DISK_EXPIRE=%q gave %v, want model.ErrInvalidOptions", value, err)
 		}
 	}
 }
@@ -317,12 +320,11 @@ func TestEnvSetToNothingKeepsEveryDefault(t *testing.T) {
 			t.Setenv(key, value)
 		}
 
-		tracer, err := New(NewOptions("env-test"))
+		got, err := envRead(t)
 		if err != nil {
-			t.Fatalf("Configure with every variable set to %q: %v", value, err)
+			t.Fatalf("every variable set to %q: %v", value, err)
 		}
-
-		got, want := tracer.Options(), NewOptions("env-test").WithDefaults()
+		got, want := got.WithDefaults(), model.NewOptions("env-test").WithDefaults()
 		if got.ServiceName != want.ServiceName || got.Path != want.Path {
 			t.Errorf("%q: name %q path %q, want %q and %q", value, got.ServiceName, got.Path, want.ServiceName, want.Path)
 		}
@@ -342,11 +344,10 @@ func TestEnvSetToNothingKeepsEveryDefault(t *testing.T) {
 		if got.AllowedNetworks != nil || got.Users != nil || got.UsersFile != "" || got.SigningSecret != "" {
 			t.Errorf("%q: authentication was configured from nothing: %+v", value, got)
 		}
-		// Options are read back without the driver behind them, so the
-		// retention the environment did not configure is checked where it
-		// is built.
+		// Retention the environment did not configure is left nil for the
+		// tracer to fill, so it is checked where it is built.
 		if got.Storage != nil {
-			t.Errorf("%q: Options() returned a storage driver", value)
+			t.Errorf("%q: the environment built a storage driver from nothing", value)
 		}
 		if size := envStorage(t).Cap(); size != want.RingBufferSize {
 			t.Errorf("%q: storage holds %d traces, want the default %d", value, size, want.RingBufferSize)
@@ -360,12 +361,8 @@ func TestEnvListSetToSeparatorsKeepsTheDefault(t *testing.T) {
 	t.Setenv("OIDA_IGNORE_PATHS", " , ,")
 	t.Setenv("OIDA_ALLOWED_NETWORKS", ",,")
 
-	tracer, err := New(NewOptions("env-test"))
-	if err != nil {
-		t.Fatalf("Configure: %v", err)
-	}
-	got := tracer.Options()
-	if want := NewOptions("env-test").WithDefaults(); !slices.Equal(got.IgnorePaths, want.IgnorePaths) {
+	got := envOptions(t)
+	if want := model.NewOptions("env-test").WithDefaults(); !slices.Equal(got.IgnorePaths, want.IgnorePaths) {
 		t.Errorf("ignore paths are %v, want the default %v", got.IgnorePaths, want.IgnorePaths)
 	}
 	if got.AllowedNetworks != nil {

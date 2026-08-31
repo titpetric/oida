@@ -13,12 +13,15 @@ server-side rendered front end at `/debug/oida`. See [README.md](README.md) and
   HTTP handler. It imports `model` alone and never the root package; an
   `oida.` reference from `frontend` is an import cycle.
 - `storage/` holds the retention drivers. It imports `model` alone.
+- `internal/` is the composition space: the utilities and the private
+  components the root package is built from, closed to importers outside the
+  module. See [internal/README.md](internal/README.md) for what may move there.
 - `oida` (root) records and serves: tracer, middleware, instrumentation. It
   imports the other three and serves the front end, so a service instruments
   and mounts with one import.
 
-The dependency runs one way, `oida` to `frontend` and `storage`, both to
-`model`.
+The dependency runs one way, `oida` to `frontend`, `storage` and `internal`,
+all three to `model`.
 
 The root package is the public API. `docs/api.md` is its generated reference,
 and the sub-packages carry no compatibility promise of their own: what an

@@ -1,4 +1,4 @@
-package oida
+package internal
 
 import (
 	"net/http"
@@ -17,11 +17,11 @@ func TestSymbolName(t *testing.T) {
 		input any
 		want  string
 	}{
-		{"value names its type", storage, "oida.userStorage"},
-		{"method value names the method", storage.Get, "oida.userStorage.Get"},
+		{"value names its type", storage, "internal.userStorage"},
+		{"method value names the method", storage.Get, "internal.userStorage.Get"},
 		{"package function keeps its package", http.NewRequest, "http.NewRequest"},
 		{"interface method names the concrete type", http.DefaultClient.Get, "http.Client.Get"},
-		{"exported function of this package", RecordError, "oida.RecordError"},
+		{"exported function of this package", SymbolName, "internal.SymbolName"},
 		{"builtin type", 32, "int"},
 		{"a string passes through", "user.service.Login", "user.service.Login"},
 		{"a path keeps its last element", "github.com/titpetric/oida/user.Login", "user.Login"},
@@ -30,8 +30,8 @@ func TestSymbolName(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			if got := symbolName(testCase.input); got != testCase.want {
-				t.Fatalf("symbolName(%v) = %q, want %q", testCase.input, got, testCase.want)
+			if got := SymbolName(testCase.input); got != testCase.want {
+				t.Fatalf("SymbolName(%v) = %q, want %q", testCase.input, got, testCase.want)
 			}
 		})
 	}

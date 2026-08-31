@@ -1,13 +1,13 @@
-package oida
+package internal
 
 import (
 	"io"
 	"net/http"
 )
 
-// responseWriter records the status and the number of bytes written while
+// ResponseWriter records the status and the number of bytes written while
 // preserving the optional interfaces of the wrapped writer.
-type responseWriter struct {
+type ResponseWriter struct {
 	http.ResponseWriter
 
 	status  int
@@ -17,19 +17,35 @@ type responseWriter struct {
 }
 
 var (
-	_ http.ResponseWriter = (*responseWriter)(nil)
-	_ http.Flusher        = (*responseWriter)(nil)
-	_ io.ReaderFrom       = (*responseWriter)(nil)
+	_ http.ResponseWriter = (*ResponseWriter)(nil)
+	_ http.Flusher        = (*ResponseWriter)(nil)
+	_ io.ReaderFrom       = (*ResponseWriter)(nil)
 )
+
+// NewResponseWriter wraps w to record what the handler answered with. onWrite
+// runs once, when the first byte or the status goes out.
+func NewResponseWriter(w http.ResponseWriter, onWrite func()) *ResponseWriter {
+	return &ResponseWriter{ResponseWriter: w, status: http.StatusOK, onWrite: onWrite}
+}
+
+// Status returns the status the handler wrote.
+func (w *ResponseWriter) Status() int {
+	return w.status
+}
+
+// Bytes returns the number of bytes the handler wrote.
+func (w *ResponseWriter) Bytes() int64 {
+	return w.bytes
+}
 
 // Unwrap lets http.ResponseController reach the optional interfaces implemented
 // by the original response writer.
-func (w *responseWriter) Unwrap() http.ResponseWriter {
+func (w *ResponseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
 // WriteHeader records the response status once.
-func (w *responseWriter) WriteHeader(status int) {
+func (w *ResponseWriter) WriteHeader(status int) {
 	if w.wrote {
 		return
 	}
@@ -42,7 +58,7 @@ func (w *responseWriter) WriteHeader(status int) {
 }
 
 // Write counts the response body.
-func (w *responseWriter) Write(p []byte) (int, error) {
+func (w *ResponseWriter) Write(p []byte) (int, error) {
 	if !w.wrote {
 		w.WriteHeader(http.StatusOK)
 	}
@@ -52,7 +68,7 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 }
 
 // ReadFrom counts a body streamed with io.Copy.
-func (w *responseWriter) ReadFrom(r io.Reader) (int64, error) {
+func (w *ResponseWriter) ReadFrom(r io.Reader) (int64, error) {
 	if !w.wrote {
 		w.WriteHeader(http.StatusOK)
 	}
@@ -67,7 +83,7 @@ func (w *responseWriter) ReadFrom(r io.Reader) (int64, error) {
 }
 
 // Flush forwards a flush to the wrapped writer.
-func (w *responseWriter) Flush() {
+func (w *ResponseWriter) Flush() {
 	if !w.wrote {
 		w.WriteHeader(http.StatusOK)
 	}

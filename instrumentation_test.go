@@ -86,18 +86,24 @@ func TestStartRequestWithoutTrace(t *testing.T) {
 func TestStartAutoNamesTheSymbol(t *testing.T) {
 	ctx, trace := startTestTrace(t)
 
-	storage := userStorage{}
-	_, span := StartAuto(ctx, storage.Get, KindDatabase)
+	store := userStore{}
+	_, span := StartAuto(ctx, store.Get, KindDatabase)
 	span.End()
 
 	spans := trace.Clone().Spans
 	if len(spans) != 2 {
 		t.Fatalf("recorded %d spans, want 2", len(spans))
 	}
-	if spans[1].Name != "oida.userStorage.Get" {
+	if spans[1].Name != "oida.userStore.Get" {
 		t.Fatalf("span name is %q, want the symbol name", spans[1].Name)
 	}
 	if spans[1].Kind != KindDatabase {
 		t.Fatalf("span kind is %q, want %q", spans[1].Kind, KindDatabase)
 	}
 }
+
+// userStore is the receiver StartAuto reads a name from.
+type userStore struct{}
+
+// Get is the method under test.
+func (userStore) Get() {}

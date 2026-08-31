@@ -1,4 +1,4 @@
-package oida
+package internal
 
 import (
 	"reflect"
@@ -11,10 +11,10 @@ import (
 // pointer receivers, so (*UserStore).Get reads as UserStore.Get.
 var symbolCleanup = regexp.MustCompile(`[()*]`)
 
-// symbolName returns a span name read from a function, a value or a string.
+// SymbolName returns a span name read from a function, a value or a string.
 // The import path is trimmed to its last element, so the result is the package,
 // type and function names joined with a dot: billing.UserStore.GetUsers.
-func symbolName(in any) string {
+func SymbolName(in any) string {
 	raw := readSymbolName(in)
 	if idx := strings.LastIndex(raw, "/"); idx != -1 {
 		raw = raw[idx+1:]

@@ -493,9 +493,7 @@ func seedHosts(t *testing.T) (*oida.Tracer, http.Handler) {
 	// A request carrying the header is turned down by the sampler, which is
 	// how the host view gets traffic without a trace behind it.
 	tracer, clock := newTestTracer(t, func(o *oida.Options) {
-		o.Sampler = oida.SamplerFunc(func(r *http.Request) bool {
-			return r.Header.Get("X-Reject-Sample") == ""
-		})
+		o.Sampler = headerSampler{}
 	})
 
 	mux := http.NewServeMux()
@@ -688,4 +686,13 @@ func TestHandlerServesUnderCustomPath(t *testing.T) {
 	if !strings.Contains(response.Body.String(), `href="/admin/telemetry/live"`) {
 		t.Fatal("links do not use the configured path")
 	}
+}
+
+// headerSampler turns down a request carrying the reject header, which is how
+// a test produces traffic the sampler refused.
+type headerSampler struct{}
+
+// Sample implements oida.Sampler.
+func (headerSampler) Sample(r *http.Request) bool {
+	return r.Header.Get("X-Reject-Sample") == ""
 }

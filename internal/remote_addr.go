@@ -1,4 +1,4 @@
-package oida
+package internal
 
 import (
 	"net/http"
@@ -26,7 +26,7 @@ var trustedNetworks = []netip.Prefix{
 // proxy appended are trustworthy, anything to their left is client input. When
 // every hop is trusted, all-LAN traffic, the leftmost valid address is the
 // client. Without a usable header the request's own RemoteAddr decides.
-func remoteAddr(r *http.Request) string {
+func RemoteAddr(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
