@@ -13,7 +13,7 @@ type nopRecorder struct{}
 
 var _ model.Recorder = nopRecorder{}
 
-// StartTrace implements model.Recorder. It never records.
+// StartTrace implements model.Recorder and never records.
 func (nopRecorder) StartTrace(ctx context.Context, name string) (context.Context, *model.Trace, error) {
 	return ctx, nil, model.ErrDisabled
 }

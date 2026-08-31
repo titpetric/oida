@@ -282,8 +282,8 @@ func (s Spans) Find(id int) *Span {
 }
 
 // Info records an informational log entry on the trace of the span, attributed
-// to this span. Args are slog-style key/value pairs. When log capture is
-// disabled it does nothing. Safe to call on a nil span.
+// to this span, from slog-style key/value pairs. It does nothing with log
+// capture disabled, and tolerates a nil span.
 func (s *Span) Info(message string, args ...any) {
 	if s == nil || !s.trace.logsEnabled() {
 		return
@@ -292,9 +292,9 @@ func (s *Span) Info(message string, args ...any) {
 }
 
 // Error records an error-level log entry on the trace of the span, attributed
-// to this span. It only logs; recording a failure is Span.RecordError. When
-// log capture is disabled it records the formatted text through RecordError
-// instead. Safe to call on a nil span.
+// to this span; marking the transaction failed is Span.RecordError. With log
+// capture disabled it records the text through RecordError, and it tolerates a
+// nil span.
 func (s *Span) Error(message string, args ...any) {
 	if s == nil {
 		return

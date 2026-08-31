@@ -77,7 +77,7 @@ rows, err := db.QueryContext(ctx, query)
 
 `StartSpan` is for leaf work that does not create child spans. `Do` records the returned error, ends the span, and returns the same error.
 
-`StartAuto` reads the span name from a symbol, so `storage.UserStorage.GetUsers` does not have to be spelled out:
+`StartAuto` reads the span name from a symbol, so `billing.UserStore.GetUsers` does not have to be spelled out:
 
 ```go
 ctx, span := oida.StartAuto(ctx, s.GetUsers)

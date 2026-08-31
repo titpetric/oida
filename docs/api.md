@@ -596,7 +596,7 @@ func Start(ctx context.Context, name string, kind ...Kind) (context.Context, *Sp
 
 StartAuto is Start with the span name read from a symbol. Pass a function or
 a value and the package, type and function names are joined with a dot, which
-gives names like storage.UserStorage.GetUsers without spelling them out.
+gives names like billing.UserStore.GetUsers without spelling them out.
 
 ```go
 ctx, span := oida.StartAuto(ctx, s.GetUsers)
@@ -729,9 +729,8 @@ func (*Tracer) Options() Options
 
 ### ReportError
 
-ReportError forwards a failure to Options.OnError. The front end reports
-render failures through it, so every failure of one tracer arrives in one
-place. Nothing is written to stdout or stderr.
+ReportError forwards a failure to Options.OnError, which is where the front
+end reports its render failures too. Nothing is written to stdout or stderr.
 
 ```go
 func (*Tracer) ReportError(err error)

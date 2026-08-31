@@ -97,8 +97,7 @@ func ageText(at, now time.Time) string {
 	}
 }
 
-// shortID returns the tail of a trace ID, which is what the eye needs to tell
-// two rows apart. The full value stays one copy button away.
+// shortID returns the tail of a trace ID, which is what tells two rows apart.
 func shortID(id string) string {
 	if len(id) <= 6 {
 		return id
@@ -185,8 +184,7 @@ func attributeText(value any) string {
 }
 
 // attributeValue renders one attribute in the unit its key implies: a memory
-// limit recorded as 1048576 reads as a megabyte. The exact figure is in the
-// JSON.
+// limit recorded as 1048576 reads as a megabyte.
 func attributeValue(attributes model.Attributes, key string) string {
 	if model.IsBytes(key) {
 		if size, ok := attributes.Int64(key); ok {
@@ -358,9 +356,8 @@ func recent(traces []model.Trace, n int) []model.Trace {
 	return traces
 }
 
-// remoteText returns the peer a trace came from. Work that did not arrive over
-// the network came from inside the process, and says so rather than showing an
-// empty cell.
+// remoteText returns the peer a trace came from, or the label work that did
+// not arrive over the network carries.
 func remoteText(trace model.Trace) string {
 	if trace.HTTP == nil || trace.HTTP.RemoteAddress == "" {
 		return "internal"
@@ -376,7 +373,7 @@ func ariaSelected(selected bool) string {
 	return "false"
 }
 
-// slaClass colours the SLA tile. A number is not an alert until it is one.
+// slaClass colours the SLA tile by how far the percentage has fallen.
 func slaClass(sla float64) string {
 	switch {
 	case sla >= 99.9:
@@ -446,8 +443,7 @@ func statusClass(status int) string {
 	}
 }
 
-// kindStyle returns the badge style of a span kind. Badges carry dark text on
-// the kind colour, which holds contrast in both themes.
+// kindStyle returns the badge style of a span kind, dark text on kind colour.
 func kindStyle(kind model.Kind) templ.SafeCSS {
 	return templ.SafeCSS("background:" + kind.Color() + ";color:#07090c")
 }

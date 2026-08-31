@@ -61,9 +61,9 @@ func LiveScript() string {
 	return asset("assets/oida.js")
 }
 
-// styleElement returns the stylesheet wrapped in a style element. It is inlined
-// into the document head so the page renders standalone when the asset route is
-// unreachable. The content is embedded at compile time, never user input.
+// styleElement returns the stylesheet inlined into the document head, so a page
+// renders standalone when the asset route is unreachable. The content is
+// embedded at compile time, never user input.
 func styleElement(base string) templ.Component {
 	return templ.Raw("<style>" + styleSheetFor(base) + "</style>")
 }

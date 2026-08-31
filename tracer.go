@@ -222,9 +222,8 @@ func (t *Tracer) Subscribe() (<-chan struct{}, func()) {
 	return t.events.subscribe()
 }
 
-// ReportError forwards a failure to Options.OnError. The front end reports
-// render failures through it, so every failure of one tracer arrives in one
-// place. Nothing is written to stdout or stderr.
+// ReportError forwards a failure to Options.OnError, which is where the front
+// end reports its render failures too. Nothing is written to stdout or stderr.
 func (t *Tracer) ReportError(err error) {
 	t.onError(err)
 }

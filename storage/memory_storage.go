@@ -20,8 +20,7 @@ type memoryStorage struct {
 var _ model.Storage = (*memoryStorage)(nil)
 
 // NewMemoryStorage returns in-memory storage retaining size traces. A size of
-// zero or less retains nothing, which is useful when only the live view and the
-// lifetime counters are wanted.
+// zero or less retains nothing, leaving the live view and the counters.
 func NewMemoryStorage(size int) *memoryStorage {
 	return &memoryStorage{log: newRing(size)}
 }

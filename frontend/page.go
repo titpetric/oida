@@ -220,9 +220,8 @@ func (p Page) RowsField() SelectField {
 	}
 }
 
-// Domain is the label of the switcher in the masthead. Unfiltered means every
-// host, not the one this dashboard happens to be reached on: the views below
-// show all of them combined.
+// Domain is the label of the switcher in the masthead, where unfiltered means
+// every host rather than the one the dashboard was reached on.
 func (p Page) Domain() string {
 	if p.Host != "" {
 		return p.Host

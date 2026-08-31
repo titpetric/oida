@@ -4,7 +4,7 @@ import "context"
 
 // StartAuto is Start with the span name read from a symbol. Pass a function or
 // a value and the package, type and function names are joined with a dot, which
-// gives names like storage.UserStorage.GetUsers without spelling them out.
+// gives names like billing.UserStore.GetUsers without spelling them out.
 //
 //	ctx, span := oida.StartAuto(ctx, s.GetUsers)
 //	defer span.End()

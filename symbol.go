@@ -8,12 +8,12 @@ import (
 )
 
 // symbolCleanup drops the punctuation the runtime puts around method values on
-// pointer receivers, so (*UserStorage).Get reads as UserStorage.Get.
+// pointer receivers, so (*UserStore).Get reads as UserStore.Get.
 var symbolCleanup = regexp.MustCompile(`[()*]`)
 
 // symbolName returns a span name read from a function, a value or a string.
 // The import path is trimmed to its last element, so the result is the package,
-// type and function names joined with a dot: storage.UserStorage.GetUsers.
+// type and function names joined with a dot: billing.UserStore.GetUsers.
 func symbolName(in any) string {
 	raw := readSymbolName(in)
 	if idx := strings.LastIndex(raw, "/"); idx != -1 {

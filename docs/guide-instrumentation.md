@@ -32,8 +32,8 @@ span.SetAttribute("rows", rows)
 `StartAuto` derives the name from a symbol, which keeps it in step with a rename and costs nothing to type:
 
 ```go
-func (s *UserStorage) GetUsers(ctx context.Context) ([]User, error) {
-	ctx, span := oida.StartAuto(ctx, s.GetUsers)   // storage.UserStorage.GetUsers
+func (s *UserStore) GetUsers(ctx context.Context) ([]User, error) {
+	ctx, span := oida.StartAuto(ctx, s.GetUsers)   // billing.UserStore.GetUsers
 	defer span.End()
 ```
 
