@@ -24,7 +24,7 @@ type Tracer struct {
 	opts    Options
 	sampler Sampler
 	storage Storage
-	events  *broker
+	events  *internal.Broker
 	started time.Time
 	enabled atomic.Bool
 
@@ -80,7 +80,7 @@ func New(opts Options) (*Tracer, error) {
 		opts:      opts,
 		sampler:   internal.SamplerFor(opts),
 		storage:   opts.Storage,
-		events:    newBroker(),
+		events:    internal.NewBroker(),
 		started:   internal.ClockNow(opts),
 		active:    make(map[string]*Trace),
 		stateTime: make(map[State]time.Duration),
@@ -163,7 +163,7 @@ func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	t.active[id] = trace
 	t.mu.Unlock()
 
-	t.events.notify()
+	t.events.Notify()
 	return trace
 }
 
@@ -198,7 +198,7 @@ func (t *Tracer) Finish(trace *Trace) {
 	if err := t.storage.Save(context.Background(), stored); err != nil {
 		t.onError(err)
 	}
-	t.events.notify()
+	t.events.Notify()
 }
 
 // Subscribe returns a channel notified whenever a trace starts or completes,
@@ -215,7 +215,7 @@ func (t *Tracer) Subscribe() (<-chan struct{}, func()) {
 	if t == nil {
 		return nil, func() {}
 	}
-	return t.events.subscribe()
+	return t.events.Subscribe()
 }
 
 // ReportError forwards a failure to Options.OnError, which is where the front

@@ -218,7 +218,7 @@ type Tracer struct {
 	opts    Options
 	sampler Sampler
 	storage Storage
-	events  *broker
+	events  *internal.Broker
 	started time.Time
 	enabled atomic.Bool
 

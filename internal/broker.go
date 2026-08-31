@@ -1,23 +1,23 @@
-package oida
+package internal
 
 import "sync"
 
-// broker fans out change notifications to live view subscribers. Sends are non
+// Broker fans out change notifications to live view subscribers. Sends are non
 // blocking: a subscriber that is behind coalesces updates instead of slowing
 // down the request that produced them.
-type broker struct {
+type Broker struct {
 	mu          sync.Mutex
 	subscribers map[chan struct{}]struct{}
 }
 
-// newBroker returns an empty broker.
-func newBroker() *broker {
-	return &broker{subscribers: make(map[chan struct{}]struct{})}
+// NewBroker returns an empty broker.
+func NewBroker() *Broker {
+	return &Broker{subscribers: make(map[chan struct{}]struct{})}
 }
 
-// subscribe returns a channel notified on every change, and a function that
+// Subscribe returns a channel notified on every change, and a function that
 // releases it. The release function is idempotent.
-func (b *broker) subscribe() (<-chan struct{}, func()) {
+func (b *Broker) Subscribe() (<-chan struct{}, func()) {
 	if b == nil {
 		return nil, func() {}
 	}
@@ -39,9 +39,9 @@ func (b *broker) subscribe() (<-chan struct{}, func()) {
 	}
 }
 
-// notify wakes every subscriber. Subscribers with a pending notification are
+// Notify wakes every subscriber. Subscribers with a pending notification are
 // skipped, so a burst of traces produces one redraw, not one per trace.
-func (b *broker) notify() {
+func (b *Broker) Notify() {
 	if b == nil {
 		return
 	}
@@ -56,8 +56,8 @@ func (b *broker) notify() {
 	}
 }
 
-// len returns the number of active subscribers.
-func (b *broker) len() int {
+// Len returns the number of active subscribers.
+func (b *Broker) Len() int {
 	if b == nil {
 		return 0
 	}

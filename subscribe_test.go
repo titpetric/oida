@@ -40,7 +40,7 @@ func TestSubscribeCoalescesNotifications(t *testing.T) {
 	}
 
 	cancel()
-	if got := tracer.events.len(); got != 0 {
+	if got := tracer.events.Len(); got != 0 {
 		t.Fatalf("cancel left %d subscribers", got)
 	}
 	cancel() // idempotent
