@@ -16,10 +16,10 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     | .             | 80.35%   | 74        | 596   |
 | ❌     | cmd/oida      | 0.00%    | 33        | 288   |
 | ❌     | frontend      | 56.96%   | 73        | 442   |
-| ✅     | frontend/view | 80.93%   | 3784      | 6800  |
+| ✅     | frontend/view | 80.58%   | 3784      | 6800  |
 | ✅     | internal      | 85.88%   | 162       | 618   |
 | ✅     | internal/ring | 80.60%   | 18        | 74    |
-| ✅     | model         | 86.67%   | 306       | 1545  |
+| ✅     | model         | 86.34%   | 306       | 1545  |
 | ✅     | storage       | 81.34%   | 75        | 345   |
 | ✅     | tests         | 97.85%   | 7         | 132   |
 
@@ -190,7 +190,7 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ❌     |               | peekToggle                 | 67.80%   | 36        |
 | ✅     |               | percentText                | 100.00%  | 0         |
 | ✅     |               | plural                     | 66.70%   | 1         |
-| ✅     |               | preciseText                | 83.30%   | 1         |
+| ✅     |               | preciseText                | 66.70%   | 1         |
 | ✅     |               | remoteText                 | 100.00%  | 2         |
 | ✅     |               | requestedLimit             | 85.70%   | 4         |
 | ✅     |               | requestedSort              | 100.00%  | 3         |
@@ -202,7 +202,7 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     |               | share                      | 66.70%   | 1         |
 | ✅     |               | shareStyle                 | 100.00%  | 0         |
 | ✅     |               | shortID                    | 66.70%   | 1         |
-| ✅     |               | signedBytesText            | 80.00%   | 3         |
+| ✅     |               | signedBytesText            | 40.00%   | 3         |
 | ✅     |               | slaClass                   | 75.00%   | 1         |
 | ❌     |               | sortLink                   | 67.90%   | 32        |
 | ✅     |               | sortedKeys                 | 100.00%  | 1         |
@@ -369,7 +369,7 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     |               | invalidOption              | 100.00%  | 0         |
 | ✅     |               | logAttributes              | 100.00%  | 6         |
 | ✅     |               | peerAddr                   | 100.00%  | 2         |
-| ✅     |               | signedDelta                | 77.80%   | 4         |
+| ✅     |               | signedDelta                | 44.40%   | 4         |
 | ✅     |               | sourceText                 | 75.00%   | 1         |
 | ✅     |               | spanFromContext            | 75.00%   | 1         |
 | ✅     |               | withTrace                  | 71.40%   | 3         |
