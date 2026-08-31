@@ -8,6 +8,7 @@ tasks:
       - task: go:build
       - task: examples
       - task: docs:api
+      - task: docs:coverage
       - task: gen
       - task: docker:build
 
@@ -52,6 +53,20 @@ tasks:
       - go-fsck docs > docs/api.md
       # mdox reflows the generated markdown; format here so the committed
       # file matches what the mdox:lint gate expects.
+      - task: mdox:fmt
+
+  docs:coverage:
+    desc: "Generate the coverage report into docs/testing-coverage.md"
+    passthru: true
+    cmds:
+      - defer: rm -f pkg.cov pkg.cov.json go-fsck.json
+      - go test -count=1 -cover -coverpkg=./... -coverprofile=pkg.cov ./...
+      - go tool cover -func=pkg.cov | summary coverfunc --json > pkg.cov.json
+      # testdata carries its own module, which go-fsck reads as three empty
+      # packages; the extract stays scoped to this one.
+      - go-fsck extract --pretty-json ./...
+      - go-fsck coverage -c pkg.cov.json -o go-fsck.json
+      - go-fsck coverage --template docs/testing-coverage.md.tpl > docs/testing-coverage.md
       - task: mdox:fmt
 
   gen:architecture:
