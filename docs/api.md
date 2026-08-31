@@ -154,19 +154,12 @@ type RouterFunc func(pattern string, h http.Handler)
 // trace is allocated, so rejecting a request costs one interface call. The
 // definition is a copy of the model's; interfaces are structural, so a sampler
 // written against either spelling works everywhere one is accepted.
+//
+// Options.SampleRate covers the common case. Set Options.Sampler to decide per
+// request on something the rate cannot express, such as a header or a route.
 type Sampler interface {
 	Sample(r *http.Request) bool
 }
-```
-
-</details>
-
-<details>
-<summary><code>type SamplerFunc</code></summary>
-
-```go
-// SamplerFunc adapts a function to the Sampler interface.
-type SamplerFunc = model.SamplerFunc
 ```
 
 </details>
@@ -225,7 +218,7 @@ type Tracer struct {
 	opts    Options
 	sampler Sampler
 	storage Storage
-	events  *broker
+	events  *internal.Broker
 	started time.Time
 	enabled atomic.Bool
 
@@ -299,8 +292,9 @@ const DefaultPath = model.DefaultPath
 <summary><code>const RequestIDHeader</code></summary>
 
 ```go
-// RequestIDHeader carries the trace identifier on the request and the response.
-const RequestIDHeader = "Request-Id"
+// RequestIDHeader carries the trace identifier on the request and the
+// response.
+const RequestIDHeader = model.RequestIDHeader
 ```
 
 </details>
@@ -453,7 +447,6 @@ var (
 - `func New (opts Options) (*Tracer, error)`
 - `func NewAuth (opts Options) (*Auth, error)`
 - `func NewOptions (serviceName string) Options`
-- `func NewRateSampler (rate float64) Sampler`
 - `func RecordError (ctx context.Context, err error)`
 - `func SpanFromContext (ctx context.Context) *Span`
 - `func Start (ctx context.Context, name string, kind ...Kind) (context.Context, *Span)`
@@ -509,7 +502,7 @@ func Mount(r Router, t *Tracer) error
 
 New returns a tracer built from opts. Nothing is stored in a package level
 variable: the tracer a request records into is the one in its context, and
-the tracer an entry point uses is the one in Options.Tracer.
+the tracer an entry point uses is the one handed to it.
 
 With Options.ReadEnv set, which is what NewOptions returns, the OIDA_*
 environment is applied to opts first. A variable applies only where the code
@@ -538,15 +531,6 @@ NewOptions returns the default options for the named service.
 
 ```go
 func NewOptions(serviceName string) Options
-```
-
-### NewRateSampler
-
-NewRateSampler returns a sampler tracing the given percentage of requests. A
-rate of 100 or more traces everything, a rate of 0 or less traces nothing.
-
-```go
-func NewRateSampler(rate float64) Sampler
 ```
 
 ### RecordError
@@ -719,9 +703,9 @@ func (*Tracer) Observe(ctx context.Context, name string, fn func(context.Context
 ### Options
 
 Options returns the options the tracer was built with, as a copy the caller
-owns. The retention driver and the recorder itself are left out, and the
-list and map are cloned: a reader of the configuration has no business
-reaching the storage behind it or rewriting what the tracer runs on.
+owns. The retention driver is left out and the list and map are cloned: a
+reader of the configuration has no business reaching the storage behind it
+or rewriting what the tracer runs on.
 
 ```go
 func (*Tracer) Options() Options

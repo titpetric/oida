@@ -1,6 +1,6 @@
 # Public API
 
-One import path: `github.com/titpetric/oida`. The root package is the public API and [api.md](api.md) is its generated reference. The `model`, `frontend` and `storage` packages serve it and carry no compatibility promise of their own, so an integration never has to name one.
+One import path: `github.com/titpetric/oida`. The root package is the public API and [api.md](api.md) is its generated reference. The `model`, `frontend`, `storage` and `internal` packages serve it and carry no compatibility promise of their own, so an integration never has to name one.
 
 Most services use `NewOptions`, `New`, `Mount`, `Start` and the tracer's own `Middleware`.
 
@@ -199,13 +199,9 @@ func (t *Tracer) Subscribe() (<-chan struct{}, func())
 type Sampler interface {
 	Sample(r *http.Request) bool
 }
-
-type SamplerFunc func(r *http.Request) bool
-
-func NewRateSampler(rate float64) Sampler
 ```
 
-Set `Options.SampleRate` for rate sampling or `Options.Sampler` for custom rules. A rate of zero records no HTTP requests; a rate of one records all of them.
+Set `Options.SampleRate` for rate sampling, or `Options.Sampler` to a type of your own for a rule the rate cannot express. A rate of zero records no HTTP requests; a rate of 100 records all of them. The rate sampler behind `SampleRate` is not part of the API.
 
 ## Retention
 

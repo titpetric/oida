@@ -13,6 +13,7 @@ import (
 
 	"github.com/titpetric/oida"
 	"github.com/titpetric/oida/frontend"
+	"github.com/titpetric/oida/frontend/view"
 	"github.com/titpetric/oida/model"
 )
 
@@ -277,7 +278,7 @@ func TestHandlerDrawsTheTrace(t *testing.T) {
 
 func TestPageWaveTraceCarriesTheWholeStack(t *testing.T) {
 	trace := timelineTrace()
-	page := frontend.Page{Trace: &trace, Segments: frontend.Timeline(trace), Rows: frontend.Rows(trace)}
+	page := view.Page{Trace: &trace, Segments: view.Timeline(trace), Rows: view.Rows(trace)}
 
 	shape := page.WaveTrace()
 	if len(shape.Spans) != len(trace.Spans) {
@@ -292,7 +293,7 @@ func TestPageWaveTraceCarriesTheWholeStack(t *testing.T) {
 		t.Errorf("the trace reports depth %d, want 2", shape.Depth)
 	}
 
-	var root frontend.WaveSpan
+	var root view.WaveSpan
 	for _, span := range shape.Spans {
 		if span.Start < 0 || span.End > 1.0001 || span.End < span.Start {
 			t.Errorf("the %s span runs %.3f to %.3f", span.Kind, span.Start, span.End)
@@ -493,9 +494,7 @@ func seedHosts(t *testing.T) (*oida.Tracer, http.Handler) {
 	// A request carrying the header is turned down by the sampler, which is
 	// how the host view gets traffic without a trace behind it.
 	tracer, clock := newTestTracer(t, func(o *oida.Options) {
-		o.Sampler = oida.SamplerFunc(func(r *http.Request) bool {
-			return r.Header.Get("X-Reject-Sample") == ""
-		})
+		o.Sampler = headerSampler{}
 	})
 
 	mux := http.NewServeMux()
@@ -688,4 +687,13 @@ func TestHandlerServesUnderCustomPath(t *testing.T) {
 	if !strings.Contains(response.Body.String(), `href="/admin/telemetry/live"`) {
 		t.Fatal("links do not use the configured path")
 	}
+}
+
+// headerSampler turns down a request carrying the reject header, which is how
+// a test produces traffic the sampler refused.
+type headerSampler struct{}
+
+// Sample implements oida.Sampler.
+func (headerSampler) Sample(r *http.Request) bool {
+	return r.Header.Get("X-Reject-Sample") == ""
 }

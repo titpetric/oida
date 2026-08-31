@@ -63,8 +63,6 @@ Field: `Options.SigningSecret`<br>Default: none<br>Meaning: Signs the session co
 
 Field: `Options.Clock`<br>Default: `time.Now`<br>Meaning: Time source. Tests inject a deterministic clock.
 
-Field: `Options.Tracer`<br>Default: nil<br>Meaning: The recorder `frontend.Handler` renders. The root package needs no such round trip: `Mount` and `Middleware` take the tracer itself.
-
 ### 1.1 Route patterns
 
 Statistics group by `Trace.HTTP.Route` when the router provides one. The standard library sets `http.Request.Pattern`, which oida reads with no configuration. chi keeps the pattern in its route context, so hand it over explicitly:
@@ -152,27 +150,39 @@ type Sampler interface {
 }
 ```
 
-Anything satisfying it replaces the rate sampler. `SamplerFunc` adapts a plain function:
+Anything satisfying it replaces the rate sampler, which is what `SampleRate` builds when the field is nil. A sampler is a type with one method, so a rule of your own is a few lines:
 
 ```go
-opts.Sampler = oida.SamplerFunc(func(r *http.Request) bool {
+// debugSampler traces the API and anything a client asked to have traced.
+type debugSampler struct{}
+
+func (debugSampler) Sample(r *http.Request) bool {
 	if r.Header.Get("X-Debug") == "1" {
-		return true // always trace explicit debug requests
+		return true
 	}
-	if strings.HasPrefix(r.URL.Path, "/api/") {
-		return true // always trace the API
-	}
-	return false
-})
+	return strings.HasPrefix(r.URL.Path, "/api/")
+}
+
+opts.Sampler = debugSampler{}
 ```
 
-Combining a rate with an override:
+A sampler that combines a rate with an override keeps its own counter, since the rate sampler is not part of the API:
 
 ```go
-rate := oida.NewRateSampler(5)
-opts.Sampler = oida.SamplerFunc(func(r *http.Request) bool {
-	return r.Header.Get("X-Debug") == "1" || rate.Sample(r)
-})
+// oneIn traces one request in every n, and every debug request.
+type oneIn struct {
+	n    uint64
+	seen atomic.Uint64
+}
+
+func (s *oneIn) Sample(r *http.Request) bool {
+	if r.Header.Get("X-Debug") == "1" {
+		return true
+	}
+	return s.seen.Add(1)%s.n == 0
+}
+
+opts.Sampler = &oneIn{n: 20}
 ```
 
 An unsampled request does not create a trace or spans. `oida.Start` inside an unsampled request returns a nil span.

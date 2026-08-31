@@ -99,10 +99,6 @@ type Options struct {
 	// Clock is the time source of the tracer. Defaults to time.Now.
 	Clock func() time.Time `yaml:"-"`
 
-	// Tracer is the recorder used by the middleware and the front end. A nil
-	// recorder records nothing.
-	Tracer Recorder `yaml:"-"`
-
 	// AllowedNetworks restricts the debug front end to peers inside these
 	// CIDR ranges, such as 127.0.0.0/8 or 10.0.0.0/8. IPv4 and IPv6 both
 	// work; an empty list allows every network. A request from outside
@@ -133,6 +129,10 @@ type Options struct {
 
 // DefaultPath is the default mount path of the debug front end.
 const DefaultPath = "/debug/oida"
+
+// RequestIDHeader carries the trace identifier on the request and the
+// response.
+const RequestIDHeader = "Request-Id"
 
 // NewOptions returns the default options for the named service.
 func NewOptions(serviceName string) Options {

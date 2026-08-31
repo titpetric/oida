@@ -1,0 +1,219 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/titpetric/oida/model"
+)
+
+// Layout renders the page chrome shared by every view.
+templ Layout(page Page) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			if page.Refresh > 0 && !page.Stream {
+				<meta http-equiv="refresh" content={ strconv.Itoa(page.Refresh) }/>
+			} else if page.Refresh > 0 {
+				// Streaming pages only fall back to a reload without scripting.
+				<noscript><meta http-equiv="refresh" content={ strconv.Itoa(page.Refresh) }/></noscript>
+			}
+			<title>{ page.Title } · oida</title>
+			<link rel="stylesheet" href={ page.CSSURL() }/>
+			@styleElement(page.AssetURL(""))
+		</head>
+		<body>
+			if page.Active(ViewLogin) {
+				// The sign in screen shows the wordmark and nothing recorded:
+				// process facts, metrics and tabs wait behind the login.
+				<header class="top">
+					<h1><a href={ templ.SafeURL(page.Path) }>oida</a></h1>
+				</header>
+				{ children... }
+			} else {
+				@pageHeader(page)
+				@pageMetrics(page)
+				@pageNav(page)
+				{ children... }
+				@pageFooter(page)
+			}
+			<script src={ page.JSURL() } defer></script>
+			// The drawing is only on one view, so its script is only on that
+			// view: the list and the live feed do not pay for it.
+			if page.Active(ViewDetail) {
+				<script src={ page.AssetURL("waves.js") } defer></script>
+			}
+		</body>
+	</html>
+}
+
+// pageHeader renders the service identity and the process facts.
+templ pageHeader(page Page) {
+	<header class="top">
+		<h1>
+			// The wordmark always goes home: the host overview, unfiltered.
+			<a href={ templ.SafeURL(page.Path) }>oida</a>
+			@hostSwitcher(page)
+		</h1>
+		// Labels stay quiet, values read brighter: the numbers are what change.
+		<div class="env">
+			<span>service <b>{ page.Service() }</b></span>
+			<span>pid <b>{ strconv.Itoa(page.Snapshot.PID) }</b></span>
+			<span><b>{ page.Snapshot.GoVersion }</b></span>
+			<span><b>{ strconv.Itoa(page.Snapshot.GOMAXPROCS) }</b> proc</span>
+			<span><b>{ strconv.Itoa(page.Snapshot.Goroutines) }</b> goroutines</span>
+			<span>up <b>{ uptimeText(page.Snapshot.Uptime) }</b></span>
+		</div>
+	</header>
+}
+
+// hostSwitcher names the domain in view and switches between the domains this
+// process has seen. It is a disclosure, not a script: the list is a set of
+// links, and it works with scripting off.
+templ hostSwitcher(page Page) {
+	<details class="domain">
+		<summary class={ templ.KV("filtered", page.Filtered()) }>{ page.Domain() }</summary>
+		<div class="domain-menu">
+			<a href={ templ.SafeURL(page.SwitchHostURL("")) } class={ templ.KV("active", !page.Filtered()) }>
+				{ allHosts }
+				<span>{ strconv.FormatUint(page.Snapshot.Total, 10) }</span>
+			</a>
+			for _, host := range page.Hosts() {
+				<a
+					href={ templ.SafeURL(page.SwitchHostURL(host.Host)) }
+					class={ templ.KV("active", page.Host == host.Host) }
+				>
+					{ host.Host }
+					<span>{ strconv.FormatUint(host.Requests, 10) }</span>
+				</a>
+			}
+		</div>
+	</details>
+}
+
+// pageMetrics renders the instrument row.
+templ pageMetrics(page Page) {
+	<div class="metrics">
+		<div>
+			<b>Requests</b>
+			<span>
+				{ strconv.FormatUint(page.Snapshot.Total, 10) }
+				<small>{ strconv.Itoa(len(page.Snapshot.Statistics.Hosts)) } hosts</small>
+			</span>
+		</div>
+		<div>
+			<b>Recorded</b>
+			<span>
+				{ strconv.FormatUint(page.Snapshot.Sampled, 10) }
+				<small>{ strconv.FormatUint(page.Snapshot.Dropped, 10) } dropped</small>
+			</span>
+		</div>
+		<div>
+			<b>SLA</b>
+			<span class={ slaClass(page.Snapshot.SLA) }>
+				{ percentText(page.Snapshot.SLA) }
+				<small>{ strconv.FormatUint(page.Snapshot.Errors, 10) } failed</small>
+			</span>
+		</div>
+		<div>
+			<b>Heap</b>
+			<span>
+				{ bytesText(page.Snapshot.Memory.HeapAlloc) }
+				<small>/ { bytesText(page.Snapshot.Memory.NextGC) }</small>
+			</span>
+		</div>
+		<div>
+			<b>GC</b>
+			<span>
+				{ strconv.FormatUint(uint64(page.Snapshot.Memory.NumGC), 10) }
+				<small>{ percentText(page.Snapshot.Memory.GCCPUFraction * 100) } cpu</small>
+			</span>
+		</div>
+		<div>
+			<b>Per trace</b>
+			<span>
+				{ bytesText(page.Snapshot.Pool.AverageAllocatedBytes) }
+				<small>{ strconv.FormatUint(page.Snapshot.Pool.BeforeNextGC, 10) } to GC</small>
+			</span>
+		</div>
+	</div>
+}
+
+// pageNav renders the view tabs.
+templ pageNav(page Page) {
+	<nav class="tabs">
+		if !page.Filtered() {
+			// With a host chosen there is nothing to choose between: the switcher
+			// in the masthead is the way back out.
+			<a href={ templ.SafeURL(page.URL(ViewHosts)) } class={ templ.KV("active", page.Active(ViewHosts)) }>Hosts</a>
+		}
+		<a href={ templ.SafeURL(page.URL(ViewList)) } class={ templ.KV("active", page.Active(ViewList) || page.Active(ViewDetail)) }>Traces</a>
+		<a href={ templ.SafeURL(page.URL(ViewLive)) } class={ templ.KV("active", page.Active(ViewLive)) }>Live</a>
+		<a href={ templ.SafeURL(page.URL(ViewStats)) } class={ templ.KV("active", page.Active(ViewStats)) }>Statistics</a>
+		<span class="spacer"></span>
+	</nav>
+}
+
+// pageFooter renders the closing notes and the other representations of the
+// current view.
+templ pageFooter(page Page) {
+	<footer>
+		<span>
+			Held in process. Memory deltas are process wide and overlap when traces run concurrently.
+			if page.Snapshot.Dropped > 0 {
+				{ " " }{ strconv.FormatUint(page.Snapshot.Dropped, 10) } traces were not retained: not sampled, or rotated out of storage.
+			}
+		</span>
+		<span class="formats">
+			Same view as
+			<a href={ templ.SafeURL(page.FormatURL("json")) }>json</a>
+			<a href={ templ.SafeURL(page.FormatURL("text")) }>text</a>
+		</span>
+		// The credit is a link, not a request: nothing here is fetched from
+		// anywhere, the front end stays offline until someone clicks.
+		<span class="credit">
+			// The handle is written as an expression because a bare @ opens a
+			// component expression in templ.
+			<a href="https://github.com/titpetric/oida">oida</a>, in-mem telemetry by
+			<a href="https://github.com/titpetric">{ "@titpetric" }</a>,
+			<a href="https://blacksky.digital/products/oida">blacksky.digital</a>
+		</span>
+	</footer>
+}
+
+// traceLink renders a trace identifier: a health dot, the tail of the id, which
+// is what tells rows apart, and the full value one click away.
+templ traceLink(trace model.Trace, page Page) {
+	<span class="tid">
+		<i class={ traceDot(trace) }></i>
+		<a href={ templ.SafeURL(page.TraceURL(trace.ID)) } title={ trace.ID }>{ shortID(trace.ID) }</a>
+		<button type="button" class="copy" data-copy={ trace.ID } title="Copy trace id" aria-label="Copy trace id">⧉</button>
+	</span>
+}
+
+// stateBar renders the lifetime time in state as a proportional bar.
+templ stateBar(durations []model.StateDuration) {
+	<div class="state-bar">
+		for _, state := range durations {
+			<span
+				class={ stateClass(state.State) }
+				style={ shareStyle(state.Share) }
+				title={ state.Label + ": " + durationText(state.Duration) + " (" + percentText(state.Share) + ")" }
+			></span>
+		}
+	</div>
+	<div class="legend">
+		for _, state := range durations {
+			<span>
+				<i class={ stateClass(state.State) }></i>
+				<b>{ state.Label }</b>
+				{ durationText(state.Duration) } · { percentText(state.Share) }
+			</span>
+		}
+		if len(durations) == 0 {
+			<span>No trace state time observed yet.</span>
+		}
+	</div>
+}

@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/titpetric/oida/frontend/view"
+
 	"github.com/titpetric/oida/model"
 )
 
@@ -42,7 +44,7 @@ func backTarget(base string, back string) string {
 func (h *handler) serveLogin(w http.ResponseWriter, r *http.Request) {
 	// The page carries no snapshot. The requester has not proven they may
 	// see one.
-	page := Page{View: ViewLogin, Path: h.opts.Path, Title: "Sign in"}
+	page := view.Page{View: view.ViewLogin, Path: h.opts.Path, Title: "Sign in"}
 	page.LoginBack = r.URL.Query().Get("back")
 
 	if r.Method == http.MethodPost {
@@ -75,5 +77,5 @@ func (h *handler) serveLogin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}
 
-	h.render(w, r, Login(page))
+	h.render(w, r, view.Login, page)
 }

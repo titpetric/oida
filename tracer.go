@@ -3,20 +3,18 @@ package oida
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
-	"math"
 	"net/http"
 	"os"
 	"runtime"
-	"runtime/debug"
 	"slices"
 	"sort"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/titpetric/oida/internal"
 	"github.com/titpetric/oida/model"
 	"github.com/titpetric/oida/storage"
 )
@@ -27,7 +25,7 @@ type Tracer struct {
 	opts    Options
 	sampler Sampler
 	storage Storage
-	events  *broker
+	events  *internal.Broker
 	started time.Time
 	enabled atomic.Bool
 
@@ -57,7 +55,7 @@ var _ model.Recorder = (*Tracer)(nil)
 
 // New returns a tracer built from opts. Nothing is stored in a package level
 // variable: the tracer a request records into is the one in its context, and
-// the tracer an entry point uses is the one in Options.Tracer.
+// the tracer an entry point uses is the one handed to it.
 //
 // With Options.ReadEnv set, which is what NewOptions returns, the OIDA_*
 // environment is applied to opts first. A variable applies only where the code
@@ -66,7 +64,7 @@ var _ model.Recorder = (*Tracer)(nil)
 // configuration guide lists them.
 func New(opts Options) (*Tracer, error) {
 	if opts.ReadEnv {
-		if err := optionsFromEnv(&opts); err != nil {
+		if err := internal.OptionsFromEnv(&opts); err != nil {
 			return nil, err
 		}
 	}
@@ -81,10 +79,10 @@ func New(opts Options) (*Tracer, error) {
 
 	tracer := &Tracer{
 		opts:      opts,
-		sampler:   samplerFor(opts),
+		sampler:   internal.SamplerFor(opts),
 		storage:   opts.Storage,
-		events:    newBroker(),
-		started:   clockNow(opts),
+		events:    internal.NewBroker(),
+		started:   internal.ClockNow(opts),
 		active:    make(map[string]*Trace),
 		stateTime: make(map[State]time.Duration),
 		requests:  make(map[string]uint64),
@@ -94,16 +92,15 @@ func New(opts Options) (*Tracer, error) {
 }
 
 // Options returns the options the tracer was built with, as a copy the caller
-// owns. The retention driver and the recorder itself are left out, and the
-// list and map are cloned: a reader of the configuration has no business
-// reaching the storage behind it or rewriting what the tracer runs on.
+// owns. The retention driver is left out and the list and map are cloned: a
+// reader of the configuration has no business reaching the storage behind it
+// or rewriting what the tracer runs on.
 func (t *Tracer) Options() Options {
 	if t == nil {
 		return NewOptions("")
 	}
 	opts := t.opts
 	opts.Storage = nil
-	opts.Tracer = nil
 	opts.IgnorePaths = slices.Clone(t.opts.IgnorePaths)
 	opts.Users = maps.Clone(t.opts.Users)
 	return opts
@@ -128,7 +125,7 @@ func (t *Tracer) StartTrace(ctx context.Context, name string) (context.Context, 
 	if t == nil || !t.Enabled() {
 		return ctx, nil, ErrDisabled
 	}
-	id, err := model.NewID(clockNow(t.opts))
+	id, err := model.NewID(internal.ClockNow(t.opts))
 	if err != nil {
 		return ctx, nil, err
 	}
@@ -152,9 +149,63 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 	return err
 }
 
+// serve records one request into the tracer and hands it to next.
+func (t *Tracer) serve(opts Options, next http.Handler, w http.ResponseWriter, r *http.Request) {
+	id := internal.RequestID(r, opts)
+	if id == "" {
+		next.ServeHTTP(w, r)
+		return
+	}
+
+	r.Header.Set(RequestIDHeader, id)
+	w.Header().Set(RequestIDHeader, id)
+
+	info := &model.HTTPInfo{
+		Method:        r.Method,
+		URI:           r.URL.RequestURI(),
+		Host:          r.Host,
+		Protocol:      r.Proto,
+		RemoteAddress: internal.RemoteAddr(r),
+		UserAgent:     r.UserAgent(),
+	}
+	trace := t.begin(id, r.Method+" "+r.URL.Path, info)
+	trace.SetState(StateReading)
+
+	ctx, span := trace.StartSpan(WithTrace(r.Context(), trace), r.Method+" "+r.URL.Path, KindHTTP)
+	r = r.WithContext(ctx)
+
+	writer := internal.NewResponseWriter(w, func() { trace.SetState(StateWriting) })
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err := fmt.Errorf("panic: %v", recovered)
+			span.RecordError(err)
+			t.finalize(opts, trace, writer, r)
+			panic(recovered)
+		}
+		t.finalize(opts, trace, writer, r)
+	}()
+
+	trace.SetState(StateProcessing)
+	next.ServeHTTP(writer, r)
+}
+
+// finalize records the response metadata and completes the trace.
+func (t *Tracer) finalize(opts Options, trace *Trace, w *internal.ResponseWriter, r *http.Request) {
+	route := internal.RoutePattern(r, opts)
+	trace.SetResponse(w.Status(), w.Bytes(), route)
+	if route != "" {
+		trace.SetName(r.Method + " " + route)
+	}
+	if w.Status() >= http.StatusInternalServerError && trace.Err() == nil {
+		trace.RecordError(fmt.Errorf("http %d", w.Status()))
+	}
+	t.Finish(trace)
+}
+
 // begin registers a new trace as active.
 func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
-	trace := model.NewTrace(id, name, traceOptionsFor(t.opts))
+	trace := model.NewTrace(id, name, internal.TraceOptionsFor(t.opts))
 	trace.HTTP = info
 	if t.opts.TrackMemoryUse {
 		trace.TrackMemory()
@@ -167,7 +218,7 @@ func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	t.active[id] = trace
 	t.mu.Unlock()
 
-	t.events.notify()
+	t.events.Notify()
 	return trace
 }
 
@@ -202,7 +253,7 @@ func (t *Tracer) Finish(trace *Trace) {
 	if err := t.storage.Save(context.Background(), stored); err != nil {
 		t.onError(err)
 	}
-	t.events.notify()
+	t.events.Notify()
 }
 
 // Subscribe returns a channel notified whenever a trace starts or completes,
@@ -219,7 +270,7 @@ func (t *Tracer) Subscribe() (<-chan struct{}, func()) {
 	if t == nil {
 		return nil, func() {}
 	}
-	return t.events.subscribe()
+	return t.events.Subscribe()
 }
 
 // ReportError forwards a failure to Options.OnError, which is where the front
@@ -293,7 +344,7 @@ func (t *Tracer) Snapshot() Snapshot {
 		sla = 100 - float64(failed)*100/float64(sampled)
 	}
 
-	limit := memoryLimit()
+	limit := internal.MemoryLimit()
 	pool := model.PoolEstimate{Samples: samples}
 	if samples > 0 {
 		pool.AverageAllocatedBytes = allocated / samples
@@ -310,7 +361,7 @@ func (t *Tracer) Snapshot() Snapshot {
 	return Snapshot{
 		Service:    t.opts.ServiceName,
 		StartedAt:  t.started,
-		Uptime:     clockNow(t.opts).Sub(t.started),
+		Uptime:     internal.ClockNow(t.opts).Sub(t.started),
 		PID:        os.Getpid(),
 		GoVersion:  runtime.Version(),
 		GOMAXPROCS: runtime.GOMAXPROCS(0),
@@ -435,7 +486,7 @@ func (t *Tracer) Middleware(next http.Handler) http.Handler {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !t.Enabled() || ignoredPath(t.opts, r.URL.Path) {
+		if !t.Enabled() || internal.IgnoredPath(t.opts, r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -444,7 +495,7 @@ func (t *Tracer) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		serveTraced(t, t.opts, next, w, r)
+		t.serve(t.opts, next, w, r)
 	})
 }
 
@@ -465,40 +516,4 @@ func (t *Tracer) countUnsampled(host string) {
 	t.unsampled++
 	t.requests[host]++
 	t.mu.Unlock()
-}
-
-// memoryLimit returns the smallest memory limit the process is subject to, or
-// zero when none can be determined.
-func memoryLimit() uint64 {
-	var limits []uint64
-	if limit := debug.SetMemoryLimit(-1); limit > 0 && limit != math.MaxInt64 {
-		limits = append(limits, uint64(limit))
-	}
-	for _, path := range []string{
-		"/sys/fs/cgroup/memory.max",
-		"/sys/fs/cgroup/memory/memory.limit_in_bytes",
-	} {
-		value, err := os.ReadFile(path)
-		if err != nil || strings.TrimSpace(string(value)) == "max" {
-			continue
-		}
-		if limit, err := strconv.ParseUint(strings.TrimSpace(string(value)), 10, 64); err == nil && limit > 0 {
-			limits = append(limits, limit)
-		}
-	}
-	if value, err := os.ReadFile("/proc/meminfo"); err == nil {
-		for line := range strings.SplitSeq(string(value), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) >= 2 && fields[0] == "MemTotal:" {
-				if kib, err := strconv.ParseUint(fields[1], 10, 64); err == nil {
-					limits = append(limits, kib*1024)
-				}
-				break
-			}
-		}
-	}
-	if len(limits) == 0 {
-		return 0
-	}
-	return slices.Min(limits)
 }
