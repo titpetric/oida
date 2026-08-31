@@ -352,20 +352,6 @@ func writeSSE(w io.Writer, payload string) error {
 	return err
 }
 
-// drain empties pending notifications so a burst redraws once.
-func drain(events <-chan struct{}) {
-	for {
-		select {
-		case _, ok := <-events:
-			if !ok {
-				return
-			}
-		default:
-			return
-		}
-	}
-}
-
 // viewFunc renders one page of the front end, which is the one export each
 // view file carries.
 type viewFunc func(ctx context.Context, w io.Writer, page view.Page) error

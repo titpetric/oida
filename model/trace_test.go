@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 )
@@ -59,5 +60,53 @@ func TestTraceElapsed(t *testing.T) {
 	}
 	if got := (*Trace)(nil).Elapsed(); got != 0 {
 		t.Errorf("Elapsed on a nil trace = %v, want 0", got)
+	}
+}
+
+// TestSignedDelta covers a heap that shrank as well as one that grew, and both
+// saturation points.
+//
+// The one caller reads runtime.MemStats twice and subtracts, so which branch a
+// run lands on is the allocator's business rather than the test's: without
+// this the coverage of the function is whatever the memory happened to do.
+func TestSignedDelta(t *testing.T) {
+	tests := []struct {
+		after, before uint64
+		want          int64
+	}{
+		{after: 0, before: 0, want: 0},
+		{after: 300, before: 100, want: 200},
+		{after: 100, before: 300, want: -200},
+		// A growth wider than an int64 saturates rather than wrapping into a
+		// shrink, and a shrink that wide saturates the other way.
+		{after: math.MaxUint64, before: 0, want: math.MaxInt64},
+		{after: 0, before: math.MaxUint64, want: math.MinInt64},
+		{after: math.MaxInt64, before: 0, want: math.MaxInt64},
+		{after: 0, before: math.MaxInt64, want: -math.MaxInt64},
+	}
+
+	for _, test := range tests {
+		if got := signedDelta(test.after, test.before); got != test.want {
+			t.Errorf("signedDelta(%d, %d) = %d, want %d", test.after, test.before, got, test.want)
+		}
+	}
+}
+
+// TestDelta covers the clamp, which the process only reaches when a counter
+// that is meant to rise did not.
+func TestDelta(t *testing.T) {
+	tests := []struct {
+		after, before uint64
+		want          uint64
+	}{
+		{after: 300, before: 100, want: 200},
+		{after: 100, before: 300, want: 0},
+		{after: 0, before: 0, want: 0},
+	}
+
+	for _, test := range tests {
+		if got := delta(test.after, test.before); got != test.want {
+			t.Errorf("delta(%d, %d) = %d, want %d", test.after, test.before, got, test.want)
+		}
 	}
 }
