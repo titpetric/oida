@@ -8,6 +8,7 @@ tasks:
       - task: go:build
       - task: examples
       - task: docs:api
+      - task: gen
       - task: docker:build
 
   templ:
@@ -62,4 +63,3 @@ tasks:
       - go-fsck extract ./...
       - go-fsck docs --render imports | plantuml -tsvg -pipe > docs/assets/imports.svg
       - go-fsck docs --render puml | plantuml -tsvg -pipe > docs/assets/structure.svg
-      - go-ddd-stats -d2 - | d2 --layout elk - docs/assets/size.svg

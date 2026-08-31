@@ -189,11 +189,11 @@ func (s *Span) SourceText() string {
 	if s == nil {
 		return ""
 	}
-	return SourceText(s.Filename, s.Line)
+	return sourceText(s.Filename, s.Line)
 }
 
-// SourceText renders a "file:L12" source location.
-func SourceText(filename string, line int) string {
+// sourceText renders a "file:L12" source location.
+func sourceText(filename string, line int) string {
 	switch {
 	case line <= 0:
 		return filename

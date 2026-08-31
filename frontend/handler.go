@@ -45,14 +45,6 @@ type handler struct {
 
 var _ http.Handler = (*handler)(nil)
 
-// Handler returns the debug front end handler for the recorder in opts, which
-// serves an empty dashboard when there is none. Invalid options degrade to
-// their defaults; use Mount when the error matters.
-func Handler(opts model.Options) http.Handler {
-	opts = opts.WithDefaults()
-	return newHandler(opts, opts.Tracer)
-}
-
 // HandlerFor returns the debug front end handler of one recorder, configured
 // the way that recorder is. It is the shortest path from a tracer to a
 // dashboard, and it is what the tracer's own ServeHTTP builds.

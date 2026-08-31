@@ -2,19 +2,12 @@
 // model behind them, and the HTTP handler that renders HTML for browsers, JSON
 // for tools and plain text for terminals.
 //
-// Mount it on a router next to the middleware that records:
+// HandlerFor builds the handler of a tracer:
 //
-//	r := chi.NewRouter()
-//	r.Use(oida.TracingMiddleware(opts))
-//	if err := frontend.Mount(r, opts); err != nil {
-//		return err
-//	}
+//	handler := frontend.HandlerFor(tracer)
 //
-// Use Handler to build the handler without a router, MountServeMux with the
-// standard library mux, and HandlerFor when a tracer is already at hand. The
-// tracer is an http.Handler serving this front end itself, so mounting it
-// directly needs no import of this package; these entry points remain for
-// callers that wire the front end from options.
+// The tracer is an http.Handler serving this front end itself, and the root
+// package mounts it, so a service needs no import of this package.
 //
 // The package reads the recorded data through the model package alone. The
 // root package imports it to serve the dashboard from the tracer.

@@ -60,8 +60,13 @@ Target another instance with `OIDA_BASE` and `OIDA_PATH`.
 ## Pipeline
 
 `atkins` runs everything: `go mod tidy`, `templ generate`, formatting,
-`go:test`, `go:build`, `docker:build`. Individual steps: `atkins templ`,
-`atkins templ:verify`, `atkins go:test`, `atkins docker:build`.
+`go:test`, `go:build`, `examples`, `docs:api`, `gen`, `docker:build`.
+Individual steps: `atkins templ`, `atkins templ:verify`, `atkins go:test`,
+`atkins examples`, `atkins gen`, `atkins docker:build`.
+
+`examples` builds the wiring programs under `testdata/examples` against this
+checkout, which is what keeps the documented wiring honest. `docs:api` and
+`gen` regenerate `docs/api.md` and the diagrams under `docs/assets`.
 
 **The service only ever runs under docker compose.** Never `go run ./cmd/oida`,
 never a stray binary on another port, never `pkill`. One loop, always:

@@ -59,7 +59,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	opts.Tracer = tracer
 
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)

@@ -81,16 +81,13 @@ func hostRouter(t *testing.T, service, span string) vhost {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	opts.Tracer = tracer
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /work", func(w http.ResponseWriter, r *http.Request) {
 		oida.StartSpan(r.Context(), span, oida.KindDatabase).End()
 		_, _ = w.Write([]byte(service))
 	})
-	if err := frontend.MountServeMux(mux, opts); err != nil {
-		t.Fatalf("MountServeMux: %v", err)
-	}
+	mux.Handle(opts.Path+"/", frontend.HandlerFor(tracer))
 
 	return vhost{tracer: tracer, handler: tracer.Middleware(mux)}
 }

@@ -353,9 +353,6 @@ func TestHandlerRowsAreClickable(t *testing.T) {
 
 func TestHandlerHealthDots(t *testing.T) {
 	tracer, clock := newTestTracer(t, nil)
-	opts := tracer.Options()
-	opts.Tracer = tracer
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{code}", func(w http.ResponseWriter, r *http.Request) {
 		code, _ := strconv.Atoi(r.PathValue("code"))

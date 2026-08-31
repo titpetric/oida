@@ -15,9 +15,6 @@ func newTestServer(t *testing.T, apply func(*Options)) (http.Handler, *Tracer) {
 	t.Helper()
 
 	tracer, _ := newTestTracer(t, apply)
-	opts := tracer.Options()
-	opts.Tracer = tracer
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /users/{id}", func(w http.ResponseWriter, r *http.Request) {
 		_, span := Start(r.Context(), "load user", KindDatabase)

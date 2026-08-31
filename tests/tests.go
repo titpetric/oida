@@ -54,7 +54,6 @@ func NewServerWithTracer(t testing.TB) (http.Handler, *oida.Tracer) {
 	if err != nil {
 		t.Fatalf("oida.New: %v", err)
 	}
-	opts.Tracer = tracer
 
 	router := chi.NewRouter()
 	router.Use(tracer.Middleware)
