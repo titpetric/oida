@@ -292,7 +292,8 @@ const DefaultPath = model.DefaultPath
 <summary><code>const RequestIDHeader</code></summary>
 
 ```go
-// RequestIDHeader carries the trace identifier on the request and the response.
+// RequestIDHeader carries the trace identifier on the request and the
+// response.
 const RequestIDHeader = model.RequestIDHeader
 ```
 

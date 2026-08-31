@@ -6,19 +6,14 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/a-h/templ"
-
+	"github.com/titpetric/oida/frontend/view"
 	"github.com/titpetric/oida/model"
 )
 
 const (
-	// liveFeedRows is the number of traces the live feed holds.
-	liveFeedRows = 25
 
 	// streamDebounce is the quiet period the live stream waits out before
 	// redrawing, so a burst of traces produces one event.
@@ -105,7 +100,7 @@ func (h *handler) serveHTTP(w http.ResponseWriter, r *http.Request) error {
 		}
 		// The embedded assets stay reachable: the sign in screen needs its
 		// stylesheet, and the tree holds nothing recorded.
-		if _, ok := h.auth.RequestUser(r); !ok && !strings.HasPrefix(route, assetPrefix) {
+		if _, ok := h.auth.RequestUser(r); !ok && !strings.HasPrefix(route, view.AssetPrefix) {
 			h.serveUnauthorized(w, r)
 			return nil
 		}
@@ -122,7 +117,7 @@ func (h *handler) serveHTTP(w http.ResponseWriter, r *http.Request) error {
 		h.serveEvents(w, r)
 	case route == "/stats":
 		h.serveStats(w, r)
-	case strings.HasPrefix(route, assetPrefix):
+	case strings.HasPrefix(route, view.AssetPrefix):
 		h.serveAsset(w, r, route)
 	default:
 		if id, ok := strings.CutPrefix(route, "/trace/"); ok {
@@ -147,70 +142,70 @@ func (h *handler) relative(r *http.Request) string {
 // serveHosts renders the landing page: the domains this process serves.
 func (h *handler) serveHosts(w http.ResponseWriter, r *http.Request) {
 	snapshot := h.tracer().Snapshot()
-	page := h.page(snapshot, ViewHosts, r)
+	page := view.NewPage(h.opts, snapshot, view.ViewHosts, r)
 	page.Refresh = 0
 
 	switch negotiate(r) {
 	case formatJSON:
 		writeJSON(w, snapshot.Statistics.Hosts)
 	case formatText:
-		writeText(w, page)
+		view.Text(w, page)
 	default:
-		h.render(w, r, Hosts(page))
+		h.render(w, r, view.Hosts, page)
 	}
 }
 
 // serveList renders the completed trace log.
 func (h *handler) serveList(w http.ResponseWriter, r *http.Request) {
 	snapshot := h.tracer().Snapshot()
-	page := h.page(snapshot, ViewList, r)
-	snapshot.Log = filterTraces(snapshot.Log, page)
-	sortTraces(snapshot.Log, page.Sort, page.Ascending)
+	page := view.NewPage(h.opts, snapshot, view.ViewList, r)
+	snapshot.Log = view.Filter(snapshot.Log, page)
+	view.Sort(snapshot.Log, page.Sort, page.Ascending)
 	if page.Limit > 0 && len(snapshot.Log) > page.Limit {
 		snapshot.Log = snapshot.Log[:page.Limit]
 	}
 	page.Snapshot = snapshot
-	page.Slowest = slowest(snapshot.Log)
+	page.Slowest = view.Slowest(snapshot.Log)
 	page.Refresh = 0
 
 	switch negotiate(r) {
 	case formatJSON:
 		writeJSON(w, snapshot.Log)
 	case formatText:
-		writeText(w, page)
+		view.Text(w, page)
 	default:
-		h.render(w, r, List(page))
+		h.render(w, r, view.List, page)
 	}
 }
 
 // serveLive renders the live feed.
 func (h *handler) serveLive(w http.ResponseWriter, r *http.Request) {
-	page := h.livePage(r)
+	page := view.NewLivePage(h.opts, h.tracer().Snapshot(), r)
 	snapshot := page.Snapshot
 
 	switch negotiate(r) {
 	case formatJSON:
 		writeJSON(w, snapshot.Live)
 	case formatText:
-		writeText(w, page)
+		view.Text(w, page)
 	default:
-		h.render(w, r, Live(page))
+		h.render(w, r, view.Live, page)
 	}
 }
 
 // serveStats renders the rolling statistics.
 func (h *handler) serveStats(w http.ResponseWriter, r *http.Request) {
 	snapshot := h.tracer().Snapshot()
-	page := h.page(snapshot, ViewStats, r)
+	page := view.NewPage(h.opts, snapshot, view.ViewStats, r)
 	page.Refresh = 0
 
 	switch negotiate(r) {
 	case formatJSON:
 		writeJSON(w, snapshot.Statistics)
 	case formatText:
-		writeText(w, page)
+		view.Text(w, page)
 	default:
-		h.render(w, r, Statistics(page))
+		h.render(w, r, view.Statistics, page)
 	}
 }
 
@@ -226,7 +221,7 @@ func (h *handler) serveDetail(w http.ResponseWriter, r *http.Request, id string)
 		return
 	}
 
-	page := h.page(h.tracer().Snapshot(), ViewDetail, r)
+	page := view.NewPage(h.opts, h.tracer().Snapshot(), view.ViewDetail, r)
 	// A trace belongs to a host whether or not the reader arrived through a
 	// host filter, so the masthead keeps naming it and the views around it stay
 	// narrowed to the same domain.
@@ -234,10 +229,10 @@ func (h *handler) serveDetail(w http.ResponseWriter, r *http.Request, id string)
 		page.Host = model.TraceHost(trace)
 	}
 	page.Trace = &trace
-	page.Rows = Rows(trace)
-	page.Segments = Timeline(trace)
-	page.Memory = TraceMemory(trace, page.Rows)
-	page.Sources = hasSources(page.Rows)
+	page.Rows = view.Rows(trace)
+	page.Segments = view.Timeline(trace)
+	page.Memory = view.TraceMemory(trace, page.Rows)
+	page.Sources = view.HasSources(page.Rows)
 	page.Title = trace.Name
 	page.Refresh = 0
 
@@ -245,9 +240,9 @@ func (h *handler) serveDetail(w http.ResponseWriter, r *http.Request, id string)
 	case formatJSON:
 		writeJSON(w, trace)
 	case formatText:
-		writeText(w, page)
+		view.Text(w, page)
 	default:
-		h.render(w, r, Detail(page))
+		h.render(w, r, view.Detail, page)
 	}
 }
 
@@ -261,13 +256,13 @@ func (h *handler) serveAsset(w http.ResponseWriter, r *http.Request, route strin
 	// mount path.
 	if strings.HasSuffix(route, ".css") {
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-		_, _ = io.WriteString(w, styleSheetFor(h.opts.Path+assetPrefix))
+		_, _ = io.WriteString(w, view.StyleSheet(h.opts.Path+view.AssetPrefix))
 		return
 	}
 
 	request := r.Clone(r.Context())
 	request.URL.Path = route
-	http.FileServerFS(assets()).ServeHTTP(w, request)
+	http.FileServerFS(view.Assets()).ServeHTTP(w, request)
 }
 
 // serveEvents streams the live view over server sent events. The stream is
@@ -332,10 +327,10 @@ func (h *handler) serveEvents(w http.ResponseWriter, r *http.Request) {
 // writeLiveEvent renders the live section and writes it as one event. It
 // reports whether the stream is still usable.
 func (h *handler) writeLiveEvent(ctx context.Context, w io.Writer, r *http.Request, controller *http.ResponseController) bool {
-	page := h.livePage(r)
+	page := view.NewLivePage(h.opts, h.tracer().Snapshot(), r)
 
 	var buffer bytes.Buffer
-	if err := liveSection(page).Render(ctx, &buffer); err != nil {
+	if err := view.LiveSection(ctx, &buffer, page); err != nil {
 		h.tracer().ReportError(err)
 		return false
 	}
@@ -371,126 +366,15 @@ func drain(events <-chan struct{}) {
 	}
 }
 
+// viewFunc renders one page of the front end, which is the one export each
+// view file carries.
+type viewFunc func(ctx context.Context, w io.Writer, page view.Page) error
+
 // render writes an HTML component, reporting failures to the error handler.
-func (h *handler) render(w http.ResponseWriter, r *http.Request, component templ.Component) {
+func (h *handler) render(w http.ResponseWriter, r *http.Request, render viewFunc, page view.Page) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := component.Render(r.Context(), w); err != nil {
+	if err := render(r.Context(), w, page); err != nil {
 		h.tracer().ReportError(err)
-	}
-}
-
-// livePage builds the live view: traces in flight and completed traces merged
-// into one feed, newest first, so a request appears the moment it starts and
-// stays put as it finishes rather than jumping between two tables.
-func (h *handler) livePage(r *http.Request) Page {
-	snapshot := h.tracer().Snapshot()
-	page := h.page(snapshot, ViewLive, r)
-
-	feed := make([]model.Trace, 0, len(snapshot.Live)+len(snapshot.Log))
-	feed = append(feed, snapshot.Live...)
-	feed = append(feed, snapshot.Log...)
-	if page.Host != "" {
-		feed = filterTraces(feed, Page{Host: page.Host})
-	}
-	sort.SliceStable(feed, func(i, j int) bool {
-		return feed[i].StartedAt.After(feed[j].StartedAt)
-	})
-	if len(feed) > liveFeedRows {
-		feed = feed[:liveFeedRows]
-	}
-
-	page.Feed = feed
-	page.Slowest = slowest(feed)
-	return page
-}
-
-// page builds the view model shared by every component.
-func (h *handler) page(snapshot model.Snapshot, view View, r *http.Request) Page {
-	page := Page{
-		Snapshot: snapshot,
-		View:     view,
-		Path:     h.opts.Path,
-		Title:    "oida",
-		Limit:    requestedLimit(r),
-		Query:    strings.TrimSpace(r.URL.Query().Get("q")),
-		Status:   requestedStatus(r),
-		Refresh:  h.opts.RefreshInterval,
-		Stream:   h.opts.LiveStream,
-	}
-	if kind := strings.TrimSpace(r.URL.Query().Get("kind")); kind != "" {
-		page.Kind = model.Kind(kind)
-	}
-	page.Host = strings.TrimSpace(r.URL.Query().Get("host"))
-	page.RequestHost = r.Host
-	page.Sort = requestedSort(r)
-	page.Ascending = r.URL.Query().Get("order") == "asc"
-	// ?stream=off renders the live view as a static page. It makes the view
-	// screenshottable and scrapeable, and it is the escape hatch when a proxy
-	// mangles the event stream.
-	if r.URL.Query().Get("stream") == "off" {
-		page.Stream = false
-	}
-	return page
-}
-
-// filterTraces applies the list filters of a page.
-func filterTraces(traces []model.Trace, page Page) []model.Trace {
-	if page.Query == "" && page.Kind == "" && page.Host == "" &&
-		(page.Status == "" || page.Status == "all") {
-		return traces
-	}
-
-	out := make([]model.Trace, 0, len(traces))
-	for _, trace := range traces {
-		if !matches(trace, page.Query) {
-			continue
-		}
-		if page.Kind != "" && !trace.HasKind(page.Kind) {
-			continue
-		}
-		if page.Host != "" && model.TraceHost(trace) != page.Host {
-			continue
-		}
-		if page.Status == "error" && trace.ErrorText == "" && trace.State != model.StateError {
-			continue
-		}
-		out = append(out, trace)
-	}
-	return out
-}
-
-// requestedLimit returns the row count selected on the list view.
-func requestedLimit(r *http.Request) int {
-	value, err := strconv.Atoi(r.URL.Query().Get("limit"))
-	if err != nil {
-		return limitOptions[0]
-	}
-	for _, option := range limitOptions {
-		if option == value {
-			return value
-		}
-	}
-	return limitOptions[0]
-}
-
-// requestedSort returns the column the list is ordered by, defaulting to age.
-func requestedSort(r *http.Request) SortKey {
-	value := SortKey(r.URL.Query().Get("sort"))
-	for _, key := range sortKeys {
-		if key == value {
-			return key
-		}
-	}
-	return SortAge
-}
-
-// requestedStatus returns the status filter selected on the list view.
-func requestedStatus(r *http.Request) string {
-	switch value := r.URL.Query().Get("status"); value {
-	case "error", "all":
-		return value
-	default:
-		return "all"
 	}
 }
 

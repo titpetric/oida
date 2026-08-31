@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/titpetric/oida/internal/ring"
 	"github.com/titpetric/oida/model"
 )
 
@@ -14,7 +15,7 @@ type memoryStorage struct {
 	*unimplementedStorage
 
 	mu  sync.RWMutex
-	log *ring
+	log *ring.Ring
 }
 
 var _ model.Storage = (*memoryStorage)(nil)
@@ -22,7 +23,7 @@ var _ model.Storage = (*memoryStorage)(nil)
 // NewMemoryStorage returns in-memory storage retaining size traces. A size of
 // zero or less retains nothing, leaving the live view and the counters.
 func NewMemoryStorage(size int) *memoryStorage {
-	return &memoryStorage{log: newRing(size)}
+	return &memoryStorage{log: ring.New(size)}
 }
 
 // Save retains a completed trace, evicting the oldest one when full.
@@ -32,7 +33,7 @@ func (s *memoryStorage) Save(ctx context.Context, trace model.Trace) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.log.push(&trace)
+	s.log.Push(&trace)
 	return nil
 }
 
@@ -43,7 +44,7 @@ func (s *memoryStorage) Load(ctx context.Context, id string) (model.Trace, error
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	trace, ok := s.log.find(id)
+	trace, ok := s.log.Find(id)
 	if !ok {
 		return model.Trace{}, model.ErrTraceNotFound
 	}
@@ -58,7 +59,7 @@ func (s *memoryStorage) List(ctx context.Context, limit int) ([]model.Trace, err
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	retained := s.log.list()
+	retained := s.log.List()
 	if limit > 0 && len(retained) > limit {
 		retained = retained[:limit]
 	}
@@ -76,14 +77,14 @@ func (s *memoryStorage) Len(ctx context.Context) (int, error) {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.log.len(), nil
+	return s.log.Len(), nil
 }
 
 // Cap returns the retention limit.
 func (s *memoryStorage) Cap() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.log.cap()
+	return s.log.Cap()
 }
 
 // Reset drops every retained trace.
@@ -93,6 +94,6 @@ func (s *memoryStorage) Reset(ctx context.Context) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.log.reset()
+	s.log.Reset()
 	return nil
 }

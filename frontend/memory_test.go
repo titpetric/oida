@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/titpetric/oida"
-	"github.com/titpetric/oida/frontend"
+	"github.com/titpetric/oida/frontend/view"
 )
 
 // memoryTrace builds a trace whose spans report memory_usage. The spans are
@@ -45,12 +45,12 @@ func memoryTrace() oida.Trace {
 }
 
 // memoryPage runs a trace through the same pipeline the handler uses.
-func memoryPage(trace oida.Trace) frontend.Page {
-	rows := frontend.Rows(trace)
-	return frontend.Page{
+func memoryPage(trace oida.Trace) view.Page {
+	rows := view.Rows(trace)
+	return view.Page{
 		Trace:  &trace,
 		Rows:   rows,
-		Memory: frontend.TraceMemory(trace, rows),
+		Memory: view.TraceMemory(trace, rows),
 	}
 }
 

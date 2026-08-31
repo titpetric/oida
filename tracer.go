@@ -3,6 +3,7 @@ package oida
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"net/http"
 	"os"
@@ -146,6 +147,60 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 	err = fn(traced)
 	trace.RecordError(err)
 	return err
+}
+
+// serve records one request into the tracer and hands it to next.
+func (t *Tracer) serve(opts Options, next http.Handler, w http.ResponseWriter, r *http.Request) {
+	id := internal.RequestID(r, opts)
+	if id == "" {
+		next.ServeHTTP(w, r)
+		return
+	}
+
+	r.Header.Set(RequestIDHeader, id)
+	w.Header().Set(RequestIDHeader, id)
+
+	info := &model.HTTPInfo{
+		Method:        r.Method,
+		URI:           r.URL.RequestURI(),
+		Host:          r.Host,
+		Protocol:      r.Proto,
+		RemoteAddress: internal.RemoteAddr(r),
+		UserAgent:     r.UserAgent(),
+	}
+	trace := t.begin(id, r.Method+" "+r.URL.Path, info)
+	trace.SetState(StateReading)
+
+	ctx, span := trace.StartSpan(WithTrace(r.Context(), trace), r.Method+" "+r.URL.Path, KindHTTP)
+	r = r.WithContext(ctx)
+
+	writer := internal.NewResponseWriter(w, func() { trace.SetState(StateWriting) })
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err := fmt.Errorf("panic: %v", recovered)
+			span.RecordError(err)
+			t.finalize(opts, trace, writer, r)
+			panic(recovered)
+		}
+		t.finalize(opts, trace, writer, r)
+	}()
+
+	trace.SetState(StateProcessing)
+	next.ServeHTTP(writer, r)
+}
+
+// finalize records the response metadata and completes the trace.
+func (t *Tracer) finalize(opts Options, trace *Trace, w *internal.ResponseWriter, r *http.Request) {
+	route := internal.RoutePattern(r, opts)
+	trace.SetResponse(w.Status(), w.Bytes(), route)
+	if route != "" {
+		trace.SetName(r.Method + " " + route)
+	}
+	if w.Status() >= http.StatusInternalServerError && trace.Err() == nil {
+		trace.RecordError(fmt.Errorf("http %d", w.Status()))
+	}
+	t.Finish(trace)
 }
 
 // begin registers a new trace as active.
@@ -440,7 +495,7 @@ func (t *Tracer) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		serveTraced(t, t.opts, next, w, r)
+		t.serve(t.opts, next, w, r)
 	})
 }
 

@@ -1,0 +1,60 @@
+package view
+
+import "strconv"
+
+// Statistics renders the rolling statistics of the retained traces.
+templ statistics(page Page) {
+	@Layout(page) {
+		<p class="note">
+			Top { strconv.Itoa(page.Snapshot.Statistics.TopLimit) } of { strconv.Itoa(page.Snapshot.Statistics.WindowSize) } traces
+			in a { strconv.Itoa(page.Snapshot.Statistics.WindowLimit) } trace window. Traces group by routed pattern where the router provides one.
+		</p>
+		<div class="scroll">
+			<table>
+				<thead>
+					<tr>
+						<th>Share</th>
+						<th class="num">Count</th>
+						<th class="num c-medium">Errors</th>
+						<th class="flex name">Name</th>
+						<th class="dim c-wide">Host</th>
+						<th class="num">Avg</th>
+						<th class="num c-medium">Max</th>
+						<th class="num c-wide">Avg bytes</th>
+						<th class="num c-wide">Avg allocated</th>
+						<th class="num c-medium">Avg spans</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, stat := range page.Snapshot.Statistics.Top {
+						<tr class={ templ.KV("failed", stat.Errors > 0) }>
+							<td>
+								<span class="share">
+									<span class="bar solid"><span style={ shareStyle(stat.Share) }></span></span>
+									{ percentText(stat.Share) }
+								</span>
+							</td>
+							<td class="num">{ strconv.FormatUint(stat.Count, 10) }</td>
+							<td class="num c-medium">{ strconv.FormatUint(stat.Errors, 10) }</td>
+							<td class="flex name" title={ stat.Name }>{ stat.Name }</td>
+							<td class="dim c-wide">{ stat.Host }</td>
+							<td class="num">{ preciseText(stat.AverageDuration) }</td>
+							<td class="num c-medium">{ preciseText(stat.MaxDuration) }</td>
+							<td class="num c-wide">{ bytesText(stat.AverageResponseBytes) }</td>
+							<td class="num c-wide">{ bytesText(stat.AverageAllocatedBytes) }</td>
+							<td class="num c-medium">{ countText(stat.AverageSpans) }</td>
+						</tr>
+					}
+					if len(page.Snapshot.Statistics.Top) == 0 {
+						<tr>
+							<td class="empty" colspan="10">
+								<b>No traces in the window</b>
+								Statistics aggregate the retained traces. Record some first.
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}

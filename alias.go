@@ -56,6 +56,10 @@ const (
 	StateError      = model.StateError
 )
 
+// RequestIDHeader carries the trace identifier on the request and the
+// response.
+const RequestIDHeader = model.RequestIDHeader
+
 // LogEntry is one log line recorded on a trace by Trace.Info, Trace.Error and
 // their Span counterparts. No context is involved: a trace attributes the
 // entry to its innermost open span, and a span uses its own id.

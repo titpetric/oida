@@ -9,9 +9,12 @@ server-side rendered front end at `/debug/oida`. See [README.md](README.md) and
 - `model/` holds the recorded data, the configuration and the interfaces
   between them. It imports nothing from this project, which is what keeps the
   other packages apart.
-- `frontend/` renders: templ views, the view model, the plain text and the
-  HTTP handler. It imports `model` alone and never the root package; an
-  `oida.` reference from `frontend` is an import cycle.
+- `frontend/` serves: the HTTP handler, its routing, the event stream and
+  content negotiation. It imports `model` and `frontend/view`, never the root
+  package; an `oida.` reference from `frontend` is an import cycle.
+- `frontend/view/` renders: the templ views, the view model they bind to, the
+  plain text renderer and the embedded assets. One export per view,
+  `view.Detail(ctx, w, page)`, with the templ component behind it.
 - `storage/` holds the retention drivers. It imports `model` alone.
 - `internal/` is the composition space: the utilities and the private
   components the root package is built from, closed to importers outside the
@@ -20,8 +23,8 @@ server-side rendered front end at `/debug/oida`. See [README.md](README.md) and
   imports the other three and serves the front end, so a service instruments
   and mounts with one import.
 
-The dependency runs one way, `oida` to `frontend`, `storage` and `internal`,
-all three to `model`.
+The dependency runs one way: `oida` to `frontend`, `storage` and `internal`,
+`frontend` to `frontend/view`, and all of them to `model`.
 
 The root package is the public API. `docs/api.md` is its generated reference,
 and the sub-packages carry no compatibility promise of their own: what an
@@ -89,7 +92,8 @@ by `compose.yml` on <http://localhost:8097>.
 - Nothing writes to stdout or stderr. Failures return, or go to
   `Options.OnError`.
 - The front end makes no external requests: no webfonts, no CDN, no analytics.
-  Assets live in `frontend/assets/`, are embedded with `//go:embed all:assets`,
+  Assets live in `frontend/view/assets/`, are embedded with `//go:embed
+  all:assets`,
   and are served at `{Options.Path}/assets/`. Dropping a file in that folder is
   all it takes to serve it.
 - Generated templ output (`*_templ.go`) is committed. Regenerate after

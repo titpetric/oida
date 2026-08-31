@@ -1,0 +1,50 @@
+package view
+
+// memoryGraph draws the memory the spans reported: one step line over the
+// same stretch of time as the drawing above it. Each reading was taken as a
+// span finished, so the line holds flat and moves where a span let go. That
+// place is the point of the graph: not that the memory grew, but where.
+//
+// The limit joins the plot as a dashed reference line when it is close enough
+// to share a scale with the readings. A transaction far under its limit is
+// drawn to its own peak instead, and the head line carries the limit in
+// words, so a small request never flattens into a sliver along the floor.
+//
+// The graph is plain SVG and needs no scripting. Hovering a stretch of the
+// line names the span that ended it, through a native title; the exact
+// figures stay in the memory column of the span table below. The line runs
+// the whole trace, opening at the first reading's level, and the axis under
+// it carries the memory in use at each tick beside the time.
+templ memoryGraph(page Page) {
+	{{ series := page.MemorySeries() }}
+	if len(series.Points) > 0 {
+		<div class="live-head">
+			<h2>Memory</h2>
+			<span class="memory-note">{ page.Memory.summary() }</span>
+		</div>
+		<div class="memory-graph">
+			<svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={ "Memory in use over the trace, " + page.Memory.summary() }>
+				if series.Limited {
+					<line class="limit" x1="0" y1={ series.limitY() } x2="100" y2={ series.limitY() } vector-effect="non-scaling-stroke"></line>
+				}
+				<path class="wash" d={ series.areaPath() }></path>
+				<path class="line" d={ series.linePath() } vector-effect="non-scaling-stroke"></path>
+				for i, point := range series.Points {
+					<rect class="hit" x={ series.hitX(i) } y="0" width={ series.hitWidth(i) } height="100">
+						<title>{ point.title() }</title>
+					</rect>
+				}
+			</svg>
+			<i class="mark" style={ series.Last().overlayStyle() } aria-hidden="true"></i>
+			<span class="reading" style={ series.Last().overlayStyle() }>{ signedBytesText(series.Last().Bytes) }</span>
+			if series.Limited {
+				<span class="limit-note" style={ series.limitStyle() }>limit { signedBytesText(page.Memory.Limit) }</span>
+			}
+		</div>
+		<div class="axis">
+			for _, tick := range page.Ticks() {
+				<span style={ offsetStyle(tick.Share) }>{ tick.Label } · { signedBytesText(series.at(tick.Share)) }</span>
+			}
+		</div>
+	}
+}
