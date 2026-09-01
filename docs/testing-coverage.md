@@ -13,15 +13,15 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 
 | Status | Package       | Coverage | Cognitive | Lines |
 |--------|---------------|----------|-----------|-------|
-| ✅     | .             | 80.35%   | 74        | 596   |
-| ❌     | cmd/oida      | 0.00%    | 33        | 288   |
-| ❌     | frontend      | 57.55%   | 73        | 442   |
-| ✅     | frontend/view | 81.15%   | 3784      | 6800  |
-| ✅     | internal      | 85.88%   | 162       | 618   |
-| ✅     | internal/ring | 80.60%   | 18        | 74    |
-| ✅     | model         | 87.21%   | 306       | 1545  |
-| ✅     | storage       | 81.34%   | 75        | 345   |
-| ✅     | tests         | 97.85%   | 7         | 132   |
+| ✅     | .             | 80.35%   | 74        | 459   |
+| ❌     | cmd/oida      | 0.00%    | 33        | 259   |
+| ❌     | frontend      | 57.55%   | 73        | 385   |
+| ✅     | frontend/view | 81.15%   | 3784      | 6499  |
+| ✅     | internal      | 85.88%   | 162       | 530   |
+| ✅     | internal/ring | 80.60%   | 18        | 65    |
+| ✅     | model         | 87.21%   | 306       | 1341  |
+| ✅     | storage       | 81.34%   | 75        | 294   |
+| ✅     | tests         | 97.85%   | 7         | 117   |
 
 ## Functions
 
