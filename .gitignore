@@ -1,3 +1,7 @@
 /bin
 go-fsck.json
 *.cov
+
+# splint writes its document beside the tree it describes, and a job that
+# fails leaves it behind. go-fsck reads it and writes its own.
+splint.json
