@@ -17,14 +17,14 @@ tasks:
     passthru: true
     cmds:
       - templ generate
-      - goimports -w .
+      - splint fix ./...
 
   templ:verify:
     desc: "Fail when the generated components are out of date"
     passthru: true
     cmds:
       - templ generate
-      - goimports -w .
+      - splint fix ./...
       - git diff --exit-code -- '*_templ.go'
 
   examples:
