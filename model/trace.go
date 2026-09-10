@@ -48,8 +48,8 @@ type Trace struct {
 	maxSpans  int
 	sequence  int
 	changedAt time.Time
-	stateTime map[State]time.Duration
-	memStats  runtime.MemStats
+	stateTime [numStates]time.Duration
+	memBefore memBaseline
 	finished  bool
 
 	// Logs are the log lines recorded while the trace ran, in write order,
@@ -78,7 +78,6 @@ func NewTrace(id, name string, opts TraceOptions) *Trace {
 		clock:     opts.Clock,
 		maxSpans:  opts.MaxSpans,
 		changedAt: now,
-		stateTime: make(map[State]time.Duration, len(states)),
 
 		captureLogs: opts.CaptureLogs,
 	}
@@ -166,7 +165,7 @@ func (t *Trace) SetState(state State) {
 		return
 	}
 	now := t.time()
-	t.stateTime[t.State] += now.Sub(t.changedAt)
+	t.stateTime[stateIndex(t.State)] += now.Sub(t.changedAt)
 	t.State = state
 	t.changedAt = now
 	t.UpdatedAt = now
@@ -184,7 +183,7 @@ func (t *Trace) RecordError(err error) {
 	t.err = err
 	t.ErrorText = err.Error()
 	now := t.time()
-	t.stateTime[t.State] += now.Sub(t.changedAt)
+	t.stateTime[stateIndex(t.State)] += now.Sub(t.changedAt)
 	t.State = StateError
 	t.changedAt = now
 	t.UpdatedAt = now
@@ -354,9 +353,7 @@ func (t *Trace) Clone() Trace {
 	copied := *t
 	copied.mu = nil
 	copied.clock = nil
-	copied.stateTime = nil
 	copied.InFlight = !t.finished
-	copied.memStats = runtime.MemStats{}
 	if t.HTTP != nil {
 		info := *t.HTTP
 		copied.HTTP = &info
@@ -390,14 +387,31 @@ func (t *Trace) Durations() map[State]time.Duration {
 	}
 	t.lock()
 	defer t.unlock()
-	result := make(map[State]time.Duration, len(t.stateTime))
-	for state, duration := range t.stateTime {
-		result[state] = duration
+	result := make(map[State]time.Duration, numStates)
+	for i, duration := range t.stateTime {
+		if duration != 0 {
+			result[states[i]] = duration
+		}
 	}
 	if !t.finished {
 		result[t.State] += t.time().Sub(t.changedAt)
 	}
 	return result
+}
+
+// StateTimes returns the time spent per state, indexed as States lists them.
+// It is Durations without the map, for a caller aggregating many traces.
+func (t *Trace) StateTimes() (out [numStates]time.Duration) {
+	if t == nil {
+		return out
+	}
+	t.lock()
+	defer t.unlock()
+	out = t.stateTime
+	if !t.finished {
+		out[stateIndex(t.State)] += t.time().Sub(t.changedAt)
+	}
+	return out
 }
 
 // Finish closes the trace, ending every open span. It is idempotent.
@@ -411,7 +425,7 @@ func (t *Trace) Finish() {
 		return
 	}
 	now := t.time()
-	t.stateTime[t.State] += now.Sub(t.changedAt)
+	t.stateTime[stateIndex(t.State)] += now.Sub(t.changedAt)
 	t.changedAt = now
 	t.UpdatedAt = now
 	t.Duration = now.Sub(t.StartedAt)
@@ -419,8 +433,9 @@ func (t *Trace) Finish() {
 		t.Duration = 0
 	}
 	t.finished = true
-	spans := make([]*Span, len(t.Spans))
-	copy(spans, t.Spans)
+	// The slice header alone: spans append only while the trace runs, and
+	// the finished flag above just ended that.
+	spans := t.Spans
 	t.unlock()
 
 	for i := len(spans) - 1; i >= 0; i-- {
@@ -434,7 +449,15 @@ func (t *Trace) TrackMemory() {
 	if t == nil {
 		return
 	}
-	runtime.ReadMemStats(&t.memStats)
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	t.memBefore = memBaseline{
+		heapAlloc:  stats.HeapAlloc,
+		totalAlloc: stats.TotalAlloc,
+		mallocs:    stats.Mallocs,
+		pauseTotal: stats.PauseTotalNs,
+		numGC:      stats.NumGC,
+	}
 }
 
 // RecordMemory records the process-wide allocation deltas observed while the
@@ -448,13 +471,24 @@ func (t *Trace) RecordMemory() {
 	runtime.ReadMemStats(&after)
 
 	t.Memory = MemoryUse{
-		HeapDelta:      signedDelta(after.HeapAlloc, t.memStats.HeapAlloc),
-		AllocatedBytes: delta(after.TotalAlloc, t.memStats.TotalAlloc),
-		Allocations:    delta(after.Mallocs, t.memStats.Mallocs),
-		GCCycles:       uint32(delta(uint64(after.NumGC), uint64(t.memStats.NumGC))),
-		GCPause:        time.Duration(delta(after.PauseTotalNs, t.memStats.PauseTotalNs)),
+		HeapDelta:      signedDelta(after.HeapAlloc, t.memBefore.heapAlloc),
+		AllocatedBytes: delta(after.TotalAlloc, t.memBefore.totalAlloc),
+		Allocations:    delta(after.Mallocs, t.memBefore.mallocs),
+		GCCycles:       uint32(delta(uint64(after.NumGC), uint64(t.memBefore.numGC))),
+		GCPause:        time.Duration(delta(after.PauseTotalNs, t.memBefore.pauseTotal)),
 	}
-	t.memStats = runtime.MemStats{}
+	t.memBefore = memBaseline{}
+}
+
+// memBaseline is the slice of runtime.MemStats a memory-tracked trace needs:
+// five counters instead of the four-kilobyte struct, which every trace used
+// to carry by value and every clone used to copy.
+type memBaseline struct {
+	heapAlloc  uint64
+	totalAlloc uint64
+	mallocs    uint64
+	pauseTotal uint64
+	numGC      uint32
 }
 
 // delta returns after-before, clamped at zero.

@@ -181,7 +181,9 @@ func (s *Span) Context(ctx context.Context) context.Context {
 	if s == nil {
 		return ctx
 	}
-	return context.WithValue(withTrace(ctx, s.trace), spanKey{}, s)
+	// The span alone: TraceFromContext resolves the trace through it, so a
+	// span context costs one value instead of two.
+	return context.WithValue(ctx, spanKey{}, s)
 }
 
 // SourceText returns the "file:L12" location of the span, or an empty string.

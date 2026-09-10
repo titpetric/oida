@@ -168,13 +168,16 @@ func (t *Tracer) serve(opts Options, next http.Handler, w http.ResponseWriter, r
 		RemoteAddress: internal.RemoteAddr(r),
 		UserAgent:     r.UserAgent(),
 	}
-	trace := t.begin(id, r.Method+" "+r.URL.Path, info)
+	name := r.Method + " " + r.URL.Path
+	trace := t.begin(id, name, info)
 	trace.SetState(StateReading)
 
-	ctx, span := trace.StartSpan(WithTrace(r.Context(), trace), r.Method+" "+r.URL.Path, KindHTTP)
+	// The root span alone carries the trace into the request context;
+	// TraceFromContext resolves through it.
+	ctx, span := trace.StartSpan(r.Context(), name, KindHTTP)
 	r = r.WithContext(ctx)
 
-	writer := internal.NewResponseWriter(w, func() { trace.SetState(StateWriting) })
+	writer := internal.NewResponseWriter(w, trace)
 
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -214,7 +217,7 @@ func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	t.mu.Lock()
 	t.total++
 	t.sampled++
-	t.requests[model.TraceHost(*trace)]++
+	t.requests[model.TraceHost(trace)]++
 	t.active[id] = trace
 	t.mu.Unlock()
 
@@ -232,7 +235,7 @@ func (t *Tracer) Finish(trace *Trace) {
 	if t.opts.TrackMemoryUse {
 		trace.RecordMemory()
 	}
-	durations := trace.Durations()
+	durations := trace.StateTimes()
 	stored := trace.Clone()
 	failed := stored.ErrorText != "" || stored.State == StateError
 
@@ -241,8 +244,10 @@ func (t *Tracer) Finish(trace *Trace) {
 	if failed {
 		t.failed++
 	}
-	for state, duration := range durations {
-		t.stateTime[state] += duration
+	for i, duration := range durations {
+		if duration != 0 {
+			t.stateTime[model.States()[i]] += duration
+		}
 	}
 	if t.opts.TrackMemoryUse {
 		t.samples++

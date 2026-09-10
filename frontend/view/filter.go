@@ -17,7 +17,7 @@ func Filter(traces []model.Trace, page Page) []model.Trace {
 		if page.Kind != "" && !trace.HasKind(page.Kind) {
 			continue
 		}
-		if page.Host != "" && model.TraceHost(trace) != page.Host {
+		if page.Host != "" && model.TraceHost(&trace) != page.Host {
 			continue
 		}
 		if page.Status == "error" && trace.ErrorText == "" && trace.State != model.StateError {

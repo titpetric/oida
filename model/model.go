@@ -89,6 +89,12 @@ var states = []State{
 	StateError,
 }
 
+// States returns every known state in display order. The returned slice is
+// shared; callers read it.
+func States() []State {
+	return states
+}
+
 // Label returns the human readable name of the state.
 func (s State) Label() string {
 	switch s {
@@ -248,4 +254,30 @@ type Snapshot struct {
 	Live       []Trace `json:"live"`
 	Log        []Trace `json:"log"`
 	Statistics Stats   `json:"statistics"`
+}
+
+// numStates sizes the per-state timing array; states lists the slots.
+const numStates = 8
+
+// stateIndex returns the timing slot of a state. An unknown state, which
+// only a caller constructing its own State value can produce, accounts as
+// waiting.
+func stateIndex(s State) int {
+	switch s {
+	case StateStarting:
+		return 1
+	case StateReading:
+		return 2
+	case StateProcessing:
+		return 3
+	case StateWriting:
+		return 4
+	case StateKeepalive:
+		return 5
+	case StateClosing:
+		return 6
+	case StateError:
+		return 7
+	}
+	return 0
 }

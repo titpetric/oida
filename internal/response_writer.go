@@ -3,6 +3,8 @@ package internal
 import (
 	"io"
 	"net/http"
+
+	"github.com/titpetric/oida/model"
 )
 
 // ResponseWriter records the status and the number of bytes written while
@@ -10,10 +12,10 @@ import (
 type ResponseWriter struct {
 	http.ResponseWriter
 
-	status  int
-	bytes   int64
-	onWrite func()
-	wrote   bool
+	status int
+	bytes  int64
+	trace  *model.Trace
+	wrote  bool
 }
 
 var (
@@ -22,10 +24,11 @@ var (
 	_ io.ReaderFrom       = (*ResponseWriter)(nil)
 )
 
-// NewResponseWriter wraps w to record what the handler answered with. onWrite
-// runs once, when the first byte or the status goes out.
-func NewResponseWriter(w http.ResponseWriter, onWrite func()) *ResponseWriter {
-	return &ResponseWriter{ResponseWriter: w, status: http.StatusOK, onWrite: onWrite}
+// NewResponseWriter wraps w to record what the handler answered with. The
+// trace moves to StateWriting once, when the first byte or the status goes
+// out; a trace field instead of a callback keeps the wrapper one allocation.
+func NewResponseWriter(w http.ResponseWriter, trace *model.Trace) *ResponseWriter {
+	return &ResponseWriter{ResponseWriter: w, status: http.StatusOK, trace: trace}
 }
 
 // Status returns the status the handler wrote.
@@ -51,9 +54,7 @@ func (w *ResponseWriter) WriteHeader(status int) {
 	}
 	w.wrote = true
 	w.status = status
-	if w.onWrite != nil {
-		w.onWrite()
-	}
+	w.trace.SetState(model.StateWriting)
 	w.ResponseWriter.WriteHeader(status)
 }
 
