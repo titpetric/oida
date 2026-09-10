@@ -5,7 +5,6 @@ import (
 	"errors"
 	"maps"
 	"math"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -49,7 +48,7 @@ type Trace struct {
 	sequence  int
 	changedAt time.Time
 	stateTime [numStates]time.Duration
-	memBefore memBaseline
+	memBefore memCounters
 	finished  bool
 
 	// Logs are the log lines recorded while the trace ran, in write order,
@@ -60,6 +59,10 @@ type Trace struct {
 
 	// captureLogs gates Info and Error, set once from TraceOptions.
 	captureLogs bool
+
+	// spanPtrs seeds Spans, so the first two spans append without growing
+	// a slice on the heap.
+	spanPtrs [2]*Span
 }
 
 // NewTrace returns a trace ready to record spans. The recorder passes the parts
@@ -67,7 +70,7 @@ type Trace struct {
 // recording it.
 func NewTrace(id, name string, opts TraceOptions) *Trace {
 	now := opts.now()
-	return &Trace{
+	trace := &Trace{
 		ID:        id,
 		Name:      name,
 		Service:   opts.Service,
@@ -81,6 +84,8 @@ func NewTrace(id, name string, opts TraceOptions) *Trace {
 
 		captureLogs: opts.CaptureLogs,
 	}
+	trace.Spans = trace.spanPtrs[:0:len(trace.spanPtrs)]
+	return trace
 }
 
 // StartSpan records a span whose parent is the active span in ctx. The returned
@@ -110,13 +115,16 @@ func (t *Trace) appendSpan(parent *Span, name string, kind Kind) *Span {
 	}
 
 	t.sequence++
-	span := &Span{
+	// One allocation carries the span and its lock.
+	box := new(spanBox)
+	span := &box.span
+	*span = Span{
 		ID:        t.sequence,
 		TraceID:   t.ID,
 		Name:      name,
 		Kind:      kind,
 		StartedAt: t.time(),
-		mu:        new(sync.Mutex),
+		mu:        &box.mu,
 		trace:     t,
 	}
 	if parent != nil && parent.TraceID == t.ID {
@@ -354,6 +362,7 @@ func (t *Trace) Clone() Trace {
 	copied.mu = nil
 	copied.clock = nil
 	copied.InFlight = !t.finished
+	copied.spanPtrs = [2]*Span{}
 	if t.HTTP != nil {
 		info := *t.HTTP
 		copied.HTTP = &info
@@ -449,15 +458,7 @@ func (t *Trace) TrackMemory() {
 	if t == nil {
 		return
 	}
-	var stats runtime.MemStats
-	runtime.ReadMemStats(&stats)
-	t.memBefore = memBaseline{
-		heapAlloc:  stats.HeapAlloc,
-		totalAlloc: stats.TotalAlloc,
-		mallocs:    stats.Mallocs,
-		pauseTotal: stats.PauseTotalNs,
-		numGC:      stats.NumGC,
-	}
+	t.memBefore = readMemCounters()
 }
 
 // RecordMemory records the process-wide allocation deltas observed while the
@@ -467,17 +468,23 @@ func (t *Trace) RecordMemory() {
 	if t == nil {
 		return
 	}
-	var after runtime.MemStats
-	runtime.ReadMemStats(&after)
+	after := readMemCounters()
 
 	t.Memory = MemoryUse{
-		HeapDelta:      signedDelta(after.HeapAlloc, t.memBefore.heapAlloc),
-		AllocatedBytes: delta(after.TotalAlloc, t.memBefore.totalAlloc),
-		Allocations:    delta(after.Mallocs, t.memBefore.mallocs),
-		GCCycles:       uint32(delta(uint64(after.NumGC), uint64(t.memBefore.numGC))),
-		GCPause:        time.Duration(delta(after.PauseTotalNs, t.memBefore.pauseTotal)),
+		HeapDelta:      signedDelta(after.heapBytes, t.memBefore.heapBytes),
+		AllocatedBytes: delta(after.allocBytes, t.memBefore.allocBytes),
+		Allocations:    delta(after.allocs, t.memBefore.allocs),
+		GCCycles:       uint32(delta(after.gcCycles, t.memBefore.gcCycles)),
+		GCPause:        time.Duration(delta(after.pauseNs, t.memBefore.pauseNs)),
 	}
-	t.memBefore = memBaseline{}
+	t.memBefore = memCounters{}
+}
+
+// spanBox is one allocation holding a span and the mutex it locks with,
+// kept apart from the copyable Span value itself.
+type spanBox struct {
+	span Span
+	mu   sync.Mutex
 }
 
 // memBaseline is the slice of runtime.MemStats a memory-tracked trace needs:

@@ -160,16 +160,15 @@ func (t *Tracer) serve(opts Options, next http.Handler, w http.ResponseWriter, r
 	r.Header.Set(RequestIDHeader, id)
 	w.Header().Set(RequestIDHeader, id)
 
-	info := &model.HTTPInfo{
+	name := r.Method + " " + r.URL.Path
+	trace := t.begin(id, name, &model.HTTPInfo{
 		Method:        r.Method,
 		URI:           r.URL.RequestURI(),
 		Host:          r.Host,
 		Protocol:      r.Proto,
 		RemoteAddress: internal.RemoteAddr(r),
 		UserAgent:     r.UserAgent(),
-	}
-	name := r.Method + " " + r.URL.Path
-	trace := t.begin(id, name, info)
+	})
 	trace.SetState(StateReading)
 
 	// The root span alone carries the trace into the request context;
