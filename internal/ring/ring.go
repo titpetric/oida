@@ -1,6 +1,8 @@
 package ring
 
-import "github.com/titpetric/oida/model"
+import (
+	"github.com/titpetric/oida/model"
+)
 
 // Ring is a fixed size ring buffer of completed traces. It is not safe for
 // concurrent use; the tracer holds its lock around every call.

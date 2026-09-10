@@ -1,6 +1,8 @@
 package oida
 
-import "github.com/titpetric/oida/model"
+import (
+	"github.com/titpetric/oida/model"
+)
 
 // The recorded data lives in the model package, so the front end can read it
 // without depending on the recorder. These aliases keep it spelled the way the

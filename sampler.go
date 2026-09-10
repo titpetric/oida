@@ -1,6 +1,8 @@
 package oida
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // Sampler decides whether a request is traced. The decision is taken before a
 // trace is allocated, so rejecting a request costs one interface call. The

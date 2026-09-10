@@ -6,20 +6,19 @@ Testing criteria for a passing coverage requirement:
 - Cognitive complexity of 0
 - Have cognitive complexity < 5, but have any coverage
 
-Low cognitive complexity means there are few conditional branches to
-cover. Tests with cognitive complexity 0 would be covered by invocation.
+Low cognitive complexity means there are few conditional branches to cover. Tests with cognitive complexity 0 would be covered by invocation.
 
 ## Packages
 
 | Status | Package       | Coverage | Cognitive | Lines |
 |--------|---------------|----------|-----------|-------|
-| ✅     | .             | 83.23%   | 74        | 459   |
+| ✅     | .             | 82.21%   | 76        | 463   |
 | ❌     | cmd/oida      | 0.00%    | 33        | 259   |
 | ✅     | frontend      | 88.58%   | 73        | 385   |
 | ❌     | frontend/view | 70.74%   | 3784      | 6499  |
-| ✅     | internal      | 85.94%   | 162       | 530   |
+| ✅     | internal      | 85.89%   | 161       | 528   |
 | ✅     | internal/ring | 84.21%   | 18        | 65    |
-| ✅     | model         | 88.93%   | 306       | 1341  |
+| ✅     | model         | 88.51%   | 322       | 1422  |
 | ❌     | storage       | 75.96%   | 75        | 294   |
 | ✅     | tests         | 95.91%   | 7         | 117   |
 
@@ -42,13 +41,13 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     |               | TraceFromContext           | 100.00%  | 0         |
 | ✅     |               | TraceID                    | 100.00%  | 0         |
 | ✅     |               | Tracer.Enabled             | 100.00%  | 1         |
-| ✅     |               | Tracer.Finish              | 93.55%   | 8         |
+| ✅     |               | Tracer.Finish              | 93.75%   | 10        |
 | ✅     |               | Tracer.Middleware          | 84.62%   | 7         |
 | ✅     |               | Tracer.Observe             | 100.00%  | 1         |
 | ✅     |               | Tracer.Options             | 85.71%   | 1         |
 | ✅     |               | Tracer.Reset               | 80.00%   | 2         |
 | ✅     |               | Tracer.ServeHTTP           | 50.00%   | 1         |
-| ✅     |               | Tracer.Snapshot            | 92.86%   | 19        |
+| ✅     |               | Tracer.Snapshot            | 85.71%   | 19        |
 | ✅     |               | Tracer.StartTrace          | 88.89%   | 3         |
 | ✅     |               | Tracer.Subscribe           | 66.67%   | 1         |
 | ✅     |               | Tracer.Trace               | 33.33%   | 4         |
@@ -56,7 +55,7 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     |               | Tracer.begin               | 100.00%  | 1         |
 | ✅     |               | Tracer.countUnsampled      | 77.78%   | 2         |
 | ✅     |               | Tracer.finalize            | 100.00%  | 3         |
-| ✅     |               | Tracer.serve               | 96.30%   | 3         |
+| ✅     |               | Tracer.serve               | 96.49%   | 3         |
 | ✅     |               | Tracer.serveHTTP           | 100.00%  | 1         |
 | ✅     |               | WithTrace                  | 100.00%  | 0         |
 | ✅     | frontend      | Handler                    | 100.00%  | 1         |
@@ -251,7 +250,7 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     |               | ResponseWriter.Bytes       | 100.00%  | 0         |
 | ✅     |               | ResponseWriter.Status      | 100.00%  | 0         |
 | ✅     |               | ResponseWriter.Write       | 100.00%  | 1         |
-| ✅     |               | ResponseWriter.WriteHeader | 85.71%   | 2         |
+| ✅     |               | ResponseWriter.WriteHeader | 83.33%   | 1         |
 | ✅     |               | RoutePattern               | 71.43%   | 4         |
 | ✅     |               | SamplerFor                 | 100.00%  | 1         |
 | ✅     |               | SymbolName                 | 100.00%  | 1         |
@@ -322,20 +321,21 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     |               | StartSpan                  | 100.00%  | 0         |
 | ✅     |               | State.Label                | 60.00%   | 1         |
 | ✅     |               | StateDurations             | 100.00%  | 6         |
+| ✅     |               | States                     | 100.00%  | 0         |
 | ✅     |               | Statistics                 | 90.91%   | 17        |
 | ✅     |               | Trace.Attribute            | 100.00%  | 1         |
-| ✅     |               | Trace.Clone                | 97.14%   | 10        |
+| ✅     |               | Trace.Clone                | 96.97%   | 10        |
 | ✅     |               | Trace.Current              | 100.00%  | 1         |
-| ✅     |               | Trace.Durations            | 90.00%   | 3         |
+| ✅     |               | Trace.Durations            | 81.82%   | 5         |
 | ✅     |               | Trace.Elapsed              | 100.00%  | 2         |
 | ✅     |               | Trace.Err                  | 75.00%   | 2         |
 | ✅     |               | Trace.Error                | 100.00%  | 4         |
-| ✅     |               | Trace.Finish               | 83.33%   | 4         |
+| ✅     |               | Trace.Finish               | 84.62%   | 4         |
 | ✅     |               | Trace.HasKind              | 100.00%  | 5         |
 | ✅     |               | Trace.Info                 | 100.00%  | 1         |
 | ✅     |               | Trace.Kinds                | 85.71%   | 6         |
 | ✅     |               | Trace.RecordError          | 100.00%  | 2         |
-| ✅     |               | Trace.RecordMemory         | 92.86%   | 1         |
+| ✅     |               | Trace.RecordMemory         | 90.91%   | 1         |
 | ✅     |               | Trace.SetAttribute         | 100.00%  | 3         |
 | ✅     |               | Trace.SetAttributes        | 71.43%   | 3         |
 | ✅     |               | Trace.SetName              | 80.00%   | 2         |
@@ -343,15 +343,16 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     |               | Trace.SetState             | 90.91%   | 3         |
 | ✅     |               | Trace.SpanCount            | 80.00%   | 1         |
 | ✅     |               | Trace.StartSpan            | 100.00%  | 2         |
+| ✅     |               | Trace.StateTimes           | 75.00%   | 2         |
 | ✅     |               | Trace.TrackMemory          | 66.67%   | 1         |
 | ✅     |               | Trace.appendLog            | 95.24%   | 7         |
-| ✅     |               | Trace.appendSpan           | 95.24%   | 5         |
+| ✅     |               | Trace.appendSpan           | 96.67%   | 5         |
 | ✅     |               | Trace.lock                 | 100.00%  | 2         |
 | ✅     |               | Trace.logsEnabled          | 100.00%  | 1         |
 | ✅     |               | Trace.openSpan             | 100.00%  | 4         |
 | ✅     |               | Trace.time                 | 66.67%   | 1         |
 | ✅     |               | Trace.unlock               | 100.00%  | 2         |
-| ✅     |               | TraceFromContext           | 75.00%   | 1         |
+| ✅     |               | TraceFromContext           | 85.71%   | 4         |
 | ✅     |               | TraceHost                  | 100.00%  | 2         |
 | ✅     |               | TraceID                    | 75.00%   | 1         |
 | ✅     |               | TraceOptions.now           | 66.67%   | 1         |
@@ -368,11 +369,14 @@ cover. Tests with cognitive complexity 0 would be covered by invocation.
 | ✅     |               | hostStatistics             | 97.67%   | 19        |
 | ✅     |               | invalidOption              | 100.00%  | 0         |
 | ✅     |               | logAttributes              | 100.00%  | 6         |
+| ❌     |               | pauseTotalNs               | 76.92%   | 8         |
 | ✅     |               | peerAddr                   | 100.00%  | 2         |
+| ✅     |               | readMemCounters            | 100.00%  | 0         |
 | ✅     |               | signedDelta                | 100.00%  | 4         |
 | ✅     |               | sourceText                 | 75.00%   | 1         |
 | ✅     |               | spanFromContext            | 75.00%   | 1         |
-| ✅     |               | withTrace                  | 71.43%   | 3         |
+| ✅     |               | stateIndex                 | 66.67%   | 1         |
+| ✅     |               | withTrace                  | 57.14%   | 3         |
 | ❌     | storage       | NewDiskStorage             | 70.59%   | 6         |
 | ✅     |               | NewMemoryStorage           | 100.00%  | 0         |
 | ✅     |               | diskStorage.Cap            | 100.00%  | 0         |

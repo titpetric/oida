@@ -9,9 +9,7 @@ opts.SampleRate = 25
 
 ## 1. Reference
 
-Every field, its default and what it does. The struct is declared in
-`model/options.go` and aliased as `oida.Options`; the yaml tag of a field is
-its name in snake case.
+Every field, its default and what it does. The struct is declared in `model/options.go` and aliased as `oida.Options`; the yaml tag of a field is its name in snake case.
 
 Field: `Options.Path`<br>Default: `/debug/oida`<br>Meaning: Mount path of the UI. Must be absolute; trailing slashes are trimmed. Also implicitly added to `IgnorePaths`.
 

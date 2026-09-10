@@ -5,10 +5,8 @@ package view
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import (
-	"github.com/a-h/templ"
-	templruntime "github.com/a-h/templ/runtime"
-)
+import "github.com/a-h/templ"
+import templruntime "github.com/a-h/templ/runtime"
 
 // memoryGraph draws the memory the spans reported: one step line over the
 // same stretch of time as the drawing above it. Each reading was taken as a

@@ -1,6 +1,8 @@
 package model
 
-import "context"
+import (
+	"context"
+)
 
 // traceKey carries the active trace in a context.
 type traceKey struct{}

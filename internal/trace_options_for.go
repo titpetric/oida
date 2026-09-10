@@ -1,6 +1,8 @@
 package internal
 
-import "github.com/titpetric/oida/model"
+import (
+	"github.com/titpetric/oida/model"
+)
 
 // TraceOptionsFor returns the part of the configuration a recorded trace
 // carries.

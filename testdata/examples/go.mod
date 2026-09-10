@@ -10,7 +10,7 @@ require (
 
 require (
 	github.com/a-h/templ v0.3.1020 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
 )
 
 replace github.com/titpetric/oida => ../..

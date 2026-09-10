@@ -1,6 +1,8 @@
 package view
 
-import "github.com/titpetric/oida/model"
+import (
+	"github.com/titpetric/oida/model"
+)
 
 // Filter applies the list filters of a page.
 func Filter(traces []model.Trace, page Page) []model.Trace {

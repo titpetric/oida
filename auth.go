@@ -1,6 +1,8 @@
 package oida
 
-import "github.com/titpetric/oida/model"
+import (
+	"github.com/titpetric/oida/model"
+)
 
 // Auth evaluates the authentication options: the network allow list, the
 // configured users, and the token verification behind the session cookie and

@@ -1,6 +1,8 @@
 package internal
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestRateSamplerIsDeterministic(t *testing.T) {
 	sampler := NewRateSampler(50)

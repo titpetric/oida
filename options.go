@@ -1,6 +1,8 @@
 package oida
 
-import "github.com/titpetric/oida/model"
+import (
+	"github.com/titpetric/oida/model"
+)
 
 // Options configures telemetry behaviour, the debug front end and the
 // middleware. It lives in the model package so the front end can read it

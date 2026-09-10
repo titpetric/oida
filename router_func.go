@@ -1,6 +1,8 @@
 package oida
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // RouterFunc adapts a registration function to Router, for a router whose own
 // Handle does not fit:

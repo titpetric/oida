@@ -1,6 +1,8 @@
 package oida
 
-import "context"
+import (
+	"context"
+)
 
 // RecordError records err on the innermost span in ctx and on its trace.
 //

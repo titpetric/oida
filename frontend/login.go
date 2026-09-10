@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/titpetric/oida/frontend/view"
-
 	"github.com/titpetric/oida/model"
 )
 
