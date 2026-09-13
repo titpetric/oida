@@ -18,7 +18,7 @@ func TestDiskStorageReadsFromMemory(t *testing.T) {
 	}
 
 	trace := storedTrace(t, "job", time.Now())
-	if err := store.Save(ctx, trace); err != nil {
+	if err := store.Save(ctx, &trace); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -75,7 +75,7 @@ func TestDiskStorageOpensEmpty(t *testing.T) {
 	var ids []string
 	for i, name := range []string{"one", "two", "three"} {
 		trace := storedTrace(t, name, time.Now().Add(time.Duration(i)*time.Second))
-		if err := first.Save(ctx, trace); err != nil {
+		if err := first.Save(ctx, &trace); err != nil {
 			t.Fatalf("Save %s: %v", name, err)
 		}
 		ids = append(ids, trace.ID)
@@ -118,7 +118,7 @@ func TestDiskStorageRestore(t *testing.T) {
 	}
 	for i, name := range []string{"one", "two", "three"} {
 		trace := storedTrace(t, name, time.Now().Add(time.Duration(i)*time.Second))
-		if err := first.Save(ctx, trace); err != nil {
+		if err := first.Save(ctx, &trace); err != nil {
 			t.Fatalf("Save %s: %v", name, err)
 		}
 	}
@@ -154,7 +154,7 @@ func TestDiskStorageRestoreBounds(t *testing.T) {
 	}
 	for i, name := range []string{"one", "two", "three"} {
 		trace := storedTrace(t, name, time.Now().Add(time.Duration(i)*time.Second))
-		if err := full.Save(ctx, trace); err != nil {
+		if err := full.Save(ctx, &trace); err != nil {
 			t.Fatalf("Save %s: %v", name, err)
 		}
 	}

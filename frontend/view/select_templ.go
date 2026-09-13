@@ -5,10 +5,8 @@ package view
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import (
-	"github.com/a-h/templ"
-	templruntime "github.com/a-h/templ/runtime"
-)
+import "github.com/a-h/templ"
+import templruntime "github.com/a-h/templ/runtime"
 
 // selectField renders a dropdown. A native select cannot be styled past its
 // own edge: the open menu belongs to the platform, so it arrives in the wrong

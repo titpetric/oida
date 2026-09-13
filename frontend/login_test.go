@@ -1,6 +1,8 @@
 package frontend
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestLoginBackTarget(t *testing.T) {
 	const base = "/debug/oida"

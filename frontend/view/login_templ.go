@@ -5,10 +5,8 @@ package view
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import (
-	"github.com/a-h/templ"
-	templruntime "github.com/a-h/templ/runtime"
-)
+import "github.com/a-h/templ"
+import templruntime "github.com/a-h/templ/runtime"
 
 // Login renders the sign in screen. It draws none of the recorded data,
 // because the requester has not proven they may see it, and the layout keeps

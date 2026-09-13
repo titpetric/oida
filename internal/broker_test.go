@@ -1,6 +1,8 @@
 package internal
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestBrokerCoalescesNotifications(t *testing.T) {
 	broker := NewBroker()

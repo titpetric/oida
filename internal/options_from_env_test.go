@@ -160,7 +160,7 @@ func envStorage(t *testing.T) model.Storage {
 func storesDocument(t *testing.T, store model.Storage, dir, id string) bool {
 	t.Helper()
 
-	if err := store.Save(context.Background(), model.Trace{ID: id, Name: "probe"}); err != nil {
+	if err := store.Save(context.Background(), &model.Trace{ID: id, Name: "probe"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	name := filepath.Join(dir, id+".json")
@@ -244,7 +244,7 @@ func TestEnvStorageDiskList(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Setenv("OIDA_STORAGE_DISK_PATH", dir)
-	if err := envStorage(t).Save(ctx, model.Trace{ID: "01ARZ3NDEKTSV4RRFFQ69G5FAV", Name: "seed"}); err != nil {
+	if err := envStorage(t).Save(ctx, &model.Trace{ID: "01ARZ3NDEKTSV4RRFFQ69G5FAV", Name: "seed"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -269,7 +269,7 @@ func TestEnvStorageDiskExpire(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Setenv("OIDA_STORAGE_DISK_PATH", dir)
-	if err := envStorage(t).Save(ctx, model.Trace{ID: "01ARZ3NDEKTSV4RRFFQ69G5FAV", Name: "old"}); err != nil {
+	if err := envStorage(t).Save(ctx, &model.Trace{ID: "01ARZ3NDEKTSV4RRFFQ69G5FAV", Name: "old"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 

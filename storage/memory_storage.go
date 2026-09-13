@@ -26,18 +26,21 @@ func NewMemoryStorage(size int) *memoryStorage {
 	return &memoryStorage{log: ring.New(size)}
 }
 
-// Save retains a completed trace, evicting the oldest one when full.
-func (s *memoryStorage) Save(ctx context.Context, trace model.Trace) error {
+// Save retains a completed trace, evicting the oldest one when full. The
+// trace is cloned into the evicted slot, so retention reuses the slot's
+// allocations and the caller keeps the pointer it passed.
+func (s *memoryStorage) Save(ctx context.Context, trace *model.Trace) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.log.Push(&trace)
+	s.log.Push(trace)
 	return nil
 }
 
-// Load returns a retained trace.
+// Load returns a retained trace. The copy is deep: the ring rewrites its
+// slots in place, so nothing handed out may alias them.
 func (s *memoryStorage) Load(ctx context.Context, id string) (model.Trace, error) {
 	if err := ctx.Err(); err != nil {
 		return model.Trace{}, err
@@ -48,10 +51,11 @@ func (s *memoryStorage) Load(ctx context.Context, id string) (model.Trace, error
 	if !ok {
 		return model.Trace{}, model.ErrTraceNotFound
 	}
-	return *trace, nil
+	return trace.Clone(), nil
 }
 
-// List returns retained traces, newest first.
+// List returns retained traces, newest first. The copies are deep: the ring
+// rewrites its slots in place, so nothing handed out may alias them.
 func (s *memoryStorage) List(ctx context.Context, limit int) ([]model.Trace, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -65,7 +69,7 @@ func (s *memoryStorage) List(ctx context.Context, limit int) ([]model.Trace, err
 	}
 	out := make([]model.Trace, 0, len(retained))
 	for _, trace := range retained {
-		out = append(out, *trace)
+		out = append(out, trace.Clone())
 	}
 	return out, nil
 }

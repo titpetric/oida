@@ -1,6 +1,8 @@
 package oida
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // StartRequest is Start for code holding an *http.Request rather than a
 // context. It returns a request carrying the span, so spans started from the

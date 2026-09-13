@@ -63,7 +63,7 @@ func TestStorage(t *testing.T) {
 			traces := make([]model.Trace, 0, 5)
 			for i := range 5 {
 				trace := storedTrace(t, "GET /users", at.Add(time.Duration(i)*time.Second))
-				if err := storage.Save(ctx, trace); err != nil {
+				if err := storage.Save(ctx, &trace); err != nil {
 					t.Fatalf("Save: %v", err)
 				}
 				traces = append(traces, trace)
@@ -122,7 +122,8 @@ func TestMemoryZeroSizeRetainsNothing(t *testing.T) {
 	ctx := context.Background()
 	storage := NewMemoryStorage(0)
 
-	if err := storage.Save(ctx, storedTrace(t, "job", time.Now())); err != nil {
+	trace := storedTrace(t, "job", time.Now())
+	if err := storage.Save(ctx, &trace); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	if length, _ := storage.Len(ctx); length != 0 {
@@ -146,7 +147,8 @@ func TestDiskPrunesByAge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDisk: %v", err)
 	}
-	if err := storage.Save(ctx, storedTrace(t, "job", time.Now())); err != nil {
+	trace := storedTrace(t, "job", time.Now())
+	if err := storage.Save(ctx, &trace); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	if err := storage.Prune(ctx, 0); err != nil {

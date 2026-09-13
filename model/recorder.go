@@ -1,6 +1,8 @@
 package model
 
-import "context"
+import (
+	"context"
+)
 
 // Recorder is the substitutable surface of a tracer: the write side the
 // instrumentation records through, and the read side the debug front end

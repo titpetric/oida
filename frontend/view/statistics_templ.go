@@ -5,12 +5,10 @@ package view
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import (
-	"strconv"
+import "github.com/a-h/templ"
+import templruntime "github.com/a-h/templ/runtime"
 
-	"github.com/a-h/templ"
-	templruntime "github.com/a-h/templ/runtime"
-)
+import "strconv"
 
 // Statistics renders the rolling statistics of the retained traces.
 func statistics(page Page) templ.Component {

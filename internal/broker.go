@@ -1,6 +1,8 @@
 package internal
 
-import "sync"
+import (
+	"sync"
+)
 
 // Broker fans out change notifications to live view subscribers. Sends are non
 // blocking: a subscriber that is behind coalesces updates instead of slowing

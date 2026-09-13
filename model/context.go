@@ -1,6 +1,8 @@
 package model
 
-import "context"
+import (
+	"context"
+)
 
 // traceKey carries the active trace in a context.
 type traceKey struct{}
@@ -33,8 +35,15 @@ func TraceFromContext(ctx context.Context) *Trace {
 	if ctx == nil {
 		return nil
 	}
-	trace, _ := ctx.Value(traceKey{}).(*Trace)
-	return trace
+	if trace, ok := ctx.Value(traceKey{}).(*Trace); ok {
+		return trace
+	}
+	// A span carries its trace, so a context built by Span.Context resolves
+	// without a second context value.
+	if span, ok := ctx.Value(spanKey{}).(*Span); ok && span != nil {
+		return span.trace
+	}
+	return nil
 }
 
 // SpanFromContext returns the innermost span in ctx, or nil.

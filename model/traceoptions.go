@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 // TraceOptions is the configuration a trace is recorded with. The recorder
 // derives it from its own options, so this package stays free of them.

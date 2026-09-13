@@ -226,7 +226,7 @@ func (h *handler) serveDetail(w http.ResponseWriter, r *http.Request, id string)
 	// host filter, so the masthead keeps naming it and the views around it stay
 	// narrowed to the same domain.
 	if page.Host == "" {
-		page.Host = model.TraceHost(trace)
+		page.Host = model.TraceHost(&trace)
 	}
 	page.Trace = &trace
 	page.Rows = view.Rows(trace)

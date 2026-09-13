@@ -3,6 +3,9 @@ package internal
 import (
 	"io"
 	"net/http"
+	"sync"
+
+	"github.com/titpetric/oida/model"
 )
 
 // ResponseWriter records the status and the number of bytes written while
@@ -10,10 +13,10 @@ import (
 type ResponseWriter struct {
 	http.ResponseWriter
 
-	status  int
-	bytes   int64
-	onWrite func()
-	wrote   bool
+	status int
+	bytes  int64
+	trace  *model.Trace
+	wrote  bool
 }
 
 var (
@@ -22,10 +25,30 @@ var (
 	_ io.ReaderFrom       = (*ResponseWriter)(nil)
 )
 
-// NewResponseWriter wraps w to record what the handler answered with. onWrite
-// runs once, when the first byte or the status goes out.
-func NewResponseWriter(w http.ResponseWriter, onWrite func()) *ResponseWriter {
-	return &ResponseWriter{ResponseWriter: w, status: http.StatusOK, onWrite: onWrite}
+// writerPool recycles response writers across requests.
+var writerPool = sync.Pool{
+	New: func() any { return new(ResponseWriter) },
+}
+
+// NewResponseWriter wraps w to record what the handler answered with. The
+// trace moves to StateWriting once, when the first byte or the status goes
+// out. The wrapper comes from a pool; the middleware returns it with Release
+// once the handler is done with it.
+func NewResponseWriter(w http.ResponseWriter, trace *model.Trace) *ResponseWriter {
+	rw := writerPool.Get().(*ResponseWriter)
+	*rw = ResponseWriter{ResponseWriter: w, status: http.StatusOK, trace: trace}
+	return rw
+}
+
+// Release returns the wrapper to the pool. After Release the wrapper is
+// recycled memory, the way the http.ResponseWriter it wraps is invalid after
+// the handler returns.
+func (w *ResponseWriter) Release() {
+	if w == nil {
+		return
+	}
+	*w = ResponseWriter{}
+	writerPool.Put(w)
 }
 
 // Status returns the status the handler wrote.
@@ -51,9 +74,7 @@ func (w *ResponseWriter) WriteHeader(status int) {
 	}
 	w.wrote = true
 	w.status = status
-	if w.onWrite != nil {
-		w.onWrite()
-	}
+	w.trace.SetState(model.StateWriting)
 	w.ResponseWriter.WriteHeader(status)
 }
 

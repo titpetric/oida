@@ -1,6 +1,8 @@
 package frontend
 
-import "testing"
+import (
+	"testing"
+)
 
 // TestDrain covers a channel that is closed as well as one that is merely
 // empty.

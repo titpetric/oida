@@ -130,6 +130,9 @@ func (t *Tracer) StartTrace(ctx context.Context, name string) (context.Context, 
 		return ctx, nil, err
 	}
 	trace := t.begin(id, name, nil)
+	// The caller owns this trace, so its box returns to the pool when the
+	// collector finds it unreachable rather than at Finish.
+	trace.ReleaseOnCollect()
 	trace.SetState(StateProcessing)
 	ctx, _ = trace.StartSpan(WithTrace(ctx, trace), name, KindInternal)
 	return ctx, trace, nil
@@ -142,6 +145,10 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 	if err != nil {
 		return fn(ctx)
 	}
+	// Observe owns the trace end to end, so the box is released once the
+	// trace is finished and stored. Deferred in this order, Release runs
+	// after Finish.
+	defer trace.Release()
 	defer t.Finish(trace)
 
 	err = fn(traced)
@@ -160,21 +167,23 @@ func (t *Tracer) serve(opts Options, next http.Handler, w http.ResponseWriter, r
 	r.Header.Set(RequestIDHeader, id)
 	w.Header().Set(RequestIDHeader, id)
 
-	info := &model.HTTPInfo{
+	name := r.Method + " " + r.URL.Path
+	trace := t.begin(id, name, &model.HTTPInfo{
 		Method:        r.Method,
 		URI:           r.URL.RequestURI(),
 		Host:          r.Host,
 		Protocol:      r.Proto,
 		RemoteAddress: internal.RemoteAddr(r),
 		UserAgent:     r.UserAgent(),
-	}
-	trace := t.begin(id, r.Method+" "+r.URL.Path, info)
+	})
 	trace.SetState(StateReading)
 
-	ctx, span := trace.StartSpan(WithTrace(r.Context(), trace), r.Method+" "+r.URL.Path, KindHTTP)
+	// The root span alone carries the trace into the request context;
+	// TraceFromContext resolves through it.
+	ctx, span := trace.StartSpan(r.Context(), name, KindHTTP)
 	r = r.WithContext(ctx)
 
-	writer := internal.NewResponseWriter(w, func() { trace.SetState(StateWriting) })
+	writer := internal.NewResponseWriter(w, trace)
 
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -201,12 +210,18 @@ func (t *Tracer) finalize(opts Options, trace *Trace, w *internal.ResponseWriter
 		trace.RecordError(fmt.Errorf("http %d", w.Status()))
 	}
 	t.Finish(trace)
+	// The middleware owns this trace end to end: once the handler returned,
+	// nothing outside serve holds it, so its box goes back to the pool.
+	// Traces from StartTrace and Observe are never released; a caller may
+	// hold those past Finish.
+	trace.Release()
+	w.Release()
 }
 
 // begin registers a new trace as active.
 func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	trace := model.NewTrace(id, name, internal.TraceOptionsFor(t.opts))
-	trace.HTTP = info
+	trace.SetHTTPInfo(info)
 	if t.opts.TrackMemoryUse {
 		trace.TrackMemory()
 	}
@@ -214,7 +229,7 @@ func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	t.mu.Lock()
 	t.total++
 	t.sampled++
-	t.requests[model.TraceHost(*trace)]++
+	t.requests[model.TraceHost(trace)]++
 	t.active[id] = trace
 	t.mu.Unlock()
 
@@ -222,7 +237,9 @@ func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	return trace
 }
 
-// Finish completes a trace and moves it into the ring buffer.
+// Finish completes a trace and moves it into the ring buffer. The trace
+// keeps its recorded values, so a caller holding it may still read it; the
+// stored copy is read back through Traces, Trace and Snapshot.
 func (t *Tracer) Finish(trace *Trace) {
 	if t == nil || trace == nil {
 		return
@@ -232,17 +249,18 @@ func (t *Tracer) Finish(trace *Trace) {
 	if t.opts.TrackMemoryUse {
 		trace.RecordMemory()
 	}
-	durations := trace.Durations()
-	stored := trace.Clone()
-	failed := stored.ErrorText != "" || stored.State == StateError
+	durations := trace.StateTimes()
+	failed := trace.Failed()
 
 	t.mu.Lock()
 	delete(t.active, trace.ID)
 	if failed {
 		t.failed++
 	}
-	for state, duration := range durations {
-		t.stateTime[state] += duration
+	for i, duration := range durations {
+		if duration != 0 {
+			t.stateTime[model.States()[i]] += duration
+		}
 	}
 	if t.opts.TrackMemoryUse {
 		t.samples++
@@ -250,7 +268,8 @@ func (t *Tracer) Finish(trace *Trace) {
 	}
 	t.mu.Unlock()
 
-	if err := t.storage.Save(context.Background(), stored); err != nil {
+	// Storage clones what it keeps; the live trace stays the caller's.
+	if err := t.storage.Save(context.Background(), trace); err != nil {
 		t.onError(err)
 	}
 	t.events.Notify()
@@ -303,10 +322,15 @@ func (t *Tracer) Snapshot() Snapshot {
 	for state, duration := range t.stateTime {
 		stateTime[state] = duration
 	}
+	// Cloned under the read lock: Finish recycles a trace only after the
+	// write lock that removes it from active, so a trace cloned here
+	// cannot be released underneath the clone.
 	live := make([]Trace, 0, len(t.active))
-	pending := make([]*Trace, 0, len(t.active))
 	for _, trace := range t.active {
-		pending = append(pending, trace)
+		live = append(live, trace.Clone())
+		for state, duration := range trace.Durations() {
+			stateTime[state] += duration
+		}
 	}
 	total, sampled, unsampled := t.total, t.sampled, t.unsampled
 	failed := t.failed
@@ -317,12 +341,6 @@ func (t *Tracer) Snapshot() Snapshot {
 	}
 	t.mu.RUnlock()
 
-	for _, trace := range pending {
-		live = append(live, trace.Clone())
-		for state, duration := range trace.Durations() {
-			stateTime[state] += duration
-		}
-	}
 	sort.Slice(live, func(i, j int) bool { return live[i].StartedAt.After(live[j].StartedAt) })
 
 	log, err := t.storage.List(context.Background(), 0)
@@ -412,17 +430,15 @@ func (t *Tracer) Live() []Trace {
 	if t == nil {
 		return nil
 	}
+	// Cloned under the read lock, so Finish cannot recycle a trace between
+	// collecting it and copying it.
 	t.mu.RLock()
-	pending := make([]*Trace, 0, len(t.active))
+	out := make([]Trace, 0, len(t.active))
 	for _, trace := range t.active {
-		pending = append(pending, trace)
+		out = append(out, trace.Clone())
 	}
 	t.mu.RUnlock()
 
-	out := make([]Trace, 0, len(pending))
-	for _, trace := range pending {
-		out = append(out, trace.Clone())
-	}
 	sort.Slice(out, func(i, j int) bool { return out[i].StartedAt.After(out[j].StartedAt) })
 	return out
 }
@@ -443,13 +459,16 @@ func (t *Tracer) Trace(id string) (Trace, bool) {
 		t.onError(err)
 	}
 
+	// Cloned under the read lock, so Finish cannot recycle the trace
+	// between the lookup and the copy.
 	t.mu.RLock()
 	active, ok := t.active[id]
-	t.mu.RUnlock()
-	if !ok {
-		return Trace{}, false
+	var copied Trace
+	if ok {
+		copied = active.Clone()
 	}
-	return active.Clone(), true
+	t.mu.RUnlock()
+	return copied, ok
 }
 
 // Reset drops every retained trace and the lifetime counters. Traces in flight

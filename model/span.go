@@ -35,6 +35,10 @@ type Span struct {
 
 	trace *Trace
 
+	// boxCtx is the preallocated context of the span's box, nil on inert
+	// copies.
+	boxCtx *spanCtx
+
 	// err is the value behind Error, so Err returns what was recorded.
 	err   error
 	ended bool
@@ -176,12 +180,20 @@ func (s *Span) Trace() *Trace {
 }
 
 // Context returns a context with the span as the active parent, so spans
-// started from it nest below this one.
+// started from it nest below this one. The context comes preallocated with
+// the span, so one derivation per span costs nothing; a second call rebinds
+// that same context to the new parent.
 func (s *Span) Context(ctx context.Context) context.Context {
 	if s == nil {
 		return ctx
 	}
-	return context.WithValue(withTrace(ctx, s.trace), spanKey{}, s)
+	if s.boxCtx != nil {
+		s.boxCtx.Context = ctx
+		return s.boxCtx
+	}
+	// The span alone: TraceFromContext resolves the trace through it, so a
+	// span context costs one value instead of two.
+	return context.WithValue(ctx, spanKey{}, s)
 }
 
 // SourceText returns the "file:L12" location of the span, or an empty string.
@@ -218,32 +230,34 @@ func (s *Span) Inert() Span {
 	copied := *s
 	copied.mu = nil
 	copied.trace = nil
+	copied.boxCtx = nil
 	if s.Attributes != nil {
 		copied.Attributes = maps.Clone(s.Attributes)
 	}
 	return copied
 }
 
-// clone returns an inert copy of the span, safe to hand to snapshot consumers.
-func (s *Span) clone() *Span {
+// cloneInto writes an inert copy of the span into dst, one entry of the
+// block Trace.Clone allocates for the whole span list.
+func (s *Span) cloneInto(dst *Span) {
 	if s == nil {
-		return nil
+		return
 	}
 	s.lock()
 	defer s.unlock()
-	copied := *s
-	copied.mu = nil
-	copied.trace = nil
+	*dst = *s
+	dst.mu = nil
+	dst.trace = nil
+	dst.boxCtx = nil
 	if s.Attributes != nil {
-		copied.Attributes = maps.Clone(s.Attributes)
+		dst.Attributes = maps.Clone(s.Attributes)
 	}
-	if !copied.ended {
-		copied.Duration = s.now().Sub(s.StartedAt)
-		if copied.Duration < 0 {
-			copied.Duration = 0
+	if !dst.ended {
+		dst.Duration = s.now().Sub(s.StartedAt)
+		if dst.Duration < 0 {
+			dst.Duration = 0
 		}
 	}
-	return &copied
 }
 
 // now returns the current time from the clock of the owning trace. The caller

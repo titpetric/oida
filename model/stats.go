@@ -102,7 +102,7 @@ func hostStatistics(window []Trace, requests map[string]uint64) []HostStat {
 	}
 
 	for _, trace := range window {
-		name := TraceHost(trace)
+		name := TraceHost(&trace)
 		stat := host(name)
 		stat.Traces++
 		if trace.ErrorText != "" || trace.State == StateError {
@@ -145,8 +145,8 @@ func hostStatistics(window []Trace, requests map[string]uint64) []HostStat {
 
 // TraceHost returns the host a trace belongs to. Background traces have none,
 // so they group under a stable placeholder rather than an empty string.
-func TraceHost(trace Trace) string {
-	if trace.HTTP == nil || trace.HTTP.Host == "" {
+func TraceHost(trace *Trace) string {
+	if trace == nil || trace.HTTP == nil || trace.HTTP.Host == "" {
 		return BackgroundHost
 	}
 	return trace.HTTP.Host

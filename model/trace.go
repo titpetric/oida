@@ -5,7 +5,6 @@ import (
 	"errors"
 	"maps"
 	"math"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -48,8 +47,8 @@ type Trace struct {
 	maxSpans  int
 	sequence  int
 	changedAt time.Time
-	stateTime map[State]time.Duration
-	memStats  runtime.MemStats
+	stateTime [numStates]time.Duration
+	memBefore memCounters
 	finished  bool
 
 	// Logs are the log lines recorded while the trace ran, in write order,
@@ -60,28 +59,47 @@ type Trace struct {
 
 	// captureLogs gates Info and Error, set once from TraceOptions.
 	captureLogs bool
+
+	// box is the pooled allocation the trace lives in, nil on clones and
+	// on decoded traces.
+	box *traceBox
+
+	// spanBlock is the backing block the Spans of a clone point into, kept
+	// so CloneInto can rewrite it in place instead of allocating a new one.
+	// It is nil on live traces.
+	spanBlock []Span
 }
 
 // NewTrace returns a trace ready to record spans. The recorder passes the parts
 // of its configuration a trace needs; everything else about a trace is set by
 // recording it.
+//
+// Every trace is backed by a pooled box: the trace, its mutex, its HTTP info
+// and slots for the first spans share one reused allocation. A trace that is
+// never released is collected like any other value; Release is the
+// recorder's, for the traces whose lifetime it owns end to end.
 func NewTrace(id, name string, opts TraceOptions) *Trace {
+	box := tracePool.Get().(*traceBox)
+	box.reset()
 	now := opts.now()
-	return &Trace{
+	trace := &box.trace
+	*trace = Trace{
 		ID:        id,
 		Name:      name,
 		Service:   opts.Service,
 		State:     StateStarting,
 		StartedAt: now,
 		UpdatedAt: now,
-		mu:        new(sync.Mutex),
+		mu:        &box.mu,
 		clock:     opts.Clock,
 		maxSpans:  opts.MaxSpans,
 		changedAt: now,
-		stateTime: make(map[State]time.Duration, len(states)),
 
 		captureLogs: opts.CaptureLogs,
+		box:         box,
 	}
+	trace.Spans = box.ptrs[:0:len(box.ptrs)]
+	return trace
 }
 
 // StartSpan records a span whose parent is the active span in ctx. The returned
@@ -111,15 +129,27 @@ func (t *Trace) appendSpan(parent *Span, name string, kind Kind) *Span {
 	}
 
 	t.sequence++
-	span := &Span{
+	// One allocation carries the span and its lock; a pooled trace hands
+	// out slots from its own box before touching the heap.
+	var box *spanBox
+	if t.box != nil && t.box.used < len(t.box.spans) {
+		box = &t.box.spans[t.box.used]
+		t.box.used++
+	} else {
+		box = new(spanBox)
+	}
+	span := &box.span
+	*span = Span{
 		ID:        t.sequence,
 		TraceID:   t.ID,
 		Name:      name,
 		Kind:      kind,
 		StartedAt: t.time(),
-		mu:        new(sync.Mutex),
+		mu:        &box.mu,
 		trace:     t,
+		boxCtx:    &box.ctx,
 	}
+	box.ctx.span = span
 	if parent != nil && parent.TraceID == t.ID {
 		span.ParentID = parent.ID
 		span.Depth = parent.Depth + 1
@@ -166,7 +196,7 @@ func (t *Trace) SetState(state State) {
 		return
 	}
 	now := t.time()
-	t.stateTime[t.State] += now.Sub(t.changedAt)
+	t.stateTime[stateIndex(t.State)] += now.Sub(t.changedAt)
 	t.State = state
 	t.changedAt = now
 	t.UpdatedAt = now
@@ -184,7 +214,7 @@ func (t *Trace) RecordError(err error) {
 	t.err = err
 	t.ErrorText = err.Error()
 	now := t.time()
-	t.stateTime[t.State] += now.Sub(t.changedAt)
+	t.stateTime[stateIndex(t.State)] += now.Sub(t.changedAt)
 	t.State = StateError
 	t.changedAt = now
 	t.UpdatedAt = now
@@ -238,6 +268,25 @@ func (t *Trace) Attribute(key string) (any, bool) {
 	return value, ok
 }
 
+// SetHTTPInfo records the request metadata of an HTTP trace, copying the
+// value. The pointer is not retained, so a caller's stack-allocated HTTPInfo
+// stays on the stack; a pooled trace copies into its own box. A nil info
+// leaves the trace as it is.
+func (t *Trace) SetHTTPInfo(info *HTTPInfo) {
+	if t == nil || info == nil {
+		return
+	}
+	t.lock()
+	defer t.unlock()
+	if t.box != nil {
+		t.box.http = *info
+		t.HTTP = &t.box.http
+		return
+	}
+	copied := *info
+	t.HTTP = &copied
+}
+
 // SetResponse records the response metadata of an HTTP trace.
 func (t *Trace) SetResponse(status int, bytes int64, route string) {
 	if t == nil {
@@ -272,6 +321,17 @@ func (t *Trace) Err() error {
 	default:
 		return nil
 	}
+}
+
+// Failed reports whether the trace recorded an error, by message or by
+// state.
+func (t *Trace) Failed() bool {
+	if t == nil {
+		return false
+	}
+	t.lock()
+	defer t.unlock()
+	return t.ErrorText != "" || t.State == StateError
 }
 
 // SpanCount returns the number of recorded spans.
@@ -345,41 +405,82 @@ func (t *Trace) HasKind(kind Kind) bool {
 // Clone returns an inert deep copy of the trace, safe to hand to snapshot
 // consumers. Mutating the copy cannot affect the tracer.
 func (t *Trace) Clone() Trace {
+	var copied Trace
+	t.CloneInto(&copied)
+	return copied
+}
+
+// CloneInto writes an inert deep copy of the trace into dst, reusing the
+// allocations dst already owns when they fit: the HTTPInfo, the span block,
+// the span pointer slice and the log slice are rewritten in place. It is how
+// the ring buffer retains a trace without allocating for it, and Clone with
+// an empty destination.
+func (t *Trace) CloneInto(dst *Trace) {
+	if dst == nil {
+		return
+	}
 	if t == nil {
-		return Trace{}
+		*dst = Trace{}
+		return
 	}
 	t.lock()
 	defer t.unlock()
 
+	// What the destination brings to reuse, taken before it is overwritten.
+	reuseHTTP := dst.HTTP
+	reuseSpans := dst.Spans
+	reuseBlock := dst.spanBlock
+	reuseLogs := dst.Logs
+
 	copied := *t
 	copied.mu = nil
 	copied.clock = nil
-	copied.stateTime = nil
 	copied.InFlight = !t.finished
-	copied.memStats = runtime.MemStats{}
+	copied.box = nil
+	copied.Spans = nil
+	copied.spanBlock = nil
+	copied.Logs = nil
 	if t.HTTP != nil {
-		info := *t.HTTP
-		copied.HTTP = &info
+		if reuseHTTP == nil {
+			reuseHTTP = &HTTPInfo{}
+		}
+		*reuseHTTP = *t.HTTP
+		copied.HTTP = reuseHTTP
 	}
 	if t.Attributes != nil {
 		copied.Attributes = maps.Clone(t.Attributes)
 	}
-	if len(t.Spans) > 0 {
-		copied.Spans = make([]*Span, 0, len(t.Spans))
-		for _, span := range t.Spans {
-			copied.Spans = append(copied.Spans, span.clone())
+	if n := len(t.Spans); n > 0 {
+		// One block carries every span copy: two allocations for the
+		// whole list, and none once the destination holds the capacity.
+		if cap(reuseBlock) < n {
+			reuseBlock = make([]Span, n)
 		}
+		if cap(reuseSpans) < n {
+			reuseSpans = make(Spans, n)
+		}
+		block, spans := reuseBlock[:n], reuseSpans[:n]
+		for i, span := range t.Spans {
+			span.cloneInto(&block[i])
+			spans[i] = &block[i]
+		}
+		copied.Spans = spans
+		copied.spanBlock = block
 	}
 	if copied.Duration == 0 {
 		copied.Duration = t.time().Sub(t.StartedAt)
 	}
-	if len(t.Logs) > 0 {
-		copied.Logs = make([]LogEntry, 0, len(t.Logs))
-		for _, entry := range t.Logs {
-			copied.Logs = append(copied.Logs, entry.clone())
+	if n := len(t.Logs); n > 0 {
+		if cap(reuseLogs) < n {
+			reuseLogs = make([]LogEntry, 0, n)
 		}
+		logs := reuseLogs[:0]
+		for _, entry := range t.Logs {
+			logs = append(logs, entry.clone())
+		}
+		copied.Logs = logs
 	}
-	return copied
+	*dst = copied
 }
 
 // Durations returns the time spent per state, including the time accumulated in
@@ -390,14 +491,31 @@ func (t *Trace) Durations() map[State]time.Duration {
 	}
 	t.lock()
 	defer t.unlock()
-	result := make(map[State]time.Duration, len(t.stateTime))
-	for state, duration := range t.stateTime {
-		result[state] = duration
+	result := make(map[State]time.Duration, numStates)
+	for i, duration := range t.stateTime {
+		if duration != 0 {
+			result[states[i]] = duration
+		}
 	}
 	if !t.finished {
 		result[t.State] += t.time().Sub(t.changedAt)
 	}
 	return result
+}
+
+// StateTimes returns the time spent per state, indexed as States lists them.
+// It is Durations without the map, for a caller aggregating many traces.
+func (t *Trace) StateTimes() (out [numStates]time.Duration) {
+	if t == nil {
+		return out
+	}
+	t.lock()
+	defer t.unlock()
+	out = t.stateTime
+	if !t.finished {
+		out[stateIndex(t.State)] += t.time().Sub(t.changedAt)
+	}
+	return out
 }
 
 // Finish closes the trace, ending every open span. It is idempotent.
@@ -411,7 +529,7 @@ func (t *Trace) Finish() {
 		return
 	}
 	now := t.time()
-	t.stateTime[t.State] += now.Sub(t.changedAt)
+	t.stateTime[stateIndex(t.State)] += now.Sub(t.changedAt)
 	t.changedAt = now
 	t.UpdatedAt = now
 	t.Duration = now.Sub(t.StartedAt)
@@ -419,8 +537,9 @@ func (t *Trace) Finish() {
 		t.Duration = 0
 	}
 	t.finished = true
-	spans := make([]*Span, len(t.Spans))
-	copy(spans, t.Spans)
+	// The slice header alone: spans append only while the trace runs, and
+	// the finished flag above just ended that.
+	spans := t.Spans
 	t.unlock()
 
 	for i := len(spans) - 1; i >= 0; i-- {
@@ -434,7 +553,7 @@ func (t *Trace) TrackMemory() {
 	if t == nil {
 		return
 	}
-	runtime.ReadMemStats(&t.memStats)
+	t.memBefore = readMemCounters()
 }
 
 // RecordMemory records the process-wide allocation deltas observed while the
@@ -444,17 +563,24 @@ func (t *Trace) RecordMemory() {
 	if t == nil {
 		return
 	}
-	var after runtime.MemStats
-	runtime.ReadMemStats(&after)
+	after := readMemCounters()
 
 	t.Memory = MemoryUse{
-		HeapDelta:      signedDelta(after.HeapAlloc, t.memStats.HeapAlloc),
-		AllocatedBytes: delta(after.TotalAlloc, t.memStats.TotalAlloc),
-		Allocations:    delta(after.Mallocs, t.memStats.Mallocs),
-		GCCycles:       uint32(delta(uint64(after.NumGC), uint64(t.memStats.NumGC))),
-		GCPause:        time.Duration(delta(after.PauseTotalNs, t.memStats.PauseTotalNs)),
+		HeapDelta:      signedDelta(after.heapBytes, t.memBefore.heapBytes),
+		AllocatedBytes: delta(after.allocBytes, t.memBefore.allocBytes),
+		Allocations:    delta(after.allocs, t.memBefore.allocs),
+		GCCycles:       uint32(delta(after.gcCycles, t.memBefore.gcCycles)),
+		GCPause:        time.Duration(delta(after.pauseNs, t.memBefore.pauseNs)),
 	}
-	t.memStats = runtime.MemStats{}
+	t.memBefore = memCounters{}
+}
+
+// spanBox is one allocation holding a span, the mutex it locks with and the
+// context it derives, kept apart from the copyable Span value itself.
+type spanBox struct {
+	span Span
+	mu   sync.Mutex
+	ctx  spanCtx
 }
 
 // delta returns after-before, clamped at zero.
