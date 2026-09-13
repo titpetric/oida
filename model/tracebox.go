@@ -28,21 +28,15 @@ type traceBox struct {
 	armed bool
 }
 
-// reset clears what an earlier trace left in the box, in place: nothing is
-// reallocated. Only the span slots that were handed out are zeroed, which
-// also drops the parent contexts they referenced; ptrs is left alone, its
-// entries point into the box's own spans array and are overwritten through
-// the Spans seed before they are read. It runs when the box is reused, not
-// when it is released, so a released trace keeps its values until the
-// memory changes owners. The mutex is left alone, unlocked is its zero
-// state, and armed survives with the registration it mirrors.
+// reset clears the box in place for reuse; nothing is reallocated. It runs
+// when the box is reused, not when it is released, so a released trace
+// keeps its values until the memory changes owners. armed survives the
+// wipe: it mirrors the runtime's finalizer registration, which reuse does
+// not clear.
 func (b *traceBox) reset() {
-	b.trace = Trace{}
-	b.http = HTTPInfo{}
-	for i := range b.used {
-		b.spans[i] = spanBox{}
-	}
-	b.used = 0
+	armed := b.armed
+	*b = traceBox{}
+	b.armed = armed
 }
 
 // tracePool recycles trace boxes across requests. A box is cleared when it
