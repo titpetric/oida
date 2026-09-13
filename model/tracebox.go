@@ -22,50 +22,24 @@ type traceBox struct {
 	used  int
 }
 
-// tracePool recycles trace boxes across requests. Release zeroes a box
-// before putting it back, so a box from the pool is as clean as a new one.
+// tracePool recycles trace boxes across requests. A box is cleared when it
+// is acquired, not when it is released, so a released trace keeps its
+// recorded values until the box is reused.
 var tracePool = sync.Pool{
 	New: func() any { return new(traceBox) },
 }
 
-// AcquireTrace returns a trace the way NewTrace does, backed by a pooled
-// allocation: the trace, its mutex, its HTTP info and the first spans share
-// one reused block. The recorder returns it with Release once the trace is
-// finished and cloned; a trace that is never released is collected like any
-// other allocation.
-func AcquireTrace(id, name string, opts TraceOptions) *Trace {
-	box := tracePool.Get().(*traceBox)
-	now := opts.now()
-	trace := &box.trace
-	*trace = Trace{
-		ID:        id,
-		Name:      name,
-		Service:   opts.Service,
-		State:     StateStarting,
-		StartedAt: now,
-		UpdatedAt: now,
-		mu:        &box.mu,
-		clock:     opts.Clock,
-		maxSpans:  opts.MaxSpans,
-		changedAt: now,
-
-		captureLogs: opts.CaptureLogs,
-		box:         box,
-	}
-	trace.Spans = box.ptrs[:0:len(box.ptrs)]
-	return trace
-}
-
-// Release returns the trace to the pool it was acquired from. After Release
-// the trace and every span it recorded are recycled memory: a *Trace or
-// *Span kept past this point is invalid, the way an http.ResponseWriter is
-// invalid after the handler returns. It is safe on a nil trace and a no-op
-// on a trace that did not come from AcquireTrace.
+// Release returns the trace's box to the pool. The recorded values stay in
+// place until the box is reused, so a holder may still read the trace; once
+// NewTrace picks the box up again, the memory belongs to the new trace. The
+// recorder releases only the traces whose lifetime it owns end to end. It is
+// safe on a nil trace and a no-op on a clone or a decoded trace, which have
+// no box.
 func (t *Trace) Release() {
 	if t == nil || t.box == nil {
 		return
 	}
 	box := t.box
-	*box = traceBox{}
+	t.box = nil
 	tracePool.Put(box)
 }

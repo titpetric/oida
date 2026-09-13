@@ -203,13 +203,17 @@ func (t *Tracer) finalize(opts Options, trace *Trace, w *internal.ResponseWriter
 		trace.RecordError(fmt.Errorf("http %d", w.Status()))
 	}
 	t.Finish(trace)
+	// The middleware owns this trace end to end: once the handler returned,
+	// nothing outside serve holds it, so its box goes back to the pool.
+	// Traces from StartTrace and Observe are never released; a caller may
+	// hold those past Finish.
+	trace.Release()
 	w.Release()
 }
 
-// begin registers a new trace as active. The trace comes from the pool;
-// Finish returns it once its clone is retained.
+// begin registers a new trace as active.
 func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
-	trace := model.AcquireTrace(id, name, internal.TraceOptionsFor(t.opts))
+	trace := model.NewTrace(id, name, internal.TraceOptionsFor(t.opts))
 	trace.SetHTTPInfo(info)
 	if t.opts.TrackMemoryUse {
 		trace.TrackMemory()
@@ -226,11 +230,9 @@ func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	return trace
 }
 
-// Finish completes a trace and moves it into the ring buffer. The trace is
-// recycled afterwards: the trace and its spans are invalid once Finish
-// returns, the way an http.ResponseWriter is invalid after the handler
-// returns. What Finish retained is read back through Traces, Trace and
-// Snapshot.
+// Finish completes a trace and moves it into the ring buffer. The trace
+// keeps its recorded values, so a caller holding it may still read it; the
+// stored copy is read back through Traces, Trace and Snapshot.
 func (t *Tracer) Finish(trace *Trace) {
 	if t == nil || trace == nil {
 		return
@@ -259,13 +261,11 @@ func (t *Tracer) Finish(trace *Trace) {
 	}
 	t.mu.Unlock()
 
-	// Storage clones what it keeps; the live trace stays the recorder's to
-	// release.
+	// Storage clones what it keeps; the live trace stays the caller's.
 	if err := t.storage.Save(context.Background(), trace); err != nil {
 		t.onError(err)
 	}
 	t.events.Notify()
-	trace.Release()
 }
 
 // Subscribe returns a channel notified whenever a trace starts or completes,

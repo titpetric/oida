@@ -7,7 +7,7 @@ import (
 )
 
 func TestSpanContextResolves(t *testing.T) {
-	trace, _ := acquireTestTrace()
+	trace, _ := spanTestTrace()
 	type parentKey struct{}
 	parent, cancel := context.WithCancel(context.WithValue(context.Background(), parentKey{}, "kept"))
 	defer cancel()

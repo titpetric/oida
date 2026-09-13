@@ -60,12 +60,8 @@ type Trace struct {
 	// captureLogs gates Info and Error, set once from TraceOptions.
 	captureLogs bool
 
-	// spanPtrs seeds Spans, so the first two spans append without growing
-	// a slice on the heap.
-	spanPtrs [2]*Span
-
-	// box is the pooled allocation an acquired trace lives in, nil on a
-	// trace from NewTrace and on clones.
+	// box is the pooled allocation the trace lives in, nil on clones and
+	// on decoded traces.
 	box *traceBox
 
 	// spanBlock is the backing block the Spans of a clone point into, kept
@@ -77,23 +73,32 @@ type Trace struct {
 // NewTrace returns a trace ready to record spans. The recorder passes the parts
 // of its configuration a trace needs; everything else about a trace is set by
 // recording it.
+//
+// Every trace is backed by a pooled box: the trace, its mutex, its HTTP info
+// and slots for the first spans share one reused allocation. A trace that is
+// never released is collected like any other value; Release is the
+// recorder's, for the traces whose lifetime it owns end to end.
 func NewTrace(id, name string, opts TraceOptions) *Trace {
+	box := tracePool.Get().(*traceBox)
+	*box = traceBox{}
 	now := opts.now()
-	trace := &Trace{
+	trace := &box.trace
+	*trace = Trace{
 		ID:        id,
 		Name:      name,
 		Service:   opts.Service,
 		State:     StateStarting,
 		StartedAt: now,
 		UpdatedAt: now,
-		mu:        new(sync.Mutex),
+		mu:        &box.mu,
 		clock:     opts.Clock,
 		maxSpans:  opts.MaxSpans,
 		changedAt: now,
 
 		captureLogs: opts.CaptureLogs,
+		box:         box,
 	}
-	trace.Spans = trace.spanPtrs[:0:len(trace.spanPtrs)]
+	trace.Spans = box.ptrs[:0:len(box.ptrs)]
 	return trace
 }
 
@@ -431,7 +436,6 @@ func (t *Trace) CloneInto(dst *Trace) {
 	copied.mu = nil
 	copied.clock = nil
 	copied.InFlight = !t.finished
-	copied.spanPtrs = [2]*Span{}
 	copied.box = nil
 	copied.Spans = nil
 	copied.spanBlock = nil
