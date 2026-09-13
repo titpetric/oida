@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"strconv"
 	"testing"
 )
 
@@ -75,6 +76,23 @@ func TestTraceRelease(t *testing.T) {
 		if reused.ID != "t2" || reused.SpanCount() != 0 || reused.box.used != 0 {
 			t.Errorf("NewTrace reused a box without clearing it: %+v", reused)
 		}
+	}
+}
+
+// BenchmarkTraceBoxReset pins the cost of clearing a box for reuse, at the
+// usual one span and at the inline capacity. The used-gated loop measured
+// faster than whole-array literals, clear() and a full struct wipe.
+func BenchmarkTraceBoxReset(b *testing.B) {
+	for _, used := range []int{1, 4} {
+		b.Run("used="+strconv.Itoa(used), func(b *testing.B) {
+			box := new(traceBox)
+			b.ReportAllocs()
+			for b.Loop() {
+				box.used = used
+				box.trace.ID = "t1"
+				box.reset()
+			}
+		})
 	}
 }
 

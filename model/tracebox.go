@@ -28,16 +28,20 @@ type traceBox struct {
 	armed bool
 }
 
-// reset assigns every data field its zero value, in place: the storage is
-// inline, so the allocation is reused and nothing is freed. It runs when
-// the box is reused, not when it is released, so a released trace keeps its
-// values until the memory changes owners. armed is not touched: it mirrors
-// the runtime's finalizer registration, which reuse does not clear.
+// reset assigns every allocation-holding field its zero value, in place:
+// the storage is inline, so nothing is freed or recreated. Only the slots
+// below used are cleared, which is complete: a slot past used was never
+// written, and ptrs[i] is set only below used. It runs when the box is
+// reused, not when it is released, so a released trace keeps its values
+// until the memory changes owners. armed is not touched: it mirrors the
+// runtime's finalizer registration, which reuse does not clear.
 func (b *traceBox) reset() {
 	b.trace = Trace{}
 	b.http = HTTPInfo{}
-	b.spans = [4]spanBox{}
-	b.ptrs = [4]*Span{}
+	for i := range b.used {
+		b.spans[i] = spanBox{}
+		b.ptrs[i] = nil
+	}
 	b.used = 0
 }
 
