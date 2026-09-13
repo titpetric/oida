@@ -39,10 +39,34 @@ func RemoteAddr(r *http.Request) string {
 	if len(chain) > 0 {
 		return chain[0].String()
 	}
+	// The request's own RemoteAddr was formatted by the server, so once the
+	// parse validates it the host substring is returned as is: formatting a
+	// new string would cost the recorded path one allocation per request.
+	// Mapped and zoned addresses still normalize through formatting.
+	if addrPort, err := netip.ParseAddrPort(r.RemoteAddr); err == nil {
+		if addr := addrPort.Addr(); addr.Is4In6() || addr.Zone() != "" {
+			return addr.Unmap().WithZone("").String()
+		}
+		return hostOnly(r.RemoteAddr)
+	}
 	if addr, ok := parseForwardedAddr(r.RemoteAddr); ok {
 		return addr.String()
 	}
 	return r.RemoteAddr
+}
+
+// hostOnly slices the host out of a "host:port" address the server
+// formatted, dropping IPv6 brackets. Callers have validated the shape.
+func hostOnly(addr string) string {
+	i := strings.LastIndexByte(addr, ':')
+	if i < 0 {
+		return addr
+	}
+	host := addr[:i]
+	if len(host) >= 2 && host[0] == '[' && host[len(host)-1] == ']' {
+		host = host[1 : len(host)-1]
+	}
+	return host
 }
 
 // forwardedChain collects the forwarding chain from the request headers. The
