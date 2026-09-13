@@ -160,9 +160,9 @@ type Sampler interface {
 // bounded folder of JSON documents, and Configure builds either one from the
 // environment. Set this field to retain traces somewhere else.
 type Storage interface {
-	// Save retains a completed trace. The pointer is the recorder's live
-	// trace and is recycled after the call: a driver copies what it keeps,
-	// with Clone or CloneInto, and must not hold on to the pointer.
+	// Save retains a completed trace. The pointer is only lent for the
+	// call: a driver copies what it keeps, with Clone or CloneInto, and
+	// must not hold on to it.
 	Save(ctx context.Context, trace *Trace) error
 
 	// Load returns a retained trace, or ErrTraceNotFound.
@@ -617,7 +617,7 @@ func (*Tracer) Enabled() bool
 
 ### Finish
 
-Finish completes a trace and moves it into the ring buffer. The trace is recycled afterwards: the trace and its spans are invalid once Finish returns, the way an http.ResponseWriter is invalid after the handler returns. What Finish retained is read back through Traces, Trace and Snapshot.
+Finish completes a trace and moves it into the ring buffer. The trace keeps its recorded values, so a caller holding it may still read it; the stored copy is read back through Traces, Trace and Snapshot.
 
 ```go
 func (*Tracer) Finish(trace *Trace)

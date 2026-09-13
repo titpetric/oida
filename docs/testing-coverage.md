@@ -12,13 +12,13 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 
 | Status | Package       | Coverage | Cognitive | Lines |
 |--------|---------------|----------|-----------|-------|
-| ✅     | .             | 84.06%   | 73        | 466   |
+| ✅     | .             | 84.21%   | 73        | 469   |
 | ❌     | cmd/oida      | 0.00%    | 33        | 259   |
 | ✅     | frontend      | 88.58%   | 73        | 385   |
 | ❌     | frontend/view | 70.74%   | 3784      | 6499  |
 | ✅     | internal      | 85.42%   | 169       | 558   |
 | ✅     | internal/ring | 84.21%   | 18        | 65    |
-| ✅     | model         | 89.29%   | 343       | 1531  |
+| ✅     | model         | 89.30%   | 343       | 1512  |
 | ❌     | storage       | 76.09%   | 75        | 297   |
 | ✅     | tests         | 95.91%   | 7         | 117   |
 
@@ -41,7 +41,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | TraceFromContext           | 100.00%  | 0         |
 | ✅     |               | TraceID                    | 100.00%  | 0         |
 | ✅     |               | Tracer.Enabled             | 100.00%  | 1         |
-| ✅     |               | Tracer.Finish              | 93.55%   | 9         |
+| ✅     |               | Tracer.Finish              | 93.33%   | 9         |
 | ✅     |               | Tracer.Middleware          | 84.62%   | 7         |
 | ✅     |               | Tracer.Observe             | 100.00%  | 1         |
 | ✅     |               | Tracer.Options             | 85.71%   | 1         |
@@ -276,8 +276,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Ring.List                  | 87.50%   | 5         |
 | ✅     |               | Ring.Push                  | 100.00%  | 3         |
 | ✅     |               | Ring.Reset                 | 80.00%   | 1         |
-| ✅     | model         | AcquireTrace               | 100.00%  | 0         |
-| ✅     |               | Attributes.Int64           | 56.25%   | 1         |
+| ✅     | model         | Attributes.Int64           | 56.25%   | 1         |
 | ✅     |               | Auth.Authenticate          | 100.00%  | 5         |
 | ✅     |               | Auth.LoginRequired         | 100.00%  | 2         |
 | ✅     |               | Auth.NetworkAllowed        | 100.00%  | 6         |
@@ -328,7 +327,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Statistics                 | 90.91%   | 17        |
 | ✅     |               | Trace.Attribute            | 100.00%  | 1         |
 | ✅     |               | Trace.Clone                | 100.00%  | 0         |
-| ✅     |               | Trace.CloneInto            | 96.25%   | 19        |
+| ✅     |               | Trace.CloneInto            | 96.10%   | 19        |
 | ✅     |               | Trace.Current              | 100.00%  | 1         |
 | ✅     |               | Trace.Durations            | 81.82%   | 5         |
 | ✅     |               | Trace.Elapsed              | 100.00%  | 2         |
@@ -362,7 +361,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | TraceFromContext           | 85.71%   | 4         |
 | ✅     |               | TraceHost                  | 100.00%  | 2         |
 | ✅     |               | TraceID                    | 75.00%   | 1         |
-| ✅     |               | TraceOptions.now           | 66.67%   | 1         |
+| ✅     |               | TraceOptions.now           | 100.00%  | 1         |
 | ✅     |               | ValidID                    | 90.91%   | 9         |
 | ✅     |               | WithTrace                  | 100.00%  | 0         |
 | ✅     |               | clampFloat                 | 80.00%   | 1         |
