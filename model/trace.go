@@ -63,6 +63,15 @@ type Trace struct {
 	// spanPtrs seeds Spans, so the first two spans append without growing
 	// a slice on the heap.
 	spanPtrs [2]*Span
+
+	// box is the pooled allocation an acquired trace lives in, nil on a
+	// trace from NewTrace and on clones.
+	box *traceBox
+
+	// spanBlock is the backing block the Spans of a clone point into, kept
+	// so CloneInto can rewrite it in place instead of allocating a new one.
+	// It is nil on live traces.
+	spanBlock []Span
 }
 
 // NewTrace returns a trace ready to record spans. The recorder passes the parts
@@ -115,8 +124,15 @@ func (t *Trace) appendSpan(parent *Span, name string, kind Kind) *Span {
 	}
 
 	t.sequence++
-	// One allocation carries the span and its lock.
-	box := new(spanBox)
+	// One allocation carries the span and its lock; a pooled trace hands
+	// out slots from its own box before touching the heap.
+	var box *spanBox
+	if t.box != nil && t.box.used < len(t.box.spans) {
+		box = &t.box.spans[t.box.used]
+		t.box.used++
+	} else {
+		box = new(spanBox)
+	}
 	span := &box.span
 	*span = Span{
 		ID:        t.sequence,
@@ -126,7 +142,9 @@ func (t *Trace) appendSpan(parent *Span, name string, kind Kind) *Span {
 		StartedAt: t.time(),
 		mu:        &box.mu,
 		trace:     t,
+		boxCtx:    &box.ctx,
 	}
+	box.ctx.span = span
 	if parent != nil && parent.TraceID == t.ID {
 		span.ParentID = parent.ID
 		span.Depth = parent.Depth + 1
@@ -245,6 +263,25 @@ func (t *Trace) Attribute(key string) (any, bool) {
 	return value, ok
 }
 
+// SetHTTPInfo records the request metadata of an HTTP trace, copying the
+// value. The pointer is not retained, so a caller's stack-allocated HTTPInfo
+// stays on the stack; a pooled trace copies into its own box. A nil info
+// leaves the trace as it is.
+func (t *Trace) SetHTTPInfo(info *HTTPInfo) {
+	if t == nil || info == nil {
+		return
+	}
+	t.lock()
+	defer t.unlock()
+	if t.box != nil {
+		t.box.http = *info
+		t.HTTP = &t.box.http
+		return
+	}
+	copied := *info
+	t.HTTP = &copied
+}
+
 // SetResponse records the response metadata of an HTTP trace.
 func (t *Trace) SetResponse(status int, bytes int64, route string) {
 	if t == nil {
@@ -279,6 +316,17 @@ func (t *Trace) Err() error {
 	default:
 		return nil
 	}
+}
+
+// Failed reports whether the trace recorded an error, by message or by
+// state.
+func (t *Trace) Failed() bool {
+	if t == nil {
+		return false
+	}
+	t.lock()
+	defer t.unlock()
+	return t.ErrorText != "" || t.State == StateError
 }
 
 // SpanCount returns the number of recorded spans.
@@ -352,40 +400,83 @@ func (t *Trace) HasKind(kind Kind) bool {
 // Clone returns an inert deep copy of the trace, safe to hand to snapshot
 // consumers. Mutating the copy cannot affect the tracer.
 func (t *Trace) Clone() Trace {
+	var copied Trace
+	t.CloneInto(&copied)
+	return copied
+}
+
+// CloneInto writes an inert deep copy of the trace into dst, reusing the
+// allocations dst already owns when they fit: the HTTPInfo, the span block,
+// the span pointer slice and the log slice are rewritten in place. It is how
+// the ring buffer retains a trace without allocating for it, and Clone with
+// an empty destination.
+func (t *Trace) CloneInto(dst *Trace) {
+	if dst == nil {
+		return
+	}
 	if t == nil {
-		return Trace{}
+		*dst = Trace{}
+		return
 	}
 	t.lock()
 	defer t.unlock()
+
+	// What the destination brings to reuse, taken before it is overwritten.
+	reuseHTTP := dst.HTTP
+	reuseSpans := dst.Spans
+	reuseBlock := dst.spanBlock
+	reuseLogs := dst.Logs
 
 	copied := *t
 	copied.mu = nil
 	copied.clock = nil
 	copied.InFlight = !t.finished
 	copied.spanPtrs = [2]*Span{}
+	copied.box = nil
+	copied.Spans = nil
+	copied.spanBlock = nil
+	copied.Logs = nil
 	if t.HTTP != nil {
-		info := *t.HTTP
-		copied.HTTP = &info
+		if reuseHTTP == nil {
+			reuseHTTP = &HTTPInfo{}
+		}
+		*reuseHTTP = *t.HTTP
+		copied.HTTP = reuseHTTP
 	}
 	if t.Attributes != nil {
 		copied.Attributes = maps.Clone(t.Attributes)
 	}
-	if len(t.Spans) > 0 {
-		copied.Spans = make([]*Span, 0, len(t.Spans))
-		for _, span := range t.Spans {
-			copied.Spans = append(copied.Spans, span.clone())
+	if n := len(t.Spans); n > 0 {
+		// One block carries every span copy: two allocations for the
+		// whole list, and none once the destination holds the capacity.
+		if cap(reuseBlock) < n {
+			reuseBlock = make([]Span, n)
 		}
+		if cap(reuseSpans) < n {
+			reuseSpans = make(Spans, n)
+		}
+		block, spans := reuseBlock[:n], reuseSpans[:n]
+		for i, span := range t.Spans {
+			span.cloneInto(&block[i])
+			spans[i] = &block[i]
+		}
+		copied.Spans = spans
+		copied.spanBlock = block
 	}
 	if copied.Duration == 0 {
 		copied.Duration = t.time().Sub(t.StartedAt)
 	}
-	if len(t.Logs) > 0 {
-		copied.Logs = make([]LogEntry, 0, len(t.Logs))
-		for _, entry := range t.Logs {
-			copied.Logs = append(copied.Logs, entry.clone())
+	if n := len(t.Logs); n > 0 {
+		if cap(reuseLogs) < n {
+			reuseLogs = make([]LogEntry, 0, n)
 		}
+		logs := reuseLogs[:0]
+		for _, entry := range t.Logs {
+			logs = append(logs, entry.clone())
+		}
+		copied.Logs = logs
 	}
-	return copied
+	*dst = copied
 }
 
 // Durations returns the time spent per state, including the time accumulated in
@@ -480,22 +571,12 @@ func (t *Trace) RecordMemory() {
 	t.memBefore = memCounters{}
 }
 
-// spanBox is one allocation holding a span and the mutex it locks with,
-// kept apart from the copyable Span value itself.
+// spanBox is one allocation holding a span, the mutex it locks with and the
+// context it derives, kept apart from the copyable Span value itself.
 type spanBox struct {
 	span Span
 	mu   sync.Mutex
-}
-
-// memBaseline is the slice of runtime.MemStats a memory-tracked trace needs:
-// five counters instead of the four-kilobyte struct, which every trace used
-// to carry by value and every clone used to copy.
-type memBaseline struct {
-	heapAlloc  uint64
-	totalAlloc uint64
-	mallocs    uint64
-	pauseTotal uint64
-	numGC      uint32
+	ctx  spanCtx
 }
 
 // delta returns after-before, clamped at zero.
