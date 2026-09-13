@@ -1,6 +1,7 @@
 package model
 
 import (
+	"runtime"
 	"sync"
 )
 
@@ -20,6 +21,28 @@ type traceBox struct {
 	spans [4]spanBox
 	ptrs  [4]*Span
 	used  int
+
+	// armed mirrors the runtime's finalizer registration for the box,
+	// which reuse does not clear: SetFinalizer panics on a double set, and
+	// a finalizer that ran is gone. reset leaves it alone.
+	armed bool
+}
+
+// reset clears what an earlier trace left in the box, in place: nothing is
+// reallocated. Only the span slots that were handed out are zeroed, which
+// also drops the parent contexts they referenced; ptrs is left alone, its
+// entries point into the box's own spans array and are overwritten through
+// the Spans seed before they are read. It runs when the box is reused, not
+// when it is released, so a released trace keeps its values until the
+// memory changes owners. The mutex is left alone, unlocked is its zero
+// state, and armed survives with the registration it mirrors.
+func (b *traceBox) reset() {
+	b.trace = Trace{}
+	b.http = HTTPInfo{}
+	for i := range b.used {
+		b.spans[i] = spanBox{}
+	}
+	b.used = 0
 }
 
 // tracePool recycles trace boxes across requests. A box is cleared when it
@@ -41,5 +64,26 @@ func (t *Trace) Release() {
 	}
 	box := t.box
 	t.box = nil
+	tracePool.Put(box)
+}
+
+// ReleaseOnCollect arranges for the box to return to the pool once the
+// collector finds the trace unreachable: Release for a trace whose lifetime
+// the recorder does not own, such as one handed out by StartTrace. Any
+// holder keeps the box reachable, so the memory moves only after the last
+// reference is gone. It is safe on a nil trace and a no-op without a box.
+func (t *Trace) ReleaseOnCollect() {
+	if t == nil || t.box == nil || t.box.armed {
+		return
+	}
+	t.box.armed = true
+	runtime.SetFinalizer(t.box, releaseBox)
+}
+
+// releaseBox recycles a box the collector proved unreachable. The finalizer
+// ran and is gone, so the box is disarmed and dies on a later pool eviction
+// unless it is armed again.
+func releaseBox(box *traceBox) {
+	box.armed = false
 	tracePool.Put(box)
 }

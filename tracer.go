@@ -130,6 +130,9 @@ func (t *Tracer) StartTrace(ctx context.Context, name string) (context.Context, 
 		return ctx, nil, err
 	}
 	trace := t.begin(id, name, nil)
+	// The caller owns this trace, so its box returns to the pool when the
+	// collector finds it unreachable rather than at Finish.
+	trace.ReleaseOnCollect()
 	trace.SetState(StateProcessing)
 	ctx, _ = trace.StartSpan(WithTrace(ctx, trace), name, KindInternal)
 	return ctx, trace, nil
@@ -142,6 +145,10 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 	if err != nil {
 		return fn(ctx)
 	}
+	// Observe owns the trace end to end, so the box is released once the
+	// trace is finished and stored. Deferred in this order, Release runs
+	// after Finish.
+	defer trace.Release()
 	defer t.Finish(trace)
 
 	err = fn(traced)

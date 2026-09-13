@@ -80,6 +80,7 @@ func TestTraceRelease(t *testing.T) {
 
 func TestReleaseWithoutBox(t *testing.T) {
 	(*Trace)(nil).Release()
+	(*Trace)(nil).ReleaseOnCollect()
 
 	trace, _ := spanTestTrace()
 	trace.StartSpan(context.Background(), "work")
@@ -87,6 +88,7 @@ func TestReleaseWithoutBox(t *testing.T) {
 
 	clone := trace.Clone()
 	clone.Release()
+	clone.ReleaseOnCollect()
 	if clone.ID != trace.ID || len(clone.Spans) != 1 {
 		t.Error("Release on a clone touched its data")
 	}

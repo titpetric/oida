@@ -80,7 +80,7 @@ type Trace struct {
 // recorder's, for the traces whose lifetime it owns end to end.
 func NewTrace(id, name string, opts TraceOptions) *Trace {
 	box := tracePool.Get().(*traceBox)
-	*box = traceBox{}
+	box.reset()
 	now := opts.now()
 	trace := &box.trace
 	*trace = Trace{
