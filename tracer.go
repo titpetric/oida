@@ -203,12 +203,14 @@ func (t *Tracer) finalize(opts Options, trace *Trace, w *internal.ResponseWriter
 		trace.RecordError(fmt.Errorf("http %d", w.Status()))
 	}
 	t.Finish(trace)
+	w.Release()
 }
 
-// begin registers a new trace as active.
+// begin registers a new trace as active. The trace comes from the pool;
+// Finish returns it once its clone is retained.
 func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
-	trace := model.NewTrace(id, name, internal.TraceOptionsFor(t.opts))
-	trace.HTTP = info
+	trace := model.AcquireTrace(id, name, internal.TraceOptionsFor(t.opts))
+	trace.SetHTTPInfo(info)
 	if t.opts.TrackMemoryUse {
 		trace.TrackMemory()
 	}
@@ -224,7 +226,11 @@ func (t *Tracer) begin(id, name string, info *model.HTTPInfo) *Trace {
 	return trace
 }
 
-// Finish completes a trace and moves it into the ring buffer.
+// Finish completes a trace and moves it into the ring buffer. The trace is
+// recycled afterwards: the trace and its spans are invalid once Finish
+// returns, the way an http.ResponseWriter is invalid after the handler
+// returns. What Finish retained is read back through Traces, Trace and
+// Snapshot.
 func (t *Tracer) Finish(trace *Trace) {
 	if t == nil || trace == nil {
 		return
@@ -235,8 +241,7 @@ func (t *Tracer) Finish(trace *Trace) {
 		trace.RecordMemory()
 	}
 	durations := trace.StateTimes()
-	stored := trace.Clone()
-	failed := stored.ErrorText != "" || stored.State == StateError
+	failed := trace.Failed()
 
 	t.mu.Lock()
 	delete(t.active, trace.ID)
@@ -254,10 +259,13 @@ func (t *Tracer) Finish(trace *Trace) {
 	}
 	t.mu.Unlock()
 
-	if err := t.storage.Save(context.Background(), stored); err != nil {
+	// Storage clones what it keeps; the live trace stays the recorder's to
+	// release.
+	if err := t.storage.Save(context.Background(), trace); err != nil {
 		t.onError(err)
 	}
 	t.events.Notify()
+	trace.Release()
 }
 
 // Subscribe returns a channel notified whenever a trace starts or completes,
@@ -307,10 +315,15 @@ func (t *Tracer) Snapshot() Snapshot {
 	for state, duration := range t.stateTime {
 		stateTime[state] = duration
 	}
+	// Cloned under the read lock: Finish recycles a trace only after the
+	// write lock that removes it from active, so a trace cloned here
+	// cannot be released underneath the clone.
 	live := make([]Trace, 0, len(t.active))
-	pending := make([]*Trace, 0, len(t.active))
 	for _, trace := range t.active {
-		pending = append(pending, trace)
+		live = append(live, trace.Clone())
+		for state, duration := range trace.Durations() {
+			stateTime[state] += duration
+		}
 	}
 	total, sampled, unsampled := t.total, t.sampled, t.unsampled
 	failed := t.failed
@@ -321,12 +334,6 @@ func (t *Tracer) Snapshot() Snapshot {
 	}
 	t.mu.RUnlock()
 
-	for _, trace := range pending {
-		live = append(live, trace.Clone())
-		for state, duration := range trace.Durations() {
-			stateTime[state] += duration
-		}
-	}
 	sort.Slice(live, func(i, j int) bool { return live[i].StartedAt.After(live[j].StartedAt) })
 
 	log, err := t.storage.List(context.Background(), 0)
@@ -416,17 +423,15 @@ func (t *Tracer) Live() []Trace {
 	if t == nil {
 		return nil
 	}
+	// Cloned under the read lock, so Finish cannot recycle a trace between
+	// collecting it and copying it.
 	t.mu.RLock()
-	pending := make([]*Trace, 0, len(t.active))
+	out := make([]Trace, 0, len(t.active))
 	for _, trace := range t.active {
-		pending = append(pending, trace)
+		out = append(out, trace.Clone())
 	}
 	t.mu.RUnlock()
 
-	out := make([]Trace, 0, len(pending))
-	for _, trace := range pending {
-		out = append(out, trace.Clone())
-	}
 	sort.Slice(out, func(i, j int) bool { return out[i].StartedAt.After(out[j].StartedAt) })
 	return out
 }
@@ -447,13 +452,16 @@ func (t *Tracer) Trace(id string) (Trace, bool) {
 		t.onError(err)
 	}
 
+	// Cloned under the read lock, so Finish cannot recycle the trace
+	// between the lookup and the copy.
 	t.mu.RLock()
 	active, ok := t.active[id]
-	t.mu.RUnlock()
-	if !ok {
-		return Trace{}, false
+	var copied Trace
+	if ok {
+		copied = active.Clone()
 	}
-	return active.Clone(), true
+	t.mu.RUnlock()
+	return copied, ok
 }
 
 // Reset drops every retained trace and the lifetime counters. Traces in flight

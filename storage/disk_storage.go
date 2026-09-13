@@ -101,7 +101,7 @@ func (s *diskStorage) Restore(ctx context.Context) error {
 		if err := json.Unmarshal(data, &trace); err != nil {
 			continue
 		}
-		if err := s.memory.Save(ctx, trace); err != nil {
+		if err := s.memory.Save(ctx, &trace); err != nil {
 			return err
 		}
 	}
@@ -116,22 +116,25 @@ func (s *diskStorage) Path() string {
 // Save writes a trace document atomically, prunes the oldest documents over
 // the retention limit, and retains the trace in the ring. A disk failure
 // returns before the ring is touched, so what the ring serves is persisted.
-func (s *diskStorage) Save(ctx context.Context, trace model.Trace) error {
+func (s *diskStorage) Save(ctx context.Context, trace *model.Trace) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	name, err := s.traceFile(trace.ID)
+	// One inert copy up front: the caller's trace is only valid for the
+	// call, and marshalling reads it outside any lock.
+	stored := trace.Clone()
+	name, err := s.traceFile(stored.ID)
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(trace)
+	data, err := json.Marshal(stored)
 	if err != nil {
 		return fmt.Errorf("oida: encode trace: %w", err)
 	}
 	if err := s.writeDocument(name, data); err != nil {
 		return err
 	}
-	return s.memory.Save(ctx, trace)
+	return s.memory.Save(ctx, &stored)
 }
 
 // writeDocument writes one trace document atomically and prunes the oldest

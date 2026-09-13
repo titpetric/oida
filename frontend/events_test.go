@@ -120,6 +120,8 @@ func TestLiveFeedHoldsRunningAndCompletedTraces(t *testing.T) {
 		t.Error("feed is not ordered newest first")
 	}
 
+	// Finish recycles the trace, so the ID is read before it.
+	runningID := running.ID
 	tracer.Finish(running)
 	body = request(t, frontend.Handler(tracer), oida.DefaultPath+"/live?stream=off", nil).Body.String()
 	if strings.Contains(body, `class="status running"`) {
@@ -128,7 +130,7 @@ func TestLiveFeedHoldsRunningAndCompletedTraces(t *testing.T) {
 	// One row per trace: the feed merges in flight and completed, it does not
 	// list a trace twice. Counted by row target, because the name also appears
 	// in the cell's title attribute.
-	if got := strings.Count(body, `data-href="`+oida.DefaultPath+"/trace/"+running.ID+`"`); got != 1 {
+	if got := strings.Count(body, `data-href="`+oida.DefaultPath+"/trace/"+runningID+`"`); got != 1 {
 		t.Errorf("the completed trace appears in %d rows, want 1", got)
 	}
 }

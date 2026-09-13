@@ -15,7 +15,7 @@ type unimplementedStorage struct{}
 var _ model.Storage = (*unimplementedStorage)(nil)
 
 // Save retains nothing.
-func (*unimplementedStorage) Save(ctx context.Context, trace model.Trace) error {
+func (*unimplementedStorage) Save(ctx context.Context, trace *model.Trace) error {
 	return nil
 }
 

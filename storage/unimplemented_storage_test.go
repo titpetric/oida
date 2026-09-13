@@ -16,7 +16,7 @@ func TestUnimplementedStorage(t *testing.T) {
 	// zero driver, and no method touches state.
 	var store *unimplementedStorage
 
-	if err := store.Save(ctx, model.Trace{ID: "t1"}); err != nil {
+	if err := store.Save(ctx, &model.Trace{ID: "t1"}); err != nil {
 		t.Errorf("Save: %v", err)
 	}
 	if _, err := store.Load(ctx, "t1"); !errors.Is(err, model.ErrTraceNotFound) {
@@ -43,7 +43,7 @@ func TestUnimplementedStoragePruneOnMemory(t *testing.T) {
 	ctx := context.Background()
 	store := NewMemoryStorage(4)
 
-	if err := store.Save(ctx, model.Trace{ID: "t1"}); err != nil {
+	if err := store.Save(ctx, &model.Trace{ID: "t1"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
