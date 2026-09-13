@@ -22,6 +22,11 @@ type traceBox struct {
 	ptrs  [4]*Span
 	used  int
 
+	// lastNanos is the last recorded clock reading of the live trace,
+	// accessed atomically. It lives in the box rather than the trace so
+	// copying a Trace value never reads an atomically written field.
+	lastNanos int64
+
 	// armed mirrors the runtime's finalizer registration for the box,
 	// which reuse does not clear: SetFinalizer panics on a double set, and
 	// a finalizer that ran is gone. reset leaves it alone.
@@ -43,6 +48,7 @@ func (b *traceBox) reset() {
 		b.ptrs[i] = nil
 	}
 	b.used = 0
+	b.lastNanos = 0
 }
 
 // tracePool recycles trace boxes across requests. A box is cleared when it
