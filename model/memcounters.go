@@ -34,6 +34,53 @@ var memSamples = sync.Pool{
 	},
 }
 
+// memorySamples is the pooled sample set ReadMemory reads into, the
+// dashboard's counterpart of memSamples.
+var memorySamples = sync.Pool{
+	New: func() any {
+		s := make([]metrics.Sample, 10)
+		s[0].Name = "/memory/classes/heap/objects:bytes"
+		s[1].Name = "/memory/classes/heap/unused:bytes"
+		s[2].Name = "/gc/heap/objects:objects"
+		s[3].Name = "/memory/classes/heap/stacks:bytes"
+		s[4].Name = "/memory/classes/total:bytes"
+		s[5].Name = "/gc/heap/goal:bytes"
+		s[6].Name = "/gc/cycles/total:gc-cycles"
+		s[7].Name = "/sched/pauses/total/gc:seconds"
+		s[8].Name = "/cpu/classes/gc/total:cpu-seconds"
+		s[9].Name = "/cpu/classes/total:cpu-seconds"
+		return &s
+	},
+}
+
+// ReadMemory reads the process memory and GC pressure the dashboard shows,
+// through runtime/metrics: unlike runtime.ReadMemStats, the read does not
+// stop the world, so an open live view does not pause the process it
+// watches. The pause total and the GC CPU fraction are computed from
+// counters and are indicative, the way MemoryUse documents. Limit is the
+// caller's to fill.
+func ReadMemory() Memory {
+	samples := memorySamples.Get().(*[]metrics.Sample)
+	metrics.Read(*samples)
+	s := *samples
+	heapObjects := s[0].Value.Uint64()
+	memory := Memory{
+		HeapAlloc:    heapObjects,
+		HeapInuse:    heapObjects + s[1].Value.Uint64(),
+		HeapObjects:  s[2].Value.Uint64(),
+		StackInuse:   s[3].Value.Uint64(),
+		System:       s[4].Value.Uint64(),
+		NextGC:       s[5].Value.Uint64(),
+		NumGC:        uint32(s[6].Value.Uint64()),
+		GCPauseTotal: pauseTotalNs(s[7].Value.Float64Histogram()),
+	}
+	if total := s[9].Value.Float64(); total > 0 {
+		memory.GCCPUFraction = s[8].Value.Float64() / total
+	}
+	memorySamples.Put(samples)
+	return memory
+}
+
 // readMemCounters reads the current allocation counters.
 func readMemCounters() memCounters {
 	samples := memSamples.Get().(*[]metrics.Sample)
