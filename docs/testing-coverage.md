@@ -12,14 +12,14 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 
 | Status | Package       | Coverage | Cognitive | Lines |
 |--------|---------------|----------|-----------|-------|
-| ✅     | .             | 82.21%   | 76        | 463   |
+| ✅     | .             | 84.06%   | 73        | 466   |
 | ❌     | cmd/oida      | 0.00%    | 33        | 259   |
 | ✅     | frontend      | 88.58%   | 73        | 385   |
 | ❌     | frontend/view | 70.74%   | 3784      | 6499  |
-| ✅     | internal      | 85.89%   | 161       | 528   |
+| ✅     | internal      | 85.42%   | 169       | 558   |
 | ✅     | internal/ring | 84.21%   | 18        | 65    |
-| ✅     | model         | 88.51%   | 322       | 1422  |
-| ❌     | storage       | 75.96%   | 75        | 294   |
+| ✅     | model         | 89.29%   | 343       | 1531  |
+| ❌     | storage       | 76.09%   | 75        | 297   |
 | ✅     | tests         | 95.91%   | 7         | 117   |
 
 ## Functions
@@ -41,16 +41,16 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | TraceFromContext           | 100.00%  | 0         |
 | ✅     |               | TraceID                    | 100.00%  | 0         |
 | ✅     |               | Tracer.Enabled             | 100.00%  | 1         |
-| ✅     |               | Tracer.Finish              | 93.75%   | 10        |
+| ✅     |               | Tracer.Finish              | 93.55%   | 9         |
 | ✅     |               | Tracer.Middleware          | 84.62%   | 7         |
 | ✅     |               | Tracer.Observe             | 100.00%  | 1         |
 | ✅     |               | Tracer.Options             | 85.71%   | 1         |
 | ✅     |               | Tracer.Reset               | 80.00%   | 2         |
 | ✅     |               | Tracer.ServeHTTP           | 50.00%   | 1         |
-| ✅     |               | Tracer.Snapshot            | 85.71%   | 19        |
+| ✅     |               | Tracer.Snapshot            | 92.45%   | 18        |
 | ✅     |               | Tracer.StartTrace          | 88.89%   | 3         |
 | ✅     |               | Tracer.Subscribe           | 66.67%   | 1         |
-| ✅     |               | Tracer.Trace               | 33.33%   | 4         |
+| ✅     |               | Tracer.Trace               | 30.77%   | 4         |
 | ✅     |               | Tracer.Traces              | 57.14%   | 2         |
 | ✅     |               | Tracer.begin               | 100.00%  | 1         |
 | ✅     |               | Tracer.countUnsampled      | 77.78%   | 2         |
@@ -108,7 +108,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Page.Age                   | 100.00%  | 0         |
 | ✅     |               | Page.AssetURL              | 100.00%  | 0         |
 | ✅     |               | Page.CSSURL                | 100.00%  | 0         |
-| ✅     |               | Page.Composition           | 100.00%  | 3         |
+| ✅     |               | Page.Composition           | 87.50%   | 3         |
 | ✅     |               | Page.Domain                | 100.00%  | 1         |
 | ✅     |               | Page.EventsURL             | 100.00%  | 0         |
 | ✅     |               | Page.Fields                | 100.00%  | 0         |
@@ -147,7 +147,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Statistics                 | 100.00%  | 0         |
 | ✅     |               | StyleSheet                 | 100.00%  | 0         |
 | ✅     |               | Text                       | 100.00%  | 1         |
-| ✅     |               | Timeline                   | 95.00%   | 36        |
+| ✅     |               | Timeline                   | 96.67%   | 36        |
 | ✅     |               | TraceMemory                | 100.00%  | 5         |
 | ✅     |               | ageText                    | 40.00%   | 2         |
 | ✅     |               | ariaSelected               | 100.00%  | 1         |
@@ -245,9 +245,10 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | NewResponseWriter          | 100.00%  | 0         |
 | ❌     |               | OptionsFromEnv             | 73.17%   | 25        |
 | ✅     |               | RateSampler.Sample         | 100.00%  | 1         |
-| ✅     |               | RemoteAddr                 | 100.00%  | 6         |
+| ✅     |               | RemoteAddr                 | 93.33%   | 10        |
 | ✅     |               | RequestID                  | 57.14%   | 4         |
 | ✅     |               | ResponseWriter.Bytes       | 100.00%  | 0         |
+| ✅     |               | ResponseWriter.Release     | 75.00%   | 1         |
 | ✅     |               | ResponseWriter.Status      | 100.00%  | 0         |
 | ✅     |               | ResponseWriter.Write       | 100.00%  | 1         |
 | ✅     |               | ResponseWriter.WriteHeader | 83.33%   | 1         |
@@ -261,6 +262,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | envInt                     | 100.00%  | 3         |
 | ✅     |               | envValue                   | 100.00%  | 0         |
 | ✅     |               | forwardedChain             | 100.00%  | 22        |
+| ✅     |               | hostOnly                   | 71.43%   | 3         |
 | ✅     |               | parseForwardedAddr         | 90.91%   | 3         |
 | ✅     |               | readSymbolName             | 100.00%  | 6         |
 | ✅     |               | splitList                  | 100.00%  | 3         |
@@ -274,7 +276,8 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Ring.List                  | 87.50%   | 5         |
 | ✅     |               | Ring.Push                  | 100.00%  | 3         |
 | ✅     |               | Ring.Reset                 | 80.00%   | 1         |
-| ✅     | model         | Attributes.Int64           | 56.25%   | 1         |
+| ✅     | model         | AcquireTrace               | 100.00%  | 0         |
+| ✅     |               | Attributes.Int64           | 56.25%   | 1         |
 | ✅     |               | Auth.Authenticate          | 100.00%  | 5         |
 | ✅     |               | Auth.LoginRequired         | 100.00%  | 2         |
 | ✅     |               | Auth.NetworkAllowed        | 100.00%  | 6         |
@@ -296,7 +299,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Options.Authorized         | 100.00%  | 1         |
 | ❌     |               | Options.Validate           | 62.50%   | 11        |
 | ✅     |               | Options.WithDefaults       | 100.00%  | 13        |
-| ✅     |               | Span.Context               | 66.67%   | 1         |
+| ✅     |               | Span.Context               | 66.67%   | 2         |
 | ✅     |               | Span.Elapsed               | 100.00%  | 2         |
 | ✅     |               | Span.End                   | 90.00%   | 3         |
 | ✅     |               | Span.EndWithError          | 100.00%  | 0         |
@@ -311,9 +314,9 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Span.SetSource             | 100.00%  | 1         |
 | ✅     |               | Span.SourceText            | 66.67%   | 1         |
 | ✅     |               | Span.Trace                 | 66.67%   | 1         |
-| ✅     |               | Span.clone                 | 85.71%   | 5         |
+| ✅     |               | Span.cloneInto             | 92.86%   | 5         |
 | ✅     |               | Span.lock                  | 100.00%  | 2         |
-| ✅     |               | Span.now                   | 66.67%   | 2         |
+| ✅     |               | Span.now                   | 100.00%  | 2         |
 | ✅     |               | Span.unlock                | 100.00%  | 2         |
 | ✅     |               | SpanFromContext            | 100.00%  | 0         |
 | ✅     |               | Spans.Find                 | 100.00%  | 4         |
@@ -324,20 +327,24 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | States                     | 100.00%  | 0         |
 | ✅     |               | Statistics                 | 90.91%   | 17        |
 | ✅     |               | Trace.Attribute            | 100.00%  | 1         |
-| ✅     |               | Trace.Clone                | 96.97%   | 10        |
+| ✅     |               | Trace.Clone                | 100.00%  | 0         |
+| ✅     |               | Trace.CloneInto            | 96.25%   | 19        |
 | ✅     |               | Trace.Current              | 100.00%  | 1         |
 | ✅     |               | Trace.Durations            | 81.82%   | 5         |
 | ✅     |               | Trace.Elapsed              | 100.00%  | 2         |
 | ✅     |               | Trace.Err                  | 75.00%   | 2         |
 | ✅     |               | Trace.Error                | 100.00%  | 4         |
+| ✅     |               | Trace.Failed               | 80.00%   | 2         |
 | ✅     |               | Trace.Finish               | 84.62%   | 4         |
 | ✅     |               | Trace.HasKind              | 100.00%  | 5         |
 | ✅     |               | Trace.Info                 | 100.00%  | 1         |
 | ✅     |               | Trace.Kinds                | 85.71%   | 6         |
 | ✅     |               | Trace.RecordError          | 100.00%  | 2         |
 | ✅     |               | Trace.RecordMemory         | 90.91%   | 1         |
+| ✅     |               | Trace.Release              | 100.00%  | 2         |
 | ✅     |               | Trace.SetAttribute         | 100.00%  | 3         |
 | ✅     |               | Trace.SetAttributes        | 71.43%   | 3         |
+| ✅     |               | Trace.SetHTTPInfo          | 80.00%   | 3         |
 | ✅     |               | Trace.SetName              | 80.00%   | 2         |
 | ✅     |               | Trace.SetResponse          | 81.82%   | 3         |
 | ✅     |               | Trace.SetState             | 90.91%   | 3         |
@@ -346,11 +353,11 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Trace.StateTimes           | 75.00%   | 2         |
 | ✅     |               | Trace.TrackMemory          | 66.67%   | 1         |
 | ✅     |               | Trace.appendLog            | 95.24%   | 7         |
-| ✅     |               | Trace.appendSpan           | 96.67%   | 5         |
+| ✅     |               | Trace.appendSpan           | 96.88%   | 8         |
 | ✅     |               | Trace.lock                 | 100.00%  | 2         |
 | ✅     |               | Trace.logsEnabled          | 100.00%  | 1         |
 | ✅     |               | Trace.openSpan             | 100.00%  | 4         |
-| ✅     |               | Trace.time                 | 66.67%   | 1         |
+| ✅     |               | Trace.time                 | 100.00%  | 1         |
 | ✅     |               | Trace.unlock               | 100.00%  | 2         |
 | ✅     |               | TraceFromContext           | 85.71%   | 4         |
 | ✅     |               | TraceHost                  | 100.00%  | 2         |
@@ -374,6 +381,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | readMemCounters            | 100.00%  | 0         |
 | ✅     |               | signedDelta                | 100.00%  | 4         |
 | ✅     |               | sourceText                 | 75.00%   | 1         |
+| ✅     |               | spanCtx.Value              | 100.00%  | 1         |
 | ✅     |               | spanFromContext            | 75.00%   | 1         |
 | ✅     |               | stateIndex                 | 66.67%   | 1         |
 | ✅     |               | withTrace                  | 57.14%   | 3         |
@@ -386,7 +394,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ❌     |               | diskStorage.Prune          | 68.75%   | 15        |
 | ❌     |               | diskStorage.Reset          | 66.67%   | 6         |
 | ❌     |               | diskStorage.Restore        | 70.59%   | 12        |
-| ✅     |               | diskStorage.Save           | 63.64%   | 4         |
+| ✅     |               | diskStorage.Save           | 66.67%   | 4         |
 | ✅     |               | diskStorage.names          | 80.00%   | 5         |
 | ❌     |               | diskStorage.prune          | 66.67%   | 6         |
 | ✅     |               | diskStorage.traceFile      | 100.00%  | 1         |
