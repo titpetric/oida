@@ -36,7 +36,7 @@ r.Use(tracer.Middleware)
 oida.Mount(r, tracer)
 ```
 
-`Options.ReadEnv`, which `NewOptions` turns on, applies the `OIDA_*` environment to the options inside `New`. Options built as a literal leave it off, which is what a library or a test wants.
+`Options.ReadEnv`, which `NewOptions` turns on, applies the `OIDA_*` environment to the options inside `New`. Options built as a literal leave it off, so a library or a test reads no environment.
 
 `Mount` accepts routers with this method, the one `chi.Router` and `*http.ServeMux` share:
 
@@ -155,7 +155,7 @@ if err := trace.Err(); errors.Is(err, context.Canceled) {
 
 `Span.RecordError` records on the span and then on its trace, so an error recorded anywhere in a transaction is readable from both. A trace or span decoded from JSON kept the message and not the value, and reports an error carrying that message.
 
-`Info` and `Error` record log entries linked to the innermost open span, which is what `Current` returns; `Root` returns the first recorded span. With `Options.CaptureLogs` off, `Info` does nothing and `Error` records through `RecordError` instead.
+`Info` and `Error` record log entries linked to the innermost open span, the one `Current` returns; `Root` returns the first recorded span. With `Options.CaptureLogs` off, `Info` does nothing and `Error` records through `RecordError` instead.
 
 Trace attributes are for what holds for the whole transaction, such as the memory limit it ran under. What holds for one operation belongs on the span that measured it. See [the data model](spec-model.md#attributes) for the keys the front end knows.
 
@@ -207,7 +207,7 @@ Set `Options.SampleRate` for rate sampling, or `Options.Sampler` to a type of yo
 
 ```go
 type Storage interface {
-	Save(ctx context.Context, trace Trace) error
+	Save(ctx context.Context, trace *Trace) error
 	Load(ctx context.Context, id string) (Trace, error)
 	List(ctx context.Context, limit int) ([]Trace, error)
 	Len(ctx context.Context) (int, error)
@@ -220,7 +220,7 @@ type Storage interface {
 
 The two drivers live in the storage package and are not constructed by hand: `New` builds one from the environment and assigns it to `Options.Storage`. Memory storage retains traces in a ring buffer and is the default, sized by `RingBufferSize`; a size of zero retains none.
 
-Disk storage is a write-through overlay of memory storage: a save goes to a JSON document and to the ring, and every read comes from the ring, so listing costs no disk access. `Load` falls back to the document folder for a trace the ring no longer holds. The ring holds what the running process recorded, so the dashboard lists its own traces, while the folder outlives the process: its documents stay reachable by ID and are aged out by `Prune`. `Prune` ages the archive out and leaves the ring alone: the ring is the recent window with its own size policy. `Restore` is the other direction, reading the newest documents back into the ring so a run opens on what earlier ones recorded. The memory driver has nothing to prune and nothing of its own to restore, and returns nil to both. A driver of your own implements the interface, returning nil from the methods it has nothing to do; embedding `oida.Storage` in the struct keeps it compiling when the interface grows, at the cost of a panic if something calls a method it never wrote.
+Disk storage is a write-through overlay of memory storage: a save goes to a JSON document and to the ring, and every read comes from the ring, so listing costs no disk access. `Load` falls back to the document folder for a trace the ring no longer holds. The ring holds what the running process recorded, so the dashboard lists its own traces, while the folder outlives the process: its documents stay reachable by ID and are aged out by `Prune`. `Prune` ages the archive out and leaves the ring alone: the ring is the recent window with its own size policy. `Restore` is the other direction, reading the newest documents back into the ring so a run opens on what earlier ones recorded. The memory driver has nothing to prune and nothing of its own to restore, and returns nil to both. A driver of your own implements the interface, returning nil from the methods it has nothing to do; embedding `oida.Storage` in the struct keeps it compiling when the interface grows, at the cost of a panic if something calls a method it never wrote. The trace passed to `Save` is only lent for the call: a driver copies what it keeps, with `Clone` or `CloneInto`, and must not hold on to the pointer.
 
 `OIDA_STORAGE_DRIVER` chooses between them, and the `OIDA_STORAGE_MEMORY_` and `OIDA_STORAGE_DISK_` variables carry their settings. A path that cannot be created, a driver name that is not one of the two, and settings addressed to the driver that was not chosen all fail `New` rather than being dropped. The [configuration guide](guide-configuration.md) lists the variables.
 
