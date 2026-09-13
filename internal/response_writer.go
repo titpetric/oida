@@ -3,6 +3,7 @@ package internal
 import (
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/titpetric/oida/model"
 )
@@ -24,11 +25,30 @@ var (
 	_ io.ReaderFrom       = (*ResponseWriter)(nil)
 )
 
+// writerPool recycles response writers across requests.
+var writerPool = sync.Pool{
+	New: func() any { return new(ResponseWriter) },
+}
+
 // NewResponseWriter wraps w to record what the handler answered with. The
 // trace moves to StateWriting once, when the first byte or the status goes
-// out; a trace field instead of a callback keeps the wrapper one allocation.
+// out. The wrapper comes from a pool; the middleware returns it with Release
+// once the handler is done with it.
 func NewResponseWriter(w http.ResponseWriter, trace *model.Trace) *ResponseWriter {
-	return &ResponseWriter{ResponseWriter: w, status: http.StatusOK, trace: trace}
+	rw := writerPool.Get().(*ResponseWriter)
+	*rw = ResponseWriter{ResponseWriter: w, status: http.StatusOK, trace: trace}
+	return rw
+}
+
+// Release returns the wrapper to the pool. After Release the wrapper is
+// recycled memory, the way the http.ResponseWriter it wraps is invalid after
+// the handler returns.
+func (w *ResponseWriter) Release() {
+	if w == nil {
+		return
+	}
+	*w = ResponseWriter{}
+	writerPool.Put(w)
 }
 
 // Status returns the status the handler wrote.
