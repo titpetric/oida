@@ -25,7 +25,7 @@ Field: `Options.MaxSpansPerTrace`<br>Default: `1000`<br>Meaning: Spans recorded 
 
 Field: `Options.SampleRate`<br>Default: `100`<br>Meaning: Percentage of requests traced, `[0,100]`.
 
-Field: `Options.TrackMemoryUse`<br>Default: `true`<br>Meaning: Read `runtime.MemStats` around each trace.
+Field: `Options.TrackMemoryUse`<br>Default: `true`<br>Meaning: Read the runtime allocation counters around each trace, through `runtime/metrics`, without stopping the world.
 
 Field: `Options.TrustRequestID`<br>Default: `false`<br>Meaning: Reuse a client-supplied `Request-Id` header instead of generating one. Only enable behind a trusted proxy.
 
@@ -59,7 +59,7 @@ Field: `Options.AuthorizeUser`<br>Default: nil<br>Meaning: Authenticates a login
 
 Field: `Options.SigningSecret`<br>Default: none<br>Meaning: Signs the session cookie and verifies `Authorization: Bearer` JWTs. Empty generates a per-process secret.
 
-Field: `Options.Clock`<br>Default: `time.Now`<br>Meaning: Time source. Tests inject a deterministic clock.
+Field: `Options.Clock`<br>Default: `time.Now`<br>Meaning: Time source. Tests inject a deterministic clock; a platform whose clock is too coarse to time a span sets a precise one, see [errata](errata.md).
 
 ### 1.1 Route patterns
 
@@ -98,7 +98,7 @@ RingBufferSize × (trace overhead ≈ 400B + spans × (span overhead ≈ 200B + 
 
 ## 2.1 Storage
 
-Retention is a pluggable interface with two drivers, and the environment picks between them. The default keeps traces in a memory ring buffer sized by `RingBufferSize`. Disk storage keeps the documents after the process is gone, which is what you want when the interesting trace is the one that happened right before it died:
+Retention is a pluggable interface with two drivers, and the environment picks between them. The default keeps traces in a memory ring buffer sized by `RingBufferSize`. Disk storage keeps the documents after the process is gone, for when the interesting trace is the one recorded right before it died:
 
 ```bash
 OIDA_STORAGE_DRIVER=disk
@@ -148,7 +148,7 @@ type Sampler interface {
 }
 ```
 
-Anything satisfying it replaces the rate sampler, which is what `SampleRate` builds when the field is nil. A sampler is a type with one method, so a rule of your own is a few lines:
+Anything satisfying it replaces the rate sampler that `SampleRate` builds when the field is nil. A sampler is a type with one method, so a rule of your own is a few lines:
 
 ```go
 // debugSampler traces the API and anything a client asked to have traced.

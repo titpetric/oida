@@ -97,6 +97,24 @@ func BenchmarkMiddlewareRecordedParallel(b *testing.B) {
 	})
 }
 
+// BenchmarkTracerSnapshot measures the dashboard read model over a full
+// ring, the work one live view render costs the process.
+func BenchmarkTracerSnapshot(b *testing.B) {
+	tracer := newBenchTracer(b, nil)
+	handler := tracer.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	r := httptest.NewRequest(http.MethodGet, "/users/42", nil)
+	w := &benchWriter{h: make(http.Header, 4)}
+	for range 200 {
+		handler.ServeHTTP(w, r)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		_ = tracer.Snapshot()
+	}
+}
+
 // BenchmarkMiddlewareRecordedSpan adds one instrumented span below the root,
 // the shape of a handler that records a database call.
 func BenchmarkMiddlewareRecordedSpan(b *testing.B) {

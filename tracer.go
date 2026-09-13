@@ -314,8 +314,10 @@ func (t *Tracer) Snapshot() Snapshot {
 		return Snapshot{}
 	}
 
-	var mem runtime.MemStats
-	runtime.ReadMemStats(&mem)
+	// Read through runtime/metrics rather than runtime.ReadMemStats: the
+	// live view snapshots on every event burst, and a reading that stops
+	// the world would pause the process it watches.
+	mem := model.ReadMemory()
 
 	t.mu.RLock()
 	stateTime := make(map[State]time.Duration, len(t.stateTime))
@@ -363,6 +365,7 @@ func (t *Tracer) Snapshot() Snapshot {
 	}
 
 	limit := internal.MemoryLimit()
+	mem.Limit = limit
 	pool := model.PoolEstimate{Samples: samples}
 	if samples > 0 {
 		pool.AverageAllocatedBytes = allocated / samples
@@ -370,8 +373,8 @@ func (t *Tracer) Snapshot() Snapshot {
 			if mem.NextGC > mem.HeapAlloc {
 				pool.BeforeNextGC = (mem.NextGC - mem.HeapAlloc) / pool.AverageAllocatedBytes
 			}
-			if limit > mem.Sys {
-				pool.WithinMemoryLimit = (limit - mem.Sys) / pool.AverageAllocatedBytes
+			if limit > mem.System {
+				pool.WithinMemoryLimit = (limit - mem.System) / pool.AverageAllocatedBytes
 			}
 		}
 	}
@@ -391,18 +394,7 @@ func (t *Tracer) Snapshot() Snapshot {
 		Errors:     failed,
 		SLA:        sla,
 		StateTime:  model.StateDurations(stateTime),
-		Memory: model.Memory{
-			HeapAlloc:     mem.HeapAlloc,
-			HeapInuse:     mem.HeapInuse,
-			HeapObjects:   mem.HeapObjects,
-			StackInuse:    mem.StackInuse,
-			System:        mem.Sys,
-			NextGC:        mem.NextGC,
-			NumGC:         mem.NumGC,
-			GCPauseTotal:  mem.PauseTotalNs,
-			GCCPUFraction: mem.GCCPUFraction,
-			Limit:         limit,
-		},
+		Memory:     mem,
 		Pool:       pool,
 		Live:       live,
 		Log:        log,
