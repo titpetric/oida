@@ -74,14 +74,20 @@ func TestObserveRecordsTrace(t *testing.T) {
 		t.Fatalf("recorded %d traces, want 1", len(traces))
 	}
 
+	// Recorded readings of one trace strictly increase, so back to back
+	// recordings on a standing clock sit a few nanoseconds apart and every
+	// duration lands within those steps of the driven time.
+	near := func(got, want time.Duration) bool {
+		return got >= want-10*time.Nanosecond && got <= want+10*time.Nanosecond
+	}
 	trace := traces[0]
-	if trace.Name != "job" || trace.Duration != 3*time.Millisecond {
+	if trace.Name != "job" || !near(trace.Duration, 3*time.Millisecond) {
 		t.Fatalf("unexpected trace: %+v", trace)
 	}
 	if len(trace.Spans) != 3 {
 		t.Fatalf("recorded %d spans, want 3", len(trace.Spans))
 	}
-	if got := trace.Spans[1]; got.Kind != KindDatabase || got.Duration != 3*time.Millisecond || got.Attributes["rows"] != 12 {
+	if got := trace.Spans[1]; got.Kind != KindDatabase || !near(got.Duration, 3*time.Millisecond) || got.Attributes["rows"] != 12 {
 		t.Fatalf("unexpected database span: %+v", got)
 	}
 	// The callback rebound ctx to the query span, so render nests below it.

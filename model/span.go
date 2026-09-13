@@ -56,10 +56,10 @@ func (s *Span) End() {
 		return
 	}
 	s.ended = true
+	// Positive by construction: recorded readings of one trace strictly
+	// increase, so the end reading is after the start even when the clock
+	// stood still between them.
 	s.Duration = s.now().Sub(s.StartedAt)
-	if s.Duration < 0 {
-		s.Duration = 0
-	}
 }
 
 // EndWithError records err on the span and ends it.
@@ -168,7 +168,7 @@ func (s *Span) Elapsed() time.Duration {
 	if s.ended {
 		return s.Duration
 	}
-	return s.now().Sub(s.StartedAt)
+	return s.peek().Sub(s.StartedAt)
 }
 
 // Trace returns the trace the span belongs to.
@@ -253,18 +253,29 @@ func (s *Span) cloneInto(dst *Span) {
 		dst.Attributes = maps.Clone(s.Attributes)
 	}
 	if !dst.ended {
-		dst.Duration = s.now().Sub(s.StartedAt)
+		dst.Duration = s.peek().Sub(s.StartedAt)
 		if dst.Duration < 0 {
 			dst.Duration = 0
 		}
 	}
 }
 
-// now returns the current time from the clock of the owning trace. The caller
-// holds the span lock, so this must not take it again.
+// now returns a recorded reading of the owning trace's clock, strictly after
+// every earlier one, for the moments the span writes down. The caller holds
+// the span lock, so this must not take it again.
 func (s *Span) now() time.Time {
-	if s.trace != nil && s.trace.clock != nil {
-		return s.trace.clock()
+	if s.trace != nil {
+		return s.trace.time()
+	}
+	return time.Now()
+}
+
+// peek returns the owning trace's clock without recording it, for readings
+// that measure and do not record. The caller holds the span lock, so this
+// must not take it again.
+func (s *Span) peek() time.Time {
+	if s.trace != nil {
+		return s.trace.peek()
 	}
 	return time.Now()
 }

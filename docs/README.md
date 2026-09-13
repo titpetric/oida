@@ -10,6 +10,7 @@
 | [Data returned by oida](spec-model.md)            | Trace, span, snapshot, and statistics fields                                   |
 | [Using the dashboard](spec-frontend.md)           | Views, filters, JSON, plain text, and access control                           |
 | [Screenshots](screenshots.md)                     | Dashboard views                                                                |
+| [Errata](errata.md)                               | Platform behaviour oida works around, and the decisions behind it              |
 | [Wiring examples](../testdata/examples/README.md) | Programs for each router, built by `atkins examples` against this checkout     |
 
 ## Architecture

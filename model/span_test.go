@@ -36,6 +36,23 @@ func TestSpansFind(t *testing.T) {
 	}
 }
 
+// TestSpanEndCoarseClock ends a span with the clock standing still, which is
+// what a sub-tick span on Windows looks like: the duration reads zero, and
+// zero is what renders a span as still open. An ended span reports at least
+// a nanosecond.
+func TestSpanEndCoarseClock(t *testing.T) {
+	trace, _ := spanTestTrace()
+	_, span := trace.StartSpan(context.Background(), "fast")
+	span.End()
+
+	if !span.Ended() {
+		t.Error("the span did not end")
+	}
+	if span.Duration <= 0 {
+		t.Errorf("Duration = %v, want at least a nanosecond so the span reads as ended", span.Duration)
+	}
+}
+
 func TestSpanEndWithError(t *testing.T) {
 	trace, now := spanTestTrace()
 	_, span := trace.StartSpan(context.Background(), "SELECT users")
@@ -98,6 +115,9 @@ func TestSpanInert(t *testing.T) {
 
 func TestSpanElapsed(t *testing.T) {
 	trace, now := spanTestTrace()
+	// The clock moves before the span starts: on the same reading as the
+	// trace, the start would be stepped one increment past it.
+	*now = now.Add(time.Millisecond)
 	_, span := trace.StartSpan(context.Background(), "work")
 
 	*now = now.Add(3 * time.Millisecond)

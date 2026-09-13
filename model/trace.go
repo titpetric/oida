@@ -6,6 +6,7 @@ import (
 	"maps"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -99,6 +100,7 @@ func NewTrace(id, name string, opts TraceOptions) *Trace {
 		box:         box,
 	}
 	trace.Spans = box.ptrs[:0:len(box.ptrs)]
+	atomic.StoreInt64(&box.lastNanos, now.UnixNano())
 	return trace
 }
 
@@ -355,7 +357,7 @@ func (t *Trace) Elapsed() time.Duration {
 	if t.Duration > 0 {
 		return t.Duration
 	}
-	return t.time().Sub(t.StartedAt)
+	return t.peek().Sub(t.StartedAt)
 }
 
 // Status returns the HTTP response status of the trace, or zero.
@@ -468,7 +470,7 @@ func (t *Trace) CloneInto(dst *Trace) {
 		copied.spanBlock = block
 	}
 	if copied.Duration == 0 {
-		copied.Duration = t.time().Sub(t.StartedAt)
+		copied.Duration = t.peek().Sub(t.StartedAt)
 	}
 	if n := len(t.Logs); n > 0 {
 		if cap(reuseLogs) < n {
@@ -498,7 +500,7 @@ func (t *Trace) Durations() map[State]time.Duration {
 		}
 	}
 	if !t.finished {
-		result[t.State] += t.time().Sub(t.changedAt)
+		result[t.State] += t.peek().Sub(t.changedAt)
 	}
 	return result
 }
@@ -513,7 +515,7 @@ func (t *Trace) StateTimes() (out [numStates]time.Duration) {
 	defer t.unlock()
 	out = t.stateTime
 	if !t.finished {
-		out[stateIndex(t.State)] += t.time().Sub(t.changedAt)
+		out[stateIndex(t.State)] += t.peek().Sub(t.changedAt)
 	}
 	return out
 }
@@ -532,10 +534,9 @@ func (t *Trace) Finish() {
 	t.stateTime[stateIndex(t.State)] += now.Sub(t.changedAt)
 	t.changedAt = now
 	t.UpdatedAt = now
+	// Positive by construction: recorded readings strictly increase past
+	// the starting one, so a finished trace never reads as still running.
 	t.Duration = now.Sub(t.StartedAt)
-	if t.Duration < 0 {
-		t.Duration = 0
-	}
 	t.finished = true
 	// The slice header alone: spans append only while the trace runs, and
 	// the finished flag above just ended that.
@@ -606,14 +607,6 @@ func signedDelta(after, before uint64) int64 {
 		return math.MinInt64
 	}
 	return -int64(d)
-}
-
-// time returns the current time from the trace clock. Callers hold the lock.
-func (t *Trace) time() time.Time {
-	if t.clock == nil {
-		return time.Now()
-	}
-	return t.clock()
 }
 
 func (t *Trace) lock() {

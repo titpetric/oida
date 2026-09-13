@@ -45,6 +45,26 @@ func TestTraceKinds(t *testing.T) {
 	}
 }
 
+// TestTraceFinishCoarseClock finishes a trace with the clock standing still.
+// A zero duration reads as still running, Elapsed falls back to the wall
+// clock and Clone recomputes it, so a finished trace reports at least a
+// nanosecond and stays finished as time passes.
+func TestTraceFinishCoarseClock(t *testing.T) {
+	trace, now := spanTestTrace()
+	trace.Finish()
+
+	if trace.Duration <= 0 {
+		t.Errorf("Duration = %v, want at least a nanosecond so the trace reads as finished", trace.Duration)
+	}
+	*now = now.Add(time.Second)
+	if got := trace.Elapsed(); got != trace.Duration {
+		t.Errorf("Elapsed after Finish = %v, want the recorded %v", got, trace.Duration)
+	}
+	if clone := trace.Clone(); clone.Duration != trace.Duration || clone.InFlight {
+		t.Errorf("Clone = {Duration: %v, InFlight: %v}, want the recorded duration, not in flight", clone.Duration, clone.InFlight)
+	}
+}
+
 func TestTraceElapsed(t *testing.T) {
 	trace, now := spanTestTrace()
 
