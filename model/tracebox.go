@@ -28,15 +28,17 @@ type traceBox struct {
 	armed bool
 }
 
-// reset clears the box in place for reuse; nothing is reallocated. It runs
-// when the box is reused, not when it is released, so a released trace
-// keeps its values until the memory changes owners. armed survives the
-// wipe: it mirrors the runtime's finalizer registration, which reuse does
-// not clear.
+// reset assigns every data field its zero value, in place: the storage is
+// inline, so the allocation is reused and nothing is freed. It runs when
+// the box is reused, not when it is released, so a released trace keeps its
+// values until the memory changes owners. armed is not touched: it mirrors
+// the runtime's finalizer registration, which reuse does not clear.
 func (b *traceBox) reset() {
-	armed := b.armed
-	*b = traceBox{}
-	b.armed = armed
+	b.trace = Trace{}
+	b.http = HTTPInfo{}
+	b.spans = [4]spanBox{}
+	b.ptrs = [4]*Span{}
+	b.used = 0
 }
 
 // tracePool recycles trace boxes across requests. A box is cleared when it
