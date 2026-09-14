@@ -63,6 +63,6 @@ tasks:
     passthru: true
     cmds:
       - defer: rm -f splint.json
-      - splint --linters none -save ./...
+      - splint --save ./...
       - splint docs --input splint.json --render imports | plantuml -tsvg -pipe > docs/assets/imports.svg
       - splint docs --input splint.json --render puml | plantuml -tsvg -pipe > docs/assets/structure.svg
