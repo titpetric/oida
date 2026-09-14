@@ -37,7 +37,7 @@ implementation is private.
 `internal/ring` does: a structure with a vocabulary of its own reads better as
 `ring.New` than as `internal.NewRing`, and a subpackage is what keeps the
 imports one way. The file is named after what it holds, `remote_addr.go` for
-`RemoteAddr`, so `gofsck` grouping passes and a reader finds a symbol by its
+`RemoteAddr`, so `splint` grouping passes and a reader finds a symbol by its
 filename.
 
 Symbols here are exported for the rest of the module to call, and that export
