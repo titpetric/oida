@@ -3,7 +3,7 @@
 ```go
 import (
 	"github.com/titpetric/oida"
-}
+)
 ```
 
 Package oida records in-process telemetry: traces and spans held in a ring buffer inside the process, with a server side rendered front end mounted at /debug/oida.

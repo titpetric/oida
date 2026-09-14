@@ -45,26 +45,16 @@ tasks:
     desc: "Generate the API reference into docs/api.md"
     passthru: true
     cmds:
-      - defer: rm -f splint.json go-fsck.json
-      # Extracted without -r, so the reference holds the importable package
-      # and not the command or the internal ones.
-      - splint -include-sources -save . || true
-      - go-fsck docs -i splint.json > docs/api.md
-      # mdox reflows the generated markdown; format here so the committed
-      # file matches what the mdox:lint gate expects.
+      - splint docs . > docs/api.md
       - task: mdox:fmt
 
   docs:coverage:
     desc: "Generate the coverage report into docs/testing-coverage.md"
     passthru: true
     cmds:
-      - defer: rm -f pkg.cov splint.json
+      - defer: rm -f pkg.cov
       - go test -count=1 -cover -coverpkg=./... -coverprofile=pkg.cov ./...
-      # The extract reads the profile itself, so the coverage is in the
-      # document splint writes rather than folded in by a second pass over a
-      # summary of it. splint exits 1 on a finding, which is not this job.
-      - splint -save --append-coverage=pkg.cov ./... || true
-      - go-fsck coverage -i splint.json --template docs/testing-coverage.md.tpl > docs/testing-coverage.md
+      - splint coverage --append-coverage=pkg.cov --template docs/testing-coverage.md.tpl ./... > docs/testing-coverage.md
       - task: mdox:fmt
 
   gen:architecture:
@@ -72,7 +62,7 @@ tasks:
     desc: "Generate architectural diagrams of the project"
     passthru: true
     cmds:
-      - defer: rm -f splint.json go-fsck.json
-      - splint -save ./... || true
-      - go-fsck docs -i splint.json --render imports | plantuml -tsvg -pipe > docs/assets/imports.svg
-      - go-fsck docs -i splint.json --render puml | plantuml -tsvg -pipe > docs/assets/structure.svg
+      - defer: rm -f splint.json
+      - splint --linters none -save ./...
+      - splint docs --input splint.json --render imports | plantuml -tsvg -pipe > docs/assets/imports.svg
+      - splint docs --input splint.json --render puml | plantuml -tsvg -pipe > docs/assets/structure.svg
