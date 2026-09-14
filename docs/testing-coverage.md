@@ -12,7 +12,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 
 | Status | Package       | Coverage | Cognitive | Lines |
 |--------|---------------|----------|-----------|-------|
-| ✅     | .             | 83.33%   | 73        | 468   |
+| ✅     | .             | 84.55%   | 73        | 468   |
 | ❌     | cmd/oida      | 0.00%    | 33        | 259   |
 | ✅     | frontend      | 88.58%   | 73        | 385   |
 | ❌     | frontend/view | 70.65%   | 3784      | 6499  |
@@ -47,7 +47,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Tracer.Options             | 85.71%   | 1         |
 | ✅     |               | Tracer.Reset               | 80.00%   | 2         |
 | ✅     |               | Tracer.ServeHTTP           | 50.00%   | 1         |
-| ✅     |               | Tracer.Snapshot            | 84.62%   | 18        |
+| ✅     |               | Tracer.Snapshot            | 92.31%   | 18        |
 | ✅     |               | Tracer.StartTrace          | 93.33%   | 3         |
 | ✅     |               | Tracer.Subscribe           | 66.67%   | 1         |
 | ✅     |               | Tracer.Trace               | 30.77%   | 4         |
