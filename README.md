@@ -57,7 +57,4 @@ Pass the context down, and the next `oida.Start` records a child span under this
 
 ## License
 
-MIT
-
-```
-```
+[MIT](LICENSE), copyright Tit Petric.
