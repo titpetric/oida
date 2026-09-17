@@ -703,13 +703,19 @@ func TestHandlerHostStatistics(t *testing.T) {
 	if got := byHost["admin.example"]; got.Requests != 1 || got.Traces != 1 {
 		t.Errorf("admin.example: %d requests, %d traces, want 1 and 1", got.Requests, got.Traces)
 	}
+	if got := byHost["shop.example"]; got.Spans != 3 {
+		t.Errorf("shop.example: %d spans, want the recorded total 3", got.Spans)
+	}
 
 	// Hosts are the landing page, not a section of the statistics view.
 	body := request(t, handler, oida.DefaultPath, nil).Body.String()
-	for _, want := range []string{"shop.example", "admin.example", "Requests"} {
+	for _, want := range []string{"shop.example", "admin.example", "Requests", "Spans"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("host overview misses %q", want)
 		}
+	}
+	if strings.Contains(body, ">live</a>") {
+		t.Error("host overview still carries the trailing live action")
 	}
 
 	statsBody := request(t, handler, oida.DefaultPath+"/stats", nil).Body.String()

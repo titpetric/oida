@@ -421,19 +421,6 @@ func (p Page) Age(at time.Time) string {
 	return ageText(at, p.Now())
 }
 
-// FormatURL links the current view in another representation, so the JSON and
-// plain text renderings are discoverable from the page itself.
-func (p Page) FormatURL(format string) string {
-	base := p.URL(p.View)
-	if p.View == ViewDetail && p.Trace != nil {
-		base = p.TraceURL(p.Trace.ID)
-	}
-	if strings.Contains(base, "?") {
-		return base + "&format=" + format
-	}
-	return base + "?format=" + format
-}
-
 // WaveSpans returns every span of the trace in the shape the drawing fills:
 // where it ran as a fraction of the trace, and how deep it sat.
 //

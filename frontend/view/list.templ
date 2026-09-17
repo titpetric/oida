@@ -26,7 +26,6 @@ templ list(page Page) {
 				<label>&nbsp;</label>
 				<button type="submit">Filter</button>
 			</span>
-			<span class="hint">press <kbd>/</kbd> to search</span>
 		</form>
 		<div class="scroll">
 			<table>
@@ -41,7 +40,7 @@ templ list(page Page) {
 						<th class="num">
 							@sortLink(page, SortDuration, "Duration")
 						</th>
-						<th class="flex">Shape</th>
+						<th class="flex c-medium">Shape</th>
 						<th class="num c-medium">
 							@sortLink(page, SortSpans, "Spans")
 						</th>
@@ -75,11 +74,6 @@ templ list(page Page) {
 				</tbody>
 			</table>
 		</div>
-		<p class="note">
-			Showing { strconv.Itoa(len(page.Snapshot.Log)) } of { strconv.Itoa(page.Snapshot.Statistics.WindowSize) } retained traces,
-			out of a { strconv.Itoa(page.Snapshot.Statistics.WindowLimit) } trace window.
-			Shape bars are scaled to the slowest trace on this page ({ durationText(page.Slowest) }) and coloured by span kind.
-		</p>
 	}
 }
 
@@ -113,7 +107,7 @@ templ traceRow(trace model.Trace, page Page) {
 			}
 		</td>
 		<td class="num">{ preciseText(trace.Duration) }</td>
-		<td class="flex">
+		<td class="flex c-medium">
 			<div class="bar plot" title={ shapeTitle(trace) }>
 				for _, segment := range page.Composition(trace) {
 					<span style={ segmentStyle(segment) }></span>

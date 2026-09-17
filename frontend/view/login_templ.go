@@ -44,7 +44,7 @@ func login(page Page) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"login\"><h2>Sign in</h2><p>This dashboard is protected. Sign in with a configured user to see the recorded traces.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"login\"><h2>Sign in</h2><p>This dashboard is protected.<br>Sign in to view traces.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -116,7 +116,7 @@ func login(page Page) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" autocomplete=\"username\" autofocus></span> <span class=\"field\"><label for=\"oida-password\">Password</label> <input type=\"password\" name=\"password\" id=\"oida-password\" autocomplete=\"current-password\"></span> <button type=\"submit\">Sign in</button></form><p class=\"login-note\">Scripts and API calls skip the form: send the session as an <code>Authorization: Bearer</code> token signed with the configured secret.</p></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" autocomplete=\"username\" autofocus></span> <span class=\"field\"><label for=\"oida-password\">Password</label> <input type=\"password\" name=\"password\" id=\"oida-password\" autocomplete=\"current-password\"></span> <button type=\"submit\">Sign in</button></form></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

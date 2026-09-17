@@ -211,10 +211,9 @@ type HostStat struct {
 	Routes          int           `json:"routes"`
 	AverageDuration time.Duration `json:"average_duration_ns"`
 	MaxDuration     time.Duration `json:"max_duration_ns"`
-	AverageSpans    float64       `json:"average_spans"`
+	Spans           uint64        `json:"spans"`
 
 	totalDuration time.Duration
-	totalSpans    uint64
 }
 
 // Stats contains the most frequent trace groups in the rolling window.

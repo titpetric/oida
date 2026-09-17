@@ -75,13 +75,16 @@ html {
 body {
   position: relative;
   margin: 0;
-  padding: 1.25rem 1.5rem 3rem;
-  min-height: 100vh;
+  padding: 1.25rem 1.5rem 0.5rem;
   background: var(--ink-0);
   color: var(--text);
   font: 400 0.8125rem/1.55 var(--font);
   font-variant-numeric: tabular-nums slashed-zero;
   -webkit-font-smoothing: antialiased;
+}
+
+body:has(section.login) {
+  min-height: 100vh;
 }
 
 /* Grain and scanlines: atmosphere without a single external request. */
@@ -170,6 +173,23 @@ header.top h1 a {
   color: var(--text);
 }
 
+header.login-top h1 span {
+  margin-left: 0.35rem;
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+header.login-top {
+  justify-content: center;
+}
+
+header.top.login-top h1 {
+  flex: none;
+  text-align: center;
+}
+
 /* The domain in view, and the switch between domains. A disclosure, so it
    needs no script and closes on Escape like the browser expects. */
 details.domain {
@@ -249,20 +269,22 @@ details.domain summary.filtered {
   color: var(--text-faint);
 }
 
-/* Process facts are separated by rules, not by a row of middle dots. */
+/* Process facts stay in the desktop masthead. Their compact separators are
+   punctuation here, not another instrument row competing with the metrics. */
 header.top .env {
   display: flex;
-  gap: 0.9rem;
-  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
   color: var(--text-faint);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-header.top .env span + span {
-  padding-left: 0.9rem;
-  border-left: 1px solid var(--line);
+header.top .env span + span::before {
+  content: "·";
+  margin: 0 0.55rem;
+  color: var(--line-2);
 }
 
 /* The value is the part worth reading; the label around it is scaffolding. */
@@ -271,7 +293,23 @@ header.top .env b {
   font-weight: 400;
 }
 
+.mobile-env {
+  display: none;
+}
+
+.mobile-label {
+  display: none;
+}
+
+.mobile-stat-host {
+  display: none;
+}
+
 /* ------------------------------------------------------------------ metrics */
+
+.metrics-peek {
+  display: none;
+}
 
 .metrics {
   display: grid;
@@ -280,12 +318,18 @@ header.top .env b {
 }
 
 .metrics div {
-  padding: 0.7rem 1rem;
+  padding: 0.5rem 1rem;
   border-right: 1px solid var(--line);
 }
 
 .metrics div:last-child {
   border-right: none;
+}
+
+/* The first instrument aligns with the page and the table rules below it.
+   Later instruments keep an inset from the rule that separates them. */
+.metrics > div:first-child {
+  padding-left: 0;
 }
 
 .metrics b {
@@ -299,8 +343,8 @@ header.top .env b {
 
 .metrics span {
   display: block;
-  margin-top: 0.15rem;
-  font-size: 0.95rem;
+  margin-top: 0.1rem;
+  font-size: 0.9rem;
   color: var(--text);
 }
 
@@ -521,20 +565,6 @@ form.filters button[type="submit"] {
 form.filters button:active,
 button.copy:active {
   transform: translateY(1px);
-}
-
-form.filters .hint {
-  color: var(--text-faint);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-}
-
-form.filters kbd {
-  border: 1px solid var(--line-2);
-  border-bottom-width: 2px;
-  border-radius: var(--radius);
-  padding: 0 0.3em;
-  color: var(--text-dim);
 }
 
 /* ------------------------------------------------------------------ tables */
@@ -896,6 +926,49 @@ tr.running td {
   height: 100%;
 }
 
+.wave-summary-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.wave-summary-trigger {
+  display: block;
+  cursor: pointer;
+}
+
+.wave-summary-trigger:hover .waves {
+  border-color: var(--line-2);
+}
+
+.wave-summary-toggle:focus-visible + .wave-summary-trigger .waves {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.wave-summary {
+  display: grid;
+  grid-template-rows: 0fr;
+}
+
+.wave-summary > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wave-summary-toggle:checked ~ .wave-summary {
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wave-summary {
+    transition: grid-template-rows 0.28s ease;
+  }
+}
+
 /* The axis closes the drawing above it: tight to it, and clear of whatever
    comes next, which since the span table lost its heading is the table. */
 .axis {
@@ -973,10 +1046,22 @@ tr.running td {
 
 /* ------------------------------------------------------------------- spans */
 
+/* Inline, not inline-block: the name is what the cell's ellipsis trims, and
+   an atomic inline would clip without drawing one. */
 .span-name {
-  display: inline-block;
+  margin-left: calc(var(--depth, 0) * 1.2em);
   color: var(--text);
   white-space: nowrap;
+}
+
+/* The first row is the transaction envelope. Give its whole line the same
+   hierarchy as the transaction heading above the timeline. */
+.spans tr.root-span td {
+  font-weight: 600;
+}
+
+.mobile-time {
+  display: none;
 }
 
 .span-tree {
@@ -998,37 +1083,58 @@ code.query {
 }
 
 /* The key list sits on the span name line: a span reads as one sentence, and
-   the values are one click below it. */
-details.attrs {
+   the values open as a full-width row under it. The hint is the accessible
+   control; the whole row is a bigger target for the same click. */
+.attrs-hint {
   display: inline;
   margin-left: 0.6em;
-}
-
-details.attrs summary {
-  display: inline;
-  width: fit-content;
-  color: var(--text-faint);
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
   font-size: 0.72rem;
+  color: var(--text-faint);
   cursor: pointer;
-  list-style: none;
 }
 
-details.attrs summary::marker,
-details.attrs summary::-webkit-details-marker {
-  display: none;
-}
-
-details.attrs summary::before {
+.attrs-hint::before {
   content: "( ";
 }
 
-details.attrs summary::after {
+.attrs-hint::after {
   content: " )";
 }
 
-details.attrs summary:hover,
-details.attrs[open] summary {
+.attrs-hint:hover,
+tr.span-row.has-attrs:hover .attrs-hint,
+tr.span-row.open .attrs-hint {
   color: var(--text-dim);
+}
+
+.attrs-hint:focus-visible {
+  outline: 1px solid var(--signal);
+  outline-offset: 2px;
+}
+
+tr.span-row.has-attrs {
+  cursor: pointer;
+}
+
+tr.attr-row {
+  display: none;
+}
+
+tr.attr-row.open {
+  display: table-row;
+}
+
+tr.attr-row td {
+  white-space: normal;
+}
+
+/* The open pair reads as one row: the span keeps the bottom border for both. */
+tr.span-row.open td {
+  border-bottom: none;
 }
 
 /* Expanded attributes are a table: keys line up, values wrap, and a statement
@@ -1040,16 +1146,7 @@ details.attrs[open] summary {
    The fold is a grid row going from 0fr to 1fr, which is the one way to
    animate to a height nobody knows in advance. The row is what moves, so the
    table inside it is never resized and never reflows on the way. */
-.peek {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--line);
-}
-
-.peek .legend {
+.wave-summary .legend {
   margin: 0.7rem 0;
 }
 
@@ -1064,11 +1161,11 @@ details.attrs[open] summary {
   border-top: none;
 }
 
-body:has(.peek input[data-peek]:checked) .spans {
+body:has(.span-peek input[data-peek]:checked) .spans {
   grid-template-rows: 1fr;
 }
 
-body:has(.peek input[data-peek]:checked) .spans > .scroll {
+body:has(.span-peek input[data-peek]:checked) .spans > .scroll {
   overflow-x: auto;
 }
 
@@ -1363,21 +1460,66 @@ h2::after {
 .trace-head {
   display: flex;
   align-items: baseline;
-  gap: 0.9rem;
-  flex-wrap: wrap;
+  gap: 1rem;
   margin: 1.2rem 0 0.2rem;
 }
 
+.trace-primary,
+.trace-meta {
+  display: flex;
+  min-width: 0;
+}
+
+.trace-primary {
+  flex: 1;
+  align-items: baseline;
+  gap: 0.7rem;
+}
+
 .trace-head h1 {
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   font-size: 1.15rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trace-head .elapsed {
+  flex: none;
   color: var(--signal);
   font-size: 1.15rem;
+}
+
+.trace-meta {
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0;
+  color: var(--text-faint);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.trace-meta .status {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  line-height: 1.35;
+}
+
+.trace-meta .status::before { content: "["; }
+.trace-meta .status::after { content: "]"; }
+
+.trace-meta .tid {
+  align-items: center;
+}
+
+.meta-sep {
+  color: var(--line-2);
 }
 
 .back {
@@ -1389,6 +1531,55 @@ h2::after {
   text-transform: uppercase;
 }
 
+.section-peek {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.7rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.section-peek h2 {
+  margin: 0;
+}
+
+.section-peek h2 b {
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.detail-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+}
+
+/* Request, transaction and system are supporting facts rather than optional
+   desktop panels. Mobile restores their remembered disclosures below. */
+.facts .peek-toggle {
+  display: none;
+}
+
+.facts .detail-fold {
+  grid-template-rows: 1fr;
+}
+
+.detail-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.section-peek:has(input[data-peek]:checked) + .detail-fold {
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .detail-fold {
+    transition: grid-template-rows 0.28s ease;
+  }
+}
+
 /* Tables side by side: request details on the left, request cost on the right,
    and the transaction attributes between them when the trace recorded any.
    Below the medium viewport they stack, because a two column table in half a
@@ -1398,15 +1589,6 @@ h2::after {
   grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
   align-items: start;
   gap: 1rem;
-}
-
-.facts h3 {
-  margin: 1rem 0 0;
-  color: var(--text-faint);
-  font-size: 0.62rem;
-  font-weight: 400;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
 /* The request facts read as a two column table: labels down the left, values
@@ -1471,8 +1653,7 @@ dl.detail div:last-child dd {
 
 /* ------------------------------------------------------------------- notes */
 
-p.note,
-footer {
+p.note {
   color: var(--text-faint);
   font-size: 0.72rem;
 }
@@ -1482,33 +1663,39 @@ p.note {
 }
 
 footer {
-  margin-top: 2.5rem;
+  margin-top: 1.25rem;
   padding-top: 0.8rem;
   border-top: 1px solid var(--line);
   display: flex;
-  gap: 1.2rem;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-faint);
+  font-size: 0.45rem;
+  text-align: center;
 }
 
-footer .formats a {
-  color: var(--text-dim);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-footer .formats a:hover {
-  color: var(--signal);
-}
-
-/* The credit closes the row on the right, quiet enough that the note beside it
-   is still the first thing read. */
 footer .credit {
-  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  white-space: nowrap;
 }
 
 footer .credit a {
   color: var(--text-dim);
+}
+
+footer .credit .wordmark {
+  color: var(--text);
+  font-size: 1.1em;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+footer .credit .sep {
+  color: var(--text-faint);
 }
 
 footer .credit a:hover {
@@ -1522,8 +1709,8 @@ footer .credit a:hover {
    columns survive.
 
      wide    >= 1280px  every column, the console as designed
-     medium   720-1279  memory and network detail drop out
-     narrow    < 720px  identity, timing and shape only
+     medium  1024-1279  memory and network detail drop out
+     narrow   < 1024px  identity, timing and shape only
 
    Columns are marked with a c-* class on both the th and the td, so a hidden
    column disappears cleanly instead of leaving a stray header. Nothing here
@@ -1536,6 +1723,14 @@ th.flex,
 td.flex {
   width: 100%;
   padding-right: 1.2rem;
+}
+
+/* The span name loses its tail rather than pushing the table into a scroll;
+   the full name is one click away in the attribute row. */
+.spans td.flex {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The span plot is a fixed instrument, not a stretchy one: past ~300px the
@@ -1553,11 +1748,17 @@ td.plot .bar.plot {
   min-width: 0;
 }
 
+/* The plot is shorter than the text line beside it. Centre it on that first
+   line so the timeline, memory meter and span name share one row axis. */
+.spans td.plot .bar.plot {
+  margin-top: calc(0.775em - 0.25rem);
+}
+
 /* --- medium: below 1280px ------------------------------------------------ */
 
 @media (max-width: 1279px) {
   body {
-    padding: 1.1rem 1.1rem 2.5rem;
+    padding: 1.1rem 1.1rem 0.5rem;
   }
 
   .c-wide {
@@ -1582,14 +1783,18 @@ td.plot .bar.plot {
   .metrics div:nth-child(n + 4) {
     border-top: 1px solid var(--line);
   }
+
+  .metrics > div:nth-child(3n + 1) {
+    padding-left: 0;
+  }
 }
 
-/* --- narrow: below 720px ------------------------------------------------- */
+/* --- narrow: below 1024px ------------------------------------------------ */
 
-@media (max-width: 719px) {
+@media (max-width: 1023px) {
   body {
-    padding: 0.9rem 0.8rem 2rem;
-    font-size: 0.78rem;
+    padding: 0.9rem 0.8rem 0.5rem;
+    font-size: 0.7rem;
   }
 
   .c-medium {
@@ -1597,23 +1802,116 @@ td.plot .bar.plot {
   }
 
   header.top {
-    align-items: flex-start;
+    align-items: center;
     gap: 0.5rem;
+    flex-wrap: nowrap;
   }
 
   header.top h1 {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
     font-size: 0.85rem;
     letter-spacing: 0.18em;
+    white-space: nowrap;
   }
 
-  /* Rules between process facts turn into a plain wrapped list. */
-  header.top .env {
-    gap: 0.5rem;
+  header.top details.domain {
+    max-width: calc(100% - 4.5rem);
   }
 
-  header.top .env span + span {
-    padding-left: 0.5rem;
-    border-left: none;
+  header.top details.domain summary {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+    white-space: nowrap;
+  }
+
+  .desktop-env {
+    display: none;
+  }
+
+  .mobile-env {
+    display: block;
+  }
+
+  .wide-label {
+    display: none;
+  }
+
+  .mobile-label {
+    display: inline;
+  }
+
+  .mobile-stat-host {
+    display: inline;
+    color: var(--text-dim);
+  }
+
+  /* Service facts follow the same two-column grid as the counters. */
+  .metrics-clip .env {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    border-bottom: 1px solid var(--line);
+    color: var(--text-faint);
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .metrics-clip .env span {
+    padding: 0.4rem 0.5rem;
+    border-right: 1px solid var(--line);
+  }
+
+  .metrics-clip .env span:nth-child(2n) {
+    border-right: none;
+  }
+
+  .metrics-clip .env span:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+
+  .metrics-clip .env span:nth-child(2n + 1) {
+    padding-left: 0;
+    border-right: 1px solid var(--line);
+  }
+
+  .metrics-clip .env b {
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  /* Service facts and counters stay available without taking the first screen
+     from the view. The switch lives on the one-line masthead. */
+  .metrics-peek {
+    display: flex;
+    min-width: 0;
+  }
+
+  .metrics-peek .peek-toggle {
+    white-space: nowrap;
+  }
+
+  .metrics-fold {
+    display: grid;
+    grid-template-rows: 0fr;
+  }
+
+  .metrics-clip {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:has(.metrics-peek input[data-peek]:checked) .metrics-fold {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .metrics-fold {
+      transition: grid-template-rows 0.28s ease;
+    }
   }
 
   .metrics {
@@ -1621,7 +1919,7 @@ td.plot .bar.plot {
   }
 
   .metrics div {
-    padding: 0.55rem 0.7rem;
+    padding: 0.4rem 0.5rem;
   }
 
   .metrics div:nth-child(2n) {
@@ -1632,40 +1930,390 @@ td.plot .bar.plot {
     border-top: 1px solid var(--line);
   }
 
+  .metrics > div:nth-child(2n + 1) {
+    padding-left: 0;
+  }
+
+  /* The secondary reading gets its own line. Keeping it inline strands units
+     and short words when a two-column metric row narrows by a few pixels. */
+  .metrics small {
+    display: block;
+    margin-top: 0.05rem;
+    white-space: nowrap;
+  }
+
+  .metrics span {
+    font-size: 0.78rem;
+  }
+
+  .metrics small {
+    font-size: 0.62rem;
+  }
+
   nav.tabs {
-    gap: 1rem;
+    gap: 0.8rem;
+    margin-top: 0.6rem;
+    margin-bottom: 0.25rem;
   }
 
-  /* Filters stack: each control gets the full width rather than a cramped
-     row of half-visible selects. */
+  nav.tabs a {
+    padding-top: 0.25rem;
+    padding-bottom: 0.35rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+  }
+
+  /* A detail page has one back link rather than a tab set. Keep that route
+     available without giving a single control the height of full navigation. */
+  body:has(.trace-head) nav.tabs {
+    margin-top: 0.35rem;
+    margin-bottom: 0.15rem;
+    border-bottom: 0;
+  }
+
+  body:has(.trace-head) nav.tabs a {
+    padding-top: 0.15rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+  }
+
+  .trace-head {
+    display: block;
+  }
+
+  .trace-meta {
+    margin-top: 0.3rem;
+  }
+
+  /* Search keeps a full row; the three short selectors share the next one. */
   form.filters {
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr 0.65fr;
+    gap: 0.4rem;
+    margin: 0.6rem 0;
   }
 
-  form.filters .field,
   form.filters .field.grow {
-    flex: 1 1 100%;
+    grid-column: 1 / -1;
     max-width: none;
   }
 
-  form.filters .hint {
+  form.filters .field:last-of-type {
+    grid-column: 1 / -1;
+  }
+
+  form.filters .field:last-of-type label {
     display: none;
+  }
+
+  form.filters .select-button {
+    min-width: 0;
+  }
+
+  form.filters input,
+  form.filters select,
+  form.filters button,
+  form.filters .select-button {
+    padding-right: 0.4rem;
+    padding-left: 0.4rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.68rem;
+  }
+
+  form.filters .select-button {
+    background-position: right 0.35rem center;
+  }
+
+  form.filters .select-value {
+    padding-right: 0.8rem;
   }
 
   .bar.plot {
     min-width: 5rem;
   }
 
-  .kind {
+  /* The waveform remains a summary on a phone; half the desktop height keeps
+     the trace, spans and facts within reach of each other. */
+  .waves {
+    height: 4rem;
+  }
+
+  /* Detail spans reduce to type and identity. Timing is already in the
+     drawing and legend, and the name needs the phone's width. */
+  th.plot,
+  td.plot {
+    display: none;
+  }
+
+  /* Tighter gutters: four columns on a 390px screen. The headers set the
+     minimum width of a column, so they slim down first. */
+  th,
+  td {
+    padding: 0.25rem 0.45rem 0.25rem 0;
+  }
+
+  table {
+    font-size: 0.66rem;
+  }
+
+  th {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+    font-size: 0.5rem;
+    letter-spacing: 0.1em;
+  }
+
+  th.num,
+  td.num {
+    padding-right: 0.55rem;
+  }
+
+  td.num {
+    font-size: inherit;
+  }
+
+  .status {
+    padding-right: 0.3em;
+    padding-left: 0.3em;
+    font-size: 0.62rem;
+  }
+
+  .hosts-table table {
+    table-layout: fixed;
+  }
+
+  .hosts-table th:first-child,
+  .hosts-table td:first-child {
+    width: 48%;
+  }
+
+  .hosts-table th:not(:first-child),
+  .hosts-table td:not(:first-child) {
+    width: 13%;
+  }
+
+  .hosts-table .host-spans {
+    display: table-cell;
+  }
+
+  .hosts-table .dot {
+    margin-left: 0.25rem;
+  }
+
+  /* Twelve levels of depth cost ~80px here, not ~180px. The tree glyphs add
+     no information once the indent has established the hierarchy. */
+  .span-name {
+    margin-left: calc(var(--depth, 0) * 0.55em);
+  }
+
+  .spans .span-tree {
+    display: none;
+  }
+
+  /* Kind is the data, represented by its colour rather than a repeated word. */
+  .spans .kind {
+    display: block;
+    width: 0.55rem;
+    min-width: 0.55rem;
+    height: 0.55rem;
+    padding: 0;
+    border-radius: 50%;
+    color: transparent !important;
+    font-size: 0;
+  }
+
+  /* The root dot is transaction health, not another categorical span swatch.
+     Match the successful response status above it; child dots remain kinds. */
+  .spans tr.root-span .kind {
+    background: var(--ok) !important;
+  }
+
+  /* A block bullet avoids baseline positioning; the table cell then centres
+     it against the span name regardless of the row's inherited line-height. */
+  .spans tr.span-row > td:first-child {
+    vertical-align: middle;
+  }
+
+  .spans td.flex,
+  .spans th.flex {
+    padding-right: 0.55rem;
+  }
+
+  .spans > .scroll > table {
+    width: 100%;
+    table-layout: fixed;
+    font-size: 0.68rem;
+  }
+
+  .spans th:first-child,
+  .spans td:first-child {
+    width: 1.4rem;
+  }
+
+  /* The colour bullet is self-evident on mobile; retain the header for table
+     semantics without crowding it into the adjacent Name label. */
+  .spans th:first-child {
+    color: transparent;
+    font-size: 0;
+  }
+
+  /* The name gets the row's remaining width. Deep or unusually long span
+     names stay on one line so each row keeps the same scan height. */
+  .spans td.flex {
+    max-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .spans .span-name {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
     min-width: 0;
   }
 
-  dl.detail {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  .mobile-time {
+    display: inline;
+    flex: none;
+    color: var(--text-faint);
+    font-size: 0.6rem;
   }
 
-  .trace-head {
-    gap: 0.5rem;
+  /* The row is the disclosure target. The key list remains available in the
+     expanded row without repeating it as a brace beside the span name. */
+  .spans .attrs-hint {
+    display: none;
+  }
+
+  /* The final rule belongs to the table. Leave one compact step before the
+     next disclosure instead of attaching its heading to the last span. */
+  body:has(.span-peek input[data-peek]:checked) .spans > .scroll {
+    padding-bottom: 0.6rem;
+  }
+
+  .attr-table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .attr-table th {
+    width: 30%;
+  }
+
+  /* Fact groups must resolve against the content width, not their desktop
+     22rem minimum. Values wrap inside the second column. */
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .facts .peek-toggle {
+    display: inline-flex;
+  }
+
+  .facts .detail-fold {
+    grid-template-rows: 0fr;
+  }
+
+  .facts > div,
+  dl.detail {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  dl.detail dt,
+  dl.detail dd {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.62rem;
+  }
+
+  dl.detail dt {
+    letter-spacing: 0.1em;
+  }
+
+  /* Logs reduce to level and message. Attributes take their own wrapped line
+     instead of extending the table past the viewport. */
+  .logs-clip > .scroll {
+    overflow-x: hidden;
+  }
+
+  .logs-panel table {
+    table-layout: fixed;
+    font-size: 0.68rem;
+  }
+
+  .logs-panel th:nth-child(2),
+  .logs-panel td:nth-child(2) {
+    width: 3.7rem;
+  }
+
+  .logs-panel td.flex {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .log-copy {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .log-attr {
+    display: inline-block;
+    margin-left: 0.45em;
+    font-size: 0.6rem;
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+
+  /* At phone width 22vw is a couple of glyphs. The name is the row: it takes
+     the room the folded columns released. */
+  td.name,
+  th.name {
+    max-width: clamp(9ch, 40vw, 46ch);
+  }
+
+  /* The percent beside it carries the value; the bar is ink the width no
+     longer affords. */
+  .share .bar {
+    display: none;
+  }
+
+  h2 {
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+  }
+
+  .section-peek {
+    min-height: 2rem;
+  }
+
+  .legend {
+    gap: 0.25rem 0.8rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.62rem;
+  }
+
+  footer {
+    margin-top: 0.8rem;
+  }
+
+  /* Five time ticks collide in a phone's width; every other one still frames
+     the transaction drawing. */
+  .axis span:nth-child(even) {
+    display: none;
   }
 
   .trace-head h1,
@@ -1673,10 +2321,6 @@ td.plot .bar.plot {
     font-size: 1rem;
   }
 
-  footer {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1694,10 +2338,6 @@ td.plot .bar.plot {
    time as the drawing above it. The line wears the accent because it is the
    one series on the plot; the wash under it is the same ink at a whisper, and
    every word on the plot stays in text ink. */
-.memory-note {
-  color: var(--text-dim);
-  font-size: 0.72rem;
-}
 
 .memory-graph {
   position: relative;
@@ -1767,6 +2407,34 @@ td.plot .bar.plot {
   white-space: nowrap;
 }
 
+.memory-legend {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0.35rem 0 1rem;
+  color: var(--text-dim);
+  font-size: 0.65rem;
+}
+
+.memory-legend span {
+  white-space: nowrap;
+}
+
+.memory-legend span:nth-child(2) {
+  text-align: center;
+}
+
+.memory-legend span:last-child {
+  text-align: right;
+}
+
+.memory-legend small {
+  margin-right: 0.35rem;
+  color: var(--text-faint);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* ------------------------------------------------------------------- login */
 
 /* The sign in screen: one narrow card, the filter bar vocabulary stacked
@@ -1782,11 +2450,25 @@ section.login {
 }
 
 section.login h2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.2em;
+  text-align: center;
   text-transform: uppercase;
+}
+
+section.login h2::before,
+section.login h2::after {
+  content: "";
+  width: 2.5rem;
+  height: 1px;
+  margin: 0;
+  background: var(--line-2);
 }
 
 section.login p {
@@ -1854,81 +2536,29 @@ section.login button[type="submit"]:active {
   transform: translateY(1px);
 }
 
-section.login .login-note {
-  margin: 0;
-  color: var(--text-faint);
-}
-
-section.login .login-note code {
-  color: var(--text-dim);
-}
-
-
-/* Trace detail tabs: the spans and the log are two readings of the same
-   transaction, so they share one place on the page. The radios do the
-   switching, so it works with scripting off; the labels are set like the
-   other column headings. */
-.tabs {
-  display: flex;
-  gap: 1.5rem;
-  margin-top: 1rem;
-}
-
-.tabs input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-.tabs label {
-  cursor: pointer;
-  padding: 0.45rem 0;
-  color: var(--text-dim);
-  font-size: 0.63rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  border-bottom: 2px solid transparent;
-}
-
-.tabs label b {
-  font-weight: 600;
-}
-
-.tabs input:checked + label {
-  color: var(--signal);
-  border-bottom-color: var(--signal);
-}
-
-.tabs label:hover {
-  color: var(--text);
-}
-
-.tabs input:focus-visible + label {
-  outline: 2px solid var(--signal);
-  outline-offset: 2px;
-}
-
-/* The log panel replaces the spans, the legend and their notes while its tab
-   is chosen. Everything else on the page stays. */
+/* The log follows the spans behind an independent remembered disclosure. */
 .logs-panel {
-  display: none;
+  display: grid;
+  grid-template-rows: 0fr;
 }
 
-body:has(#oida-tab-logs:checked) .logs-panel {
-  display: block;
+.logs-clip {
+  min-height: 0;
+  overflow: hidden;
 }
 
-body:has(#oida-tab-logs:checked) .peek,
-body:has(#oida-tab-logs:checked) .spans,
-body:has(#oida-tab-logs:checked) .spans-note {
-  display: none;
+body:has(.log-peek input[data-peek]:checked) .logs-panel {
+  grid-template-rows: 1fr;
 }
 
-.logs-panel > .scroll {
+.logs-clip > .scroll {
   overflow-x: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .logs-panel {
+    transition: grid-template-rows 0.28s ease;
+  }
 }
 
 .logs-empty {
@@ -1947,20 +2577,29 @@ body:has(#oida-tab-logs:checked) .spans-note {
   margin-bottom: 0.4rem;
 }
 
-/* Trace log entries. The table borrows everything from the span table; the
-   only ink of its own is the error level, because level is the data here. */
+/* Trace log levels are data labels, matching span kind badges rather than
+   reading as another message column. */
 .log-level {
+  display: inline-block;
+  min-width: 4.5em;
+  padding: 0 0.35em;
+  border-radius: var(--radius);
+  background: var(--text-dim);
+  color: var(--ink-0);
   text-transform: uppercase;
-  font-size: 0.72rem;
+  font-size: 0.65rem;
   letter-spacing: 0.04em;
+  text-align: center;
 }
 
 .log-level-error {
-  color: var(--bad);
+  background: var(--bad);
+  color: var(--ink-0);
   font-weight: 600;
 }
 
 .log-attr {
   margin-left: 0.6em;
   color: var(--text-dim);
+  font-size: 0.65rem;
 }
