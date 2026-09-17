@@ -81,17 +81,17 @@ func TestLogs(t *testing.T) {
 	}
 }
 
-func TestLogsTab(t *testing.T) {
+func TestLogsDisclosure(t *testing.T) {
 	tracer := loggedTracer(t, nil)
 	trace := tracer.Traces()[0]
 
 	body := detailPage(t, tracer, trace.ID, "")
 	for _, want := range []string{
-		`id="oida-tab-logs"`, // the Log tab beside the spans
-		`Log <b>2</b>`,       // named with its count
+		`data-peek="logs"`, // the remembered disclosure after the spans
+		`Log <b>2</b>`,      // named with its count
 		"user loaded",
-		"user_id=42",   // the slog-style pair, rendered inline
-		"SELECT users", // the entry names the span it was written under
+		"user_id=42", // the slog-style pair, rendered inline
+		"database",   // the entry retains the span kind as its origin
 		`class="log-level log-level-error"`,
 		"stale cache entry evicted",
 	} {
@@ -101,6 +101,11 @@ func TestLogsTab(t *testing.T) {
 	}
 	if strings.Contains(body, "No log entries") {
 		t.Error("the empty state is drawn for a trace with log entries")
+	}
+	logs := body[strings.Index(body, `<div class="logs-panel">`):]
+	logs = logs[:strings.Index(logs, `</table>`)]
+	if strings.Contains(logs, "SELECT users") {
+		t.Error("the log entry repeats its span name")
 	}
 }
 

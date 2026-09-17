@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	rand "math/rand/v2"
 	"net/http"
 	"sync/atomic"
 
@@ -60,11 +59,6 @@ func (b *budget) total() int64 {
 
 // endSpan closes a span, recording what the transaction had in use when it
 // finished. The demo uses it instead of a bare span.End().
-//
-// The memory is charged either way and the reading is taken two times out of
-// three, because instrumentation that reports on every span is the easy case.
-// A gap in the column is a span that allocated without saying so, and the next
-// reading steps by more than one span's worth.
 func endSpan(ctx context.Context, span *oida.Span) {
 	b := budgetFrom(ctx)
 	if b == nil {
@@ -72,9 +66,7 @@ func endSpan(ctx context.Context, span *oida.Span) {
 		return
 	}
 	used := b.charge()
-	if rand.IntN(3) > 0 {
-		span.SetAttribute(oida.AttrMemoryUsage, used)
-	}
+	span.SetAttribute(oida.AttrMemoryUsage, used)
 	span.End()
 }
 

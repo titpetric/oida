@@ -198,7 +198,7 @@ func report(w http.ResponseWriter, r *http.Request) {
 	// span, which is the report span holding this work.
 	trace.Info("report shards merged", "shards", 3, "rows", 1204)
 
-	if err := do(ctx, "GET pricing-api", func(ctx context.Context) error {
+	if err := do(ctx, "GET pricing-api/v1/catalog/prices/current", func(ctx context.Context) error {
 		oida.SpanFromContext(ctx).Info("pricing api responded", "status", 200, "currency", "EUR")
 		time.Sleep(time.Duration(5+rand.IntN(20)) * time.Millisecond)
 		return nil
