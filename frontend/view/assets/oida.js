@@ -166,6 +166,39 @@
     }
   });
 
+  // ----------------------------------------------------- span attributes
+  // A span row opens into a full-width row carrying its attribute table. The
+  // hint button is the accessible control; the whole row is a bigger target
+  // for the same action. Links, other buttons and selected text still win.
+  document.addEventListener("click", function (event) {
+    var hint = event.target.closest(".attrs-hint");
+    var row;
+    if (hint) {
+      row = hint.closest("tr");
+    } else {
+      row = event.target.closest("tr.has-attrs");
+      if (!row || event.target.closest("a, button, summary, input, label")) {
+        return;
+      }
+      if (String(window.getSelection())) {
+        return;
+      }
+    }
+    if (!row) {
+      return;
+    }
+    var attrs = row.nextElementSibling;
+    if (!attrs || !attrs.classList.contains("attr-row")) {
+      return;
+    }
+    var open = attrs.classList.toggle("open");
+    row.classList.toggle("open", open);
+    var button = row.querySelector(".attrs-hint");
+    if (button) {
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+  });
+
   // --------------------------------------------------------- linked spans
   // A span appears twice on the detail page: as a block on the timeline and as
   // a row in the table. Hovering either one lights both.

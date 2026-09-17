@@ -29,11 +29,11 @@ func TestDurationText(t *testing.T) {
 // accidental.
 func TestPreciseText(t *testing.T) {
 	tests := map[time.Duration]string{
-		0:                       "0",
-		-time.Second:            "0",
-		300 * time.Nanosecond:   "300ns",
-		time.Microsecond:        "1.0µs",
-		1500 * time.Nanosecond:  "1.5µs",
+		0:                       "0.00ms",
+		-time.Second:            "0.00ms",
+		300 * time.Nanosecond:   "300.00ns",
+		time.Microsecond:        "1.00µs",
+		1500 * time.Nanosecond:  "1.50µs",
 		time.Millisecond:        "1.00ms",
 		1500 * time.Microsecond: "1.50ms",
 		time.Second:             "1.00s",
@@ -43,6 +43,20 @@ func TestPreciseText(t *testing.T) {
 	for d, want := range tests {
 		if got := preciseText(d); got != want {
 			t.Errorf("preciseText(%v) = %q, want %q", d, got, want)
+		}
+	}
+}
+
+func TestMillisecondsText(t *testing.T) {
+	tests := map[time.Duration]string{
+		-time.Millisecond:            "0.00ms",
+		1500 * time.Microsecond:      "1.50ms",
+		2*time.Second + time.Microsecond: "2000.00ms",
+	}
+
+	for d, want := range tests {
+		if got := millisecondsText(d); got != want {
+			t.Errorf("millisecondsText(%v) = %q, want %q", d, got, want)
 		}
 	}
 }

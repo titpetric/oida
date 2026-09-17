@@ -133,10 +133,8 @@ type Page struct {
 	Segments []Segment
 
 	// Memory is the memory the detail view trace reported, read once because
-	// every row of the span table draws against it. Sources reports whether any
-	// of its spans recorded a source location.
-	Memory  MemoryBudget
-	Sources bool
+	// every row of the span table draws against it.
+	Memory MemoryBudget
 
 	// LoginUsername is the username a failed login was attempted with, kept so
 	// the form does not empty itself. LoginError is what went wrong, worded

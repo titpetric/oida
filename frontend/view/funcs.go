@@ -21,22 +21,27 @@ func durationText(d time.Duration) string {
 	return d.Round(time.Microsecond).String()
 }
 
-// preciseText renders a duration at three significant figures in the unit that
-// suits its magnitude, so a table of durations stays the same width and stays
-// readable from 300ns to 30s.
+// preciseText renders a duration to two decimal places in the unit that suits
+// its magnitude, so timing columns stay aligned from nanoseconds to seconds.
 func preciseText(d time.Duration) string {
 	switch {
 	case d <= 0:
-		return "0"
+		return "0.00ms"
 	case d < time.Microsecond:
-		return fmt.Sprintf("%dns", d.Nanoseconds())
+		return fmt.Sprintf("%.2fns", float64(d)/float64(time.Nanosecond))
 	case d < time.Millisecond:
-		return fmt.Sprintf("%.1fµs", float64(d)/float64(time.Microsecond))
+		return fmt.Sprintf("%.2fµs", float64(d)/float64(time.Microsecond))
 	case d < time.Second:
 		return fmt.Sprintf("%.2fms", float64(d)/float64(time.Millisecond))
 	default:
 		return fmt.Sprintf("%.2fs", d.Seconds())
 	}
+}
+
+// millisecondsText renders row timing in one fixed unit, so values align and
+// remain comparable in the compact mobile span and log views.
+func millisecondsText(d time.Duration) string {
+	return fmt.Sprintf("%.2fms", max(d, 0).Seconds()*1000)
 }
 
 // uptimeText renders a long duration the way a person says it. Nobody reads
@@ -204,27 +209,15 @@ func attributeLabel(key string) string {
 	return strings.ToUpper(label[:1]) + label[1:]
 }
 
-// spanColumns is the width of the span table, for the row that says there are
-// no spans in it. Memory and source are drawn only when recorded.
+// spanColumns is the width of the span table: the colspan of the attribute
+// row behind a span, and of the row that says there are no spans at all.
+// Memory is drawn only when recorded.
 func spanColumns(page Page) string {
 	columns := 5
 	if page.Memory.Spans {
 		columns++
 	}
-	if page.Sources {
-		columns++
-	}
 	return strconv.Itoa(columns)
-}
-
-// HasSources reports whether any span recorded where it was started.
-func HasSources(rows []SpanRow) bool {
-	for _, row := range rows {
-		if row.SourceText() != "" {
-			return true
-		}
-	}
-	return false
 }
 
 // memoryText renders a span memory reading, or nothing when the span reported
@@ -251,6 +244,21 @@ func sortedKeys(attributes model.Attributes) []string {
 // span reads as a name plus what is known about it, not as a wall of chips.
 func keyList(attributes model.Attributes) string {
 	return strings.Join(sortedKeys(attributes), ", ")
+}
+
+// hasSpanDetail reports whether a span has anything behind its row: attributes
+// to unfold, or the source it was started from.
+func hasSpanDetail(row SpanRow) bool {
+	return len(row.Attributes) > 0 || row.SourceText() != ""
+}
+
+// attrsHint is the label on the disclosure of a span row: the attribute keys,
+// or the word source when the source is all there is.
+func attrsHint(row SpanRow) string {
+	if len(row.Attributes) > 0 {
+		return "attributes: " + keyList(row.Attributes)
+	}
+	return "source"
 }
 
 // queryKeys are the attribute names that carry a statement worth showing on the
@@ -476,9 +484,10 @@ func shareStyle(share float64) templ.SafeCSS {
 	return templ.SafeCSS("width:" + cssPercent(share))
 }
 
-// indentStyle indents a span row by its depth.
+// indentStyle carries the depth of a span row into the stylesheet, which
+// turns it into an indent sized for the viewport.
 func indentStyle(depth int) templ.SafeCSS {
-	return templ.SafeCSS(fmt.Sprintf("margin-left:%.1fem", float64(min(depth, 12))*1.2))
+	return templ.SafeCSS(fmt.Sprintf("--depth:%d", min(depth, 12)))
 }
 
 // stateClass returns the CSS class of a scoreboard state.

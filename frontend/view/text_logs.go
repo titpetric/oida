@@ -14,16 +14,19 @@ func writeLogsText(w io.Writer, page Page) {
 		return
 	}
 
-	fmt.Fprintln(w, "LEVEL   OFFSET        SPAN                           MESSAGE")
+	fmt.Fprintln(w, "LEVEL   OFFSET        ORIGIN       MESSAGE")
 	for _, entry := range trace.Logs {
 		parts := make([]string, 0, 1+len(entry.Attributes))
 		parts = append(parts, entry.Message)
 		for _, key := range sortedKeys(entry.Attributes) {
 			parts = append(parts, key+"="+attributeValue(entry.Attributes, key))
 		}
-		fmt.Fprintf(w, "%-7s %-13s %-30s %s\n",
-			entry.Level, durationText(page.LogOffset(entry)),
-			truncate(page.LogSpanName(entry), 30), strings.Join(parts, " "))
+		origin := ""
+		if span := page.LogSpan(entry); span != nil {
+			origin = span.Kind.String()
+		}
+		fmt.Fprintf(w, "%-7s %-13s %-12s %s\n",
+			entry.Level, preciseText(page.LogOffset(entry)), origin, strings.Join(parts, " "))
 	}
 	fmt.Fprintln(w)
 

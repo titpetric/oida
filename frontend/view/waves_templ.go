@@ -15,6 +15,7 @@ import templruntime "github.com/a-h/templ/runtime"
 // open is brighter than a moment with one. The shape of a wave is not data. Its
 // extent, its colour and how loud it runs are.
 //
+// The drawing is also the disclosure target for the kind summary beneath it.
 // With scripting off the canvas stays empty and the page carries on: the span
 // table under it is the same trace in numbers, and it needs nothing.
 func waves(page Page) templ.Component {
@@ -38,15 +39,27 @@ func waves(page Page) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"waves\"><canvas id=\"oida-waves\" aria-hidden=\"true\"></canvas><noscript><p class=\"note\">The drawing needs scripting. The spans below it do not.</p></noscript></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templ.JSONScript("oida-waves-data", page.WaveTrace()).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"wave-disclosure\"><input class=\"wave-summary-toggle\" type=\"checkbox\" id=\"oida-wave-summary\" aria-label=\"Show span kind summary\"> <label class=\"wave-summary-trigger\" for=\"oida-wave-summary\"><div class=\"waves\"><canvas id=\"oida-waves\" aria-hidden=\"true\"></canvas><noscript><p class=\"note\">The drawing needs scripting. The spans below it do not.</p></noscript></div></label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = timelineFoot(page).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"wave-summary\"><div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = timelineLegend(page).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></div></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.JSONScript("oida-waves-data", page.WaveTrace()).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -59,7 +59,7 @@ func writeTraceTableText(w io.Writer, title string, traces []model.Trace) {
 		}
 		fmt.Fprintf(w, "%-26s %-2s %-13s %-40s %-7d %-13s %-6d %-10d %-10s %-10s %s\n",
 			trace.ID, trace.State, timeText(trace.StartedAt), truncate(trace.Name, 40), status,
-			durationText(trace.Duration), len(trace.Spans), bytes,
+			preciseText(trace.Duration), len(trace.Spans), bytes,
 			signedBytesText(trace.Memory.HeapDelta), bytesText(trace.Memory.AllocatedBytes), remote)
 	}
 	fmt.Fprintln(w)
@@ -77,11 +77,11 @@ func writeStateText(w io.Writer, durations []model.StateDuration) {
 // writeHostsText renders the per host traffic overview.
 func writeHostsText(w io.Writer, stats model.Stats) {
 	fmt.Fprintf(w, "Hosts (%d):\n", len(stats.Hosts))
-	fmt.Fprintln(w, "REQUESTS  RECORDED  ERRORS  ROUTES  SHARE    AVG TIME      MAX TIME      HOST")
+	fmt.Fprintln(w, "REQUESTS  RECORDED  ERRORS  ROUTES  SHARE    AVG TIME      MAX TIME      SPANS  HOST")
 	for _, host := range stats.Hosts {
-		fmt.Fprintf(w, "%-9d %-9d %-7d %-7d %6.2f%%  %-13s %-13s %s\n",
+		fmt.Fprintf(w, "%-9d %-9d %-7d %-7d %6.2f%%  %-13s %-13s %-6d %s\n",
 			host.Requests, host.Traces, host.Errors, host.Routes, host.Share,
-			durationText(host.AverageDuration), durationText(host.MaxDuration), host.Host)
+			preciseText(host.AverageDuration), preciseText(host.MaxDuration), host.Spans, host.Host)
 	}
 	fmt.Fprintln(w)
 }
@@ -92,7 +92,7 @@ func writeStatsText(w io.Writer, stats model.Stats) {
 	fmt.Fprintln(w, "SHARE    COUNT  ERRORS  AVG TIME      MAX TIME      AVG BYTES  AVG ALLOC  AVG SPANS  NAME")
 	for _, stat := range stats.Top {
 		fmt.Fprintf(w, "%6.2f%%  %-5d  %-6d  %-13s %-13s %-10s %-10s %-10s %s\n",
-			stat.Share, stat.Count, stat.Errors, durationText(stat.AverageDuration), durationText(stat.MaxDuration),
+			stat.Share, stat.Count, stat.Errors, preciseText(stat.AverageDuration), preciseText(stat.MaxDuration),
 			bytesText(stat.AverageResponseBytes), bytesText(stat.AverageAllocatedBytes),
 			countText(stat.AverageSpans), stat.Name)
 	}
@@ -129,7 +129,7 @@ func writeDetailText(w io.Writer, page Page) {
 	fmt.Fprintln(w, "Timeline:")
 	for _, segment := range page.Segments {
 		fmt.Fprintf(w, "%-12s at %-13s %-13s %6.2f%%\n",
-			segment.Kind, durationText(segment.Offset), durationText(segment.Duration), segment.Share)
+			segment.Kind, preciseText(segment.Offset), preciseText(segment.Duration), segment.Share)
 	}
 	fmt.Fprintln(w)
 
@@ -140,7 +140,7 @@ func writeDetailText(w io.Writer, page Page) {
 			duration = "(open)"
 		}
 		fmt.Fprintf(w, "%-13s %-13s %-15s %-30s %s%s\n",
-			row.Kind, durationText(row.Offset), duration, row.SourceText(),
+			row.Kind, preciseText(row.Offset), duration, row.SourceText(),
 			strings.Repeat("  ", min(row.Depth, 12)), row.Name)
 		for _, key := range sortedKeys(row.Attributes) {
 			fmt.Fprintf(w, "%s%s = %s\n", strings.Repeat(" ", 74), key, attributeValue(row.Attributes, key))

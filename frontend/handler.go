@@ -232,7 +232,6 @@ func (h *handler) serveDetail(w http.ResponseWriter, r *http.Request, id string)
 	page.Rows = view.Rows(trace)
 	page.Segments = view.Timeline(trace)
 	page.Memory = view.TraceMemory(trace, page.Rows)
-	page.Sources = view.HasSources(page.Rows)
 	page.Title = trace.Name
 	page.Refresh = 0
 
