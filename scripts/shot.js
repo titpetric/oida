@@ -5,7 +5,7 @@
 //
 //   {
 //     "base": "http://localhost:8097",
-//     "width": 1440, "scale": 2, "theme": "dark", "pad": 14,
+//     "width": 1440, "height": 1200, "scale": 2, "theme": "dark", "pad": 14,
 //     "shots": [
 //       { "out": "docs/assets/header.png", "path": "/debug/oida",
 //         "pick": "[q('header.top'), q('.metrics'), q('nav.tabs')]" }
@@ -60,6 +60,7 @@ async function main() {
 // for, and clip to it.
 async function capture(page, manifest, shot) {
   const width = shot.width || manifest.width || 1440;
+  const height = shot.height || manifest.height || 1200;
   const scale = shot.scale || manifest.scale || 2;
   const theme = shot.theme || manifest.theme || "dark";
   const pad = shot.pad === undefined ? (manifest.pad === undefined ? 14 : manifest.pad) : shot.pad;
@@ -69,7 +70,7 @@ async function capture(page, manifest, shot) {
   });
   await page.send("Emulation.setDeviceMetricsOverride", {
     width: width,
-    height: 1200,
+    height: height,
     deviceScaleFactor: scale,
     mobile: false,
   });
@@ -78,6 +79,11 @@ async function capture(page, manifest, shot) {
   await page.send("Page.navigate", { url: manifest.base + shot.path });
   await loaded;
   await settle(page);
+
+  if (shot.prepare) {
+    await evaluate(page, prepare(shot.prepare));
+    await settle(page);
+  }
 
   // The full document as the viewport: every canvas redraws at its final size,
   // and every rect is measured against the same origin.
@@ -103,6 +109,15 @@ async function capture(page, manifest, shot) {
 
   fs.mkdirSync(path.dirname(shot.out), { recursive: true });
   fs.writeFileSync(shot.out, Buffer.from(png.data, "base64"));
+}
+
+function prepare(expression) {
+  return `(() => {
+    const q = (s) => document.querySelector(s);
+    const qa = (s) => Array.from(document.querySelectorAll(s));
+    const heading = (t) => qa("h1,h2").find((h) => h.textContent.trim() === t);
+    ${expression};
+  })()`;
 }
 
 // frame is the expression that measures a shot: the union of what pick found,
