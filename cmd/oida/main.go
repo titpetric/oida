@@ -138,10 +138,10 @@ func lookupCache(ctx context.Context, id string) (string, bool) {
 	span.SetAttribute("hit", hit)
 	time.Sleep(time.Duration(rand.IntN(400)) * time.Microsecond)
 	if !hit {
-		span.Info("cache miss, falling back to the database", "key", "user:"+id)
+		span.Warn("cache miss, falling back to the database")
 		return "", false
 	}
-	span.Info("cache hit", "key", "user:"+id)
+	span.Info("cache hit")
 	return "user " + id + " (cached)", true
 }
 
@@ -171,9 +171,9 @@ func report(w http.ResponseWriter, r *http.Request) {
 
 	trace := oida.TraceFromContext(ctx)
 	trace.Info("session accepted", "user_id", 1042, "roles", "analyst")
-	trace.Info("feature flags loaded", "flags", 12, "source", "cache")
+	trace.Info("feature flags loaded")
 
-	span.Info("report cache missed, rebuilding", "key", "report:daily")
+	span.Warn("report cache missed, rebuilding")
 
 	done := make(chan struct{}, 3)
 	for i := range 3 {
@@ -184,7 +184,7 @@ func report(w http.ResponseWriter, r *http.Request) {
 			worker.SetAttribute("shard", i)
 			elapsed := 3 + rand.IntN(10)
 			time.Sleep(time.Duration(elapsed) * time.Millisecond)
-			worker.Info("shard queried", "shard", i, "rows", 380+rand.IntN(60))
+			worker.Info("shard queried")
 			if elapsed > 10 {
 				worker.Error("shard exceeded its budget", "shard", i, "budget_ms", 10, "took_ms", elapsed)
 			}
@@ -196,7 +196,7 @@ func report(w http.ResponseWriter, r *http.Request) {
 
 	// Logged on the trace: the entry attributes itself to the innermost open
 	// span, which is the report span holding this work.
-	trace.Info("report shards merged", "shards", 3, "rows", 1204)
+	trace.Info("report shards merged")
 
 	if err := do(ctx, "GET pricing-api/v1/catalog/prices/current", func(ctx context.Context) error {
 		oida.SpanFromContext(ctx).Info("pricing api responded", "status", 200, "currency", "EUR")
@@ -206,10 +206,10 @@ func report(w http.ResponseWriter, r *http.Request) {
 		span.RecordError(err)
 	}
 
-	trace.Info("totals computed", "rows", 1204, "sum", "48210.50")
+	trace.Info("totals computed")
 	span.Info("report rendered", "template", "report.html", "bytes", 48512)
-	trace.Info("response compressed", "encoding", "gzip", "ratio", "3.1")
-	trace.Info("audit event queued", "topic", "reports", "partition", 3)
+	trace.Info("response compressed")
+	trace.Info("audit event queued")
 
 	fmt.Fprintln(w, "report built")
 }

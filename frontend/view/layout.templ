@@ -32,6 +32,7 @@ templ Layout(page Page) {
 					<h1><a href={ templ.SafeURL(page.Path) }>oida</a><span> | in-process telemetry</span></h1>
 				</header>
 				{ children... }
+				@pageFooter(page)
 			} else {
 				@pageHeader(page)
 				@pageMetrics(page)
@@ -194,7 +195,7 @@ templ pageFooter(page Page) {
 			// component expression in templ.
 			<a class="wordmark" href="https://github.com/titpetric/oida">oida</a>
 			<span class="sep" aria-hidden="true">|</span>
-			<span>in-mem telemetry by <a href="https://github.com/titpetric">{ "@titpetric" }</a></span>
+			<span>telemetry by <a href="https://github.com/titpetric">{ "@titpetric" }</a></span>
 			<span class="sep" aria-hidden="true">|</span>
 			<a href="https://blacksky.digital/products/oida">blacksky.digital</a>
 		</span>

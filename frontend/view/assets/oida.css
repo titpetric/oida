@@ -1671,7 +1671,7 @@ footer {
   align-items: center;
   gap: 0.35rem;
   color: var(--text-faint);
-  font-size: 0.45rem;
+  font-size: 0.55rem;
   text-align: center;
 }
 
@@ -1688,7 +1688,7 @@ footer .credit a {
 
 footer .credit .wordmark {
   color: var(--text);
-  font-size: 1.1em;
+  font-size: 0.5rem;
   font-weight: 600;
   letter-spacing: 0.24em;
   text-transform: uppercase;
@@ -2269,6 +2269,20 @@ td.plot .bar.plot {
     min-width: 0;
   }
 
+  /* The message keeps one line and trims with an ellipsis; the block break
+     it carries makes the br redundant here, so the attributes still start
+     their own line. */
+  .log-msg {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .log-copy br {
+    display: none;
+  }
+
   .log-attr {
     display: inline-block;
     margin-left: 0.45em;
@@ -2592,6 +2606,12 @@ body:has(.log-peek input[data-peek]:checked) .logs-panel {
   text-align: center;
 }
 
+.log-level-warn {
+  background: var(--warn);
+  color: var(--ink-0);
+  font-weight: 600;
+}
+
 .log-level-error {
   background: var(--bad);
   color: var(--ink-0);
@@ -2602,4 +2622,9 @@ body:has(.log-peek input[data-peek]:checked) .logs-panel {
   margin-left: 0.6em;
   color: var(--text-dim);
   font-size: 0.65rem;
+}
+
+/* The break puts attributes on their own line; the first one starts it flush. */
+.log-copy br + .log-attr {
+  margin-left: 0;
 }

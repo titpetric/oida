@@ -7,11 +7,12 @@ import (
 	"time"
 )
 
-// Log levels recorded by Trace.Info and Trace.Error. The set is closed: a log
-// line either informs or reports a failure, and anything richer belongs in
-// attributes.
+// Log levels recorded by Trace.Info, Trace.Warn and Trace.Error. The set is
+// closed: a log line informs, flags something worth attention, or reports a
+// failure, and anything richer belongs in attributes.
 const (
 	LevelInfo  = "info"
+	LevelWarn  = "warn"
 	LevelError = "error"
 )
 

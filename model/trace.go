@@ -648,6 +648,17 @@ func (t *Trace) Info(message string, args ...any) {
 	t.appendLog(LevelInfo, 0, message, args)
 }
 
+// Warn records a warn-level log entry on the trace, attributed to the
+// innermost open span when one is open. Args are slog-style key/value pairs,
+// kept on LogEntry.Attributes. When log capture is disabled it does nothing.
+// Safe to call on a nil trace.
+func (t *Trace) Warn(message string, args ...any) {
+	if !t.logsEnabled() {
+		return
+	}
+	t.appendLog(LevelWarn, 0, message, args)
+}
+
 // Error records an error-level log entry on the trace, attributed to the
 // innermost open span when one is open. It only logs: the trace state and
 // Trace.ErrorText are untouched, which is RecordError's job. When log capture

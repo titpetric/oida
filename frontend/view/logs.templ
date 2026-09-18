@@ -65,7 +65,10 @@ templ logRow(entry model.LogEntry, page Page) {
 		<td class="flex">
 			<span class="mobile-row">
 				<span class="log-copy">
-					{ entry.Message }
+					<span class="log-msg">{ entry.Message }</span>
+					if len(entry.Attributes) > 0 {
+						<br/>
+					}
 					for _, key := range sortedKeys(entry.Attributes) {
 						<span class="log-attr">{ key }={ attributeValue(entry.Attributes, key) }</span>
 					}

@@ -15,10 +15,10 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     | .             | 84.55%   | 73        | 468   |
 | ❌     | cmd/oida      | 0.00%    | 32        | 257   |
 | ✅     | frontend      | 88.50%   | 73        | 384   |
-| ❌     | frontend/view | 70.62%   | 3783      | 6520  |
+| ❌     | frontend/view | 70.61%   | 3794      | 6537  |
 | ✅     | internal      | 85.42%   | 169       | 558   |
 | ✅     | internal/ring | 84.21%   | 18        | 65    |
-| ✅     | model         | 90.08%   | 353       | 1585  |
+| ✅     | model         | 90.14%   | 356       | 1597  |
 | ❌     | storage       | 76.09%   | 75        | 297   |
 | ✅     | tests         | 95.91%   | 7         | 117   |
 
@@ -84,7 +84,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Detail                     | 100.00%  | 0         |
 | ✅     |               | Filter                     | 100.00%  | 15        |
 | ✅     |               | Hosts                      | 100.00%  | 0         |
-| ❌     |               | Layout                     | 68.67%   | 118       |
+| ❌     |               | Layout                     | 68.59%   | 124       |
 | ✅     |               | List                       | 100.00%  | 0         |
 | ✅     |               | Live                       | 100.00%  | 0         |
 | ✅     |               | LiveSection                | 100.00%  | 0         |
@@ -172,8 +172,8 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ❌     |               | list                       | 70.99%   | 148       |
 | ❌     |               | live                       | 72.41%   | 57        |
 | ❌     |               | liveSection                | 70.68%   | 265       |
-| ✅     |               | logLevelClass              | 100.00%  | 1         |
-| ❌     |               | logRow                     | 67.67%   | 99        |
+| ✅     |               | logLevelClass              | 75.00%   | 1         |
+| ❌     |               | logRow                     | 67.88%   | 104       |
 | ❌     |               | login                      | 72.09%   | 85        |
 | ✅     |               | matches                    | 86.36%   | 23        |
 | ❌     |               | memoryGraph                | 69.71%   | 216       |
@@ -314,6 +314,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Span.SetSource             | 100.00%  | 1         |
 | ✅     |               | Span.SourceText            | 66.67%   | 1         |
 | ✅     |               | Span.Trace                 | 66.67%   | 1         |
+| ✅     |               | Span.Warn                  | 100.00%  | 2         |
 | ✅     |               | Span.cloneInto             | 92.86%   | 5         |
 | ✅     |               | Span.lock                  | 100.00%  | 2         |
 | ✅     |               | Span.now                   | 66.67%   | 1         |
@@ -354,6 +355,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Trace.StartSpan            | 100.00%  | 2         |
 | ✅     |               | Trace.StateTimes           | 75.00%   | 2         |
 | ✅     |               | Trace.TrackMemory          | 66.67%   | 1         |
+| ✅     |               | Trace.Warn                 | 100.00%  | 1         |
 | ✅     |               | Trace.appendLog            | 95.24%   | 7         |
 | ✅     |               | Trace.appendSpan           | 96.88%   | 8         |
 | ✅     |               | Trace.lock                 | 100.00%  | 2         |

@@ -43,7 +43,7 @@ if curl -fsS -o /dev/null "${BASE}${UI}/login"; then
     {
       "out": "docs/assets/login.png",
       "path": "${UI}/login",
-      "pick": "[q('header.top'), q('section.login')]"
+      "pick": "[q('header.top'), q('section.login'), q('footer')]"
     }
   ]
 }

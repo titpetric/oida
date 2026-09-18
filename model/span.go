@@ -316,6 +316,16 @@ func (s *Span) Info(message string, args ...any) {
 	s.trace.appendLog(LevelInfo, s.ID, message, args)
 }
 
+// Warn records a warn-level log entry on the trace of the span, attributed to
+// this span, from slog-style key/value pairs. It does nothing with log capture
+// disabled, and tolerates a nil span.
+func (s *Span) Warn(message string, args ...any) {
+	if s == nil || !s.trace.logsEnabled() {
+		return
+	}
+	s.trace.appendLog(LevelWarn, s.ID, message, args)
+}
+
 // Error records an error-level log entry on the trace of the span, attributed
 // to this span; marking the transaction failed is Span.RecordError. With log
 // capture disabled it records the text through RecordError, and it tolerates a
