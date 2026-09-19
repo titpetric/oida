@@ -252,7 +252,7 @@ This is worth recording when the runtime can charge allocations to one request, 
 
 ### 6.2 Logging
 
-`Info` and `Error` record log lines on the trace, shown on the detail page in a Log tab next to the spans:
+`Info` and `Error` record log lines on the trace, shown on the detail page in a Log disclosure after the spans:
 
 ```go
 span.Info("cache miss", "key", key)         // linked to this span
@@ -263,7 +263,7 @@ Args are slog-style key/value pairs, stored on the entry as attributes; the mess
 
 No context is involved. A span logs under its own id; a trace resolves the active span itself. `Current()` returns the innermost span that has not ended, the way `Root()` returns the first recorded one. Code that holds a context rather than the trace reaches the active span with `oida.SpanFromContext(ctx)` and logs on it directly.
 
-The entries live in one slice, `Trace.Logs`, each carrying its level, its offset on the trace clock, the request ID and the ID of the span it was written under. `MaxSpansPerTrace` bounds them the way it bounds the spans: excess entries are dropped and counted in `Trace.DroppedLogs`, and nothing is printed. Besides the Log tab they are in the plain text detail and in the trace JSON under `logs`.
+The entries live in one slice, `Trace.Logs`, each carrying its level, its offset on the trace clock, the request ID and the ID of the span it was written under. `MaxSpansPerTrace` bounds them the way it bounds the spans: excess entries are dropped and counted in `Trace.DroppedLogs`, and nothing is printed. Besides the Log disclosure they are in the plain text detail and in the trace JSON under `logs`.
 
 `Options.CaptureLogs` gates the recording, and `NewOptions` turns it on. Disabled, `Info` does nothing, and `Error` records its text as `message key=value` through `RecordError` on the active span, so the failure still shows. Enabled, `Error` only logs: marking the transaction as failed stays with `RecordError`.
 

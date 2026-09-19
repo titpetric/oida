@@ -6,15 +6,15 @@ import "strconv"
 templ statistics(page Page) {
 	@Layout(page) {
 		<p class="note">
-			Top { strconv.Itoa(page.Snapshot.Statistics.TopLimit) } of { strconv.Itoa(page.Snapshot.Statistics.WindowSize) } traces
-			in a { strconv.Itoa(page.Snapshot.Statistics.WindowLimit) } trace window. Traces group by routed pattern where the router provides one.
+			{ strconv.Itoa(len(page.Snapshot.Statistics.Top)) } groups from { strconv.Itoa(page.Snapshot.Statistics.WindowSize) } retained traces,
+			{ strconv.Itoa(page.Snapshot.Statistics.WindowLimit) } trace window.
 		</p>
 		<div class="scroll">
 			<table>
 				<thead>
 					<tr>
 						<th>Share</th>
-						<th class="num">Count</th>
+						<th class="num c-medium">Count</th>
 						<th class="num c-medium">Errors</th>
 						<th class="flex name">Name</th>
 						<th class="dim c-wide">Host</th>
@@ -34,9 +34,9 @@ templ statistics(page Page) {
 									{ percentText(stat.Share) }
 								</span>
 							</td>
-							<td class="num">{ strconv.FormatUint(stat.Count, 10) }</td>
+							<td class="num c-medium">{ strconv.FormatUint(stat.Count, 10) }</td>
 							<td class="num c-medium">{ strconv.FormatUint(stat.Errors, 10) }</td>
-							<td class="flex name" title={ stat.Name }>{ stat.Name }</td>
+							<td class="flex name" title={ stat.Name + " · " + stat.Host }>{ stat.Name }<span class="mobile-stat-host"> · { stat.Host }</span></td>
 							<td class="dim c-wide">{ stat.Host }</td>
 							<td class="num">{ preciseText(stat.AverageDuration) }</td>
 							<td class="num c-medium">{ preciseText(stat.MaxDuration) }</td>

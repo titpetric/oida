@@ -133,10 +133,8 @@ type Page struct {
 	Segments []Segment
 
 	// Memory is the memory the detail view trace reported, read once because
-	// every row of the span table draws against it. Sources reports whether any
-	// of its spans recorded a source location.
-	Memory  MemoryBudget
-	Sources bool
+	// every row of the span table draws against it.
+	Memory MemoryBudget
 
 	// LoginUsername is the username a failed login was attempted with, kept so
 	// the form does not empty itself. LoginError is what went wrong, worded
@@ -421,19 +419,6 @@ func (p Page) Now() time.Time {
 // Age renders how long ago a timestamp is, relative to the snapshot.
 func (p Page) Age(at time.Time) string {
 	return ageText(at, p.Now())
-}
-
-// FormatURL links the current view in another representation, so the JSON and
-// plain text renderings are discoverable from the page itself.
-func (p Page) FormatURL(format string) string {
-	base := p.URL(p.View)
-	if p.View == ViewDetail && p.Trace != nil {
-		base = p.TraceURL(p.Trace.ID)
-	}
-	if strings.Contains(base, "?") {
-		return base + "&format=" + format
-	}
-	return base + "?format=" + format
 }
 
 // WaveSpans returns every span of the trace in the shape the drawing fills:

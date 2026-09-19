@@ -6,50 +6,45 @@ import (
 	"github.com/titpetric/oida/model"
 )
 
-// detailTabs renders the switch between the two working views of a trace: the
-// spans and the log. The stylesheet does the switching off the radio state, so
-// it works with scripting off, and the spans stay the default.
-templ detailTabs(page Page) {
-	<div class="tabs">
-		<input type="radio" name="oida-tab" id="oida-tab-spans" checked aria-label="Show the spans"/>
-		<label for="oida-tab-spans">Spans</label>
-		<input type="radio" name="oida-tab" id="oida-tab-logs" aria-label="Show the log"/>
-		<label for="oida-tab-logs">Log <b>{ strconv.Itoa(page.LogCount()) }</b></label>
-	</div>
-}
-
 // traceLogs renders the log lines a trace recorded, in write order, each
-// linked to the span that was active when it was written. The panel is shown
-// by the Log tab; without entries it says how to record one.
+// linked to the span that was active when it was written. The panel follows
+// the spans behind its own disclosure; without entries it says how to record
+// one.
 templ traceLogs(page Page) {
 	if page.Trace != nil {
+		<div class="section-peek log-peek">
+			<h2>Log <b>{ strconv.Itoa(page.LogCount()) }</b></h2>
+			@sectionToggle("logs", "log entries")
+		</div>
 		<div class="logs-panel">
-			if len(page.Trace.Logs) > 0 {
-				<div class="scroll">
-					<table>
-						<thead>
-							<tr>
-								<th class="num c-medium">Offset</th>
-								<th>Level</th>
-								<th class="dim c-wide">Span</th>
-								<th class="flex">Message</th>
-							</tr>
-						</thead>
-						<tbody>
-							for _, entry := range page.Trace.Logs {
-								@logRow(entry, page)
-							}
-						</tbody>
-					</table>
-				</div>
-				if page.Trace.DroppedLogs > 0 {
-					<p class="note">
-						{ strconv.Itoa(page.Trace.DroppedLogs) } log entries were dropped: this trace hit Options.MaxSpansPerTrace.
-					</p>
+			<div class="logs-clip">
+				if len(page.Trace.Logs) > 0 {
+					<div class="scroll">
+						<table>
+							<thead>
+								<tr>
+									<th class="num c-medium">Offset</th>
+									<th>Level</th>
+									<th class="dim c-wide">Span</th>
+									<th class="flex">Message</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, entry := range page.Trace.Logs {
+									@logRow(entry, page)
+								}
+							</tbody>
+						</table>
+					</div>
+					if page.Trace.DroppedLogs > 0 {
+						<p class="note">
+							{ strconv.Itoa(page.Trace.DroppedLogs) } log entries were dropped: this trace hit Options.MaxSpansPerTrace.
+						</p>
+					}
+				} else {
+					<p class="logs-empty"><b>No log entries</b>Record one with span.Info or trace.Error; each entry links to the span that was active when it was written.</p>
 				}
-			} else {
-				<p class="logs-empty"><b>No log entries</b>Record one with span.Info or trace.Error; each entry links to the span that was active when it was written.</p>
-			}
+			</div>
 		</div>
 	}
 }
@@ -60,18 +55,26 @@ templ traceLogs(page Page) {
 // the level is only inked when it is an error, because level is the data.
 templ logRow(entry model.LogEntry, page Page) {
 	<tr>
-		<td class="num c-medium">{ durationText(page.LogOffset(entry)) }</td>
+		<td class="num c-medium">{ preciseText(page.LogOffset(entry)) }</td>
 		<td><span class={ logLevelClass(entry.Level) }>{ entry.Level }</span></td>
 		if span := page.LogSpan(entry); span != nil {
-			<td class="c-wide"><span class="kind" style={ kindStyle(span.Kind) }>{ span.Kind.String() }</span> <span class="dim">{ span.Name }</span></td>
+			<td class="c-wide"><span class="kind" style={ kindStyle(span.Kind) }>{ span.Kind.String() }</span></td>
 		} else {
 			<td class="dim c-wide"></td>
 		}
 		<td class="flex">
-			{ entry.Message }
-			for _, key := range sortedKeys(entry.Attributes) {
-				<span class="log-attr">{ key }={ attributeValue(entry.Attributes, key) }</span>
-			}
+			<span class="mobile-row">
+				<span class="log-copy">
+					<span class="log-msg">{ entry.Message }</span>
+					if len(entry.Attributes) > 0 {
+						<br/>
+					}
+					for _, key := range sortedKeys(entry.Attributes) {
+						<span class="log-attr">{ key }={ attributeValue(entry.Attributes, key) }</span>
+					}
+				</span>
+				<span class="mobile-time">{ millisecondsText(page.LogOffset(entry)) }</span>
+			</span>
 		</td>
 	</tr>
 }

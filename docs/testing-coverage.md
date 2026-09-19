@@ -13,12 +13,12 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | Status | Package       | Coverage | Cognitive | Lines |
 |--------|---------------|----------|-----------|-------|
 | ✅     | .             | 84.55%   | 73        | 468   |
-| ❌     | cmd/oida      | 0.00%    | 33        | 259   |
-| ✅     | frontend      | 88.58%   | 73        | 385   |
-| ❌     | frontend/view | 70.65%   | 3784      | 6499  |
+| ❌     | cmd/oida      | 0.00%    | 32        | 257   |
+| ✅     | frontend      | 88.50%   | 73        | 384   |
+| ❌     | frontend/view | 70.61%   | 3794      | 6537  |
 | ✅     | internal      | 85.42%   | 169       | 558   |
 | ✅     | internal/ring | 84.21%   | 18        | 65    |
-| ✅     | model         | 90.09%   | 353       | 1586  |
+| ✅     | model         | 90.14%   | 356       | 1597  |
 | ❌     | storage       | 76.09%   | 75        | 297   |
 | ✅     | tests         | 95.91%   | 7         | 117   |
 
@@ -65,7 +65,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | handler.relative           | 100.00%  | 1         |
 | ✅     |               | handler.render             | 66.67%   | 1         |
 | ✅     |               | handler.serveAsset         | 100.00%  | 1         |
-| ✅     |               | handler.serveDetail        | 90.32%   | 4         |
+| ✅     |               | handler.serveDetail        | 89.66%   | 4         |
 | ✅     |               | handler.serveEvents        | 89.33%   | 20        |
 | ✅     |               | handler.serveHTTP          | 100.00%  | 13        |
 | ✅     |               | handler.serveHosts         | 90.91%   | 1         |
@@ -83,9 +83,8 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     | frontend/view | Assets                     | 100.00%  | 0         |
 | ✅     |               | Detail                     | 100.00%  | 0         |
 | ✅     |               | Filter                     | 100.00%  | 15        |
-| ✅     |               | HasSources                 | 100.00%  | 3         |
 | ✅     |               | Hosts                      | 100.00%  | 0         |
-| ❌     |               | Layout                     | 68.67%   | 118       |
+| ❌     |               | Layout                     | 68.59%   | 124       |
 | ✅     |               | List                       | 100.00%  | 0         |
 | ✅     |               | Live                       | 100.00%  | 0         |
 | ✅     |               | LiveSection                | 100.00%  | 0         |
@@ -113,8 +112,6 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Page.EventsURL             | 100.00%  | 0         |
 | ✅     |               | Page.Fields                | 100.00%  | 0         |
 | ✅     |               | Page.Filtered              | 100.00%  | 0         |
-| ✅     |               | Page.FormatURL             | 100.00%  | 3         |
-| ✅     |               | Page.HostLiveURL           | 100.00%  | 0         |
 | ✅     |               | Page.HostURL               | 100.00%  | 0         |
 | ✅     |               | Page.Hosts                 | 100.00%  | 0         |
 | ✅     |               | Page.JSURL                 | 100.00%  | 0         |
@@ -123,7 +120,6 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Page.LogCount              | 66.67%   | 1         |
 | ✅     |               | Page.LogOffset             | 66.67%   | 2         |
 | ✅     |               | Page.LogSpan               | 66.67%   | 1         |
-| ✅     |               | Page.LogSpanName           | 66.67%   | 1         |
 | ✅     |               | Page.LoginPath             | 100.00%  | 0         |
 | ✅     |               | Page.MemorySeries          | 100.00%  | 8         |
 | ✅     |               | Page.Now                   | 66.67%   | 1         |
@@ -155,38 +151,39 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | attributeLabel             | 75.00%   | 1         |
 | ✅     |               | attributeText              | 50.00%   | 1         |
 | ✅     |               | attributeValue             | 100.00%  | 3         |
+| ✅     |               | attrsHint                  | 100.00%  | 1         |
 | ✅     |               | axisTicks                  | 85.71%   | 2         |
 | ✅     |               | bytesText                  | 100.00%  | 2         |
 | ✅     |               | contains                   | 100.00%  | 1         |
 | ✅     |               | countText                  | 66.67%   | 1         |
 | ✅     |               | cssPercent                 | 40.00%   | 1         |
-| ❌     |               | detail                     | 57.85%   | 315       |
-| ❌     |               | detailTabs                 | 65.52%   | 18        |
+| ❌     |               | detail                     | 57.60%   | 302       |
 | ✅     |               | durationText               | 100.00%  | 1         |
+| ✅     |               | hasSpanDetail              | 100.00%  | 1         |
 | ✅     |               | hostDot                    | 100.00%  | 1         |
 | ✅     |               | hostHealth                 | 100.00%  | 1         |
 | ❌     |               | hostSwitcher               | 69.44%   | 102       |
-| ❌     |               | hosts                      | 70.90%   | 274       |
+| ❌     |               | hosts                      | 71.03%   | 244       |
 | ✅     |               | indentStyle                | 100.00%  | 0         |
 | ✅     |               | isQueryKey                 | 100.00%  | 0         |
 | ✅     |               | keyList                    | 100.00%  | 0         |
 | ✅     |               | kindBackground             | 100.00%  | 0         |
 | ✅     |               | kindStyle                  | 100.00%  | 0         |
-| ❌     |               | list                       | 70.76%   | 184       |
+| ❌     |               | list                       | 70.99%   | 148       |
 | ❌     |               | live                       | 72.41%   | 57        |
-| ❌     |               | liveSection                | 70.65%   | 271       |
-| ✅     |               | logLevelClass              | 100.00%  | 1         |
-| ❌     |               | logRow                     | 67.67%   | 102       |
+| ❌     |               | liveSection                | 70.68%   | 265       |
+| ✅     |               | logLevelClass              | 75.00%   | 1         |
+| ❌     |               | logRow                     | 67.88%   | 104       |
 | ❌     |               | login                      | 72.09%   | 85        |
 | ✅     |               | matches                    | 86.36%   | 23        |
-| ❌     |               | memoryGraph                | 69.86%   | 238       |
+| ❌     |               | memoryGraph                | 69.71%   | 216       |
 | ✅     |               | memoryText                 | 66.67%   | 1         |
+| ✅     |               | millisecondsText           | 100.00%  | 0         |
 | ✅     |               | offsetStyle                | 100.00%  | 0         |
-| ❌     |               | pageFooter                 | 68.57%   | 49        |
-| ❌     |               | pageHeader                 | 68.42%   | 58        |
-| ❌     |               | pageMetrics                | 69.23%   | 94        |
-| ❌     |               | pageNav                    | 69.47%   | 90        |
-| ❌     |               | peekToggle                 | 67.80%   | 36        |
+| ❌     |               | pageFooter                 | 67.39%   | 34        |
+| ❌     |               | pageHeader                 | 65.85%   | 26        |
+| ❌     |               | pageMetrics                | 69.14%   | 98        |
+| ❌     |               | pageNav                    | 69.54%   | 108       |
 | ✅     |               | percentText                | 100.00%  | 0         |
 | ✅     |               | plural                     | 66.67%   | 1         |
 | ✅     |               | preciseText                | 100.00%  | 1         |
@@ -195,8 +192,10 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | requestedSort              | 100.00%  | 3         |
 | ✅     |               | requestedStatus            | 100.00%  | 1         |
 | ✅     |               | rowBarStyle                | 100.00%  | 0         |
+| ❌     |               | sectionToggle              | 66.67%   | 24        |
 | ✅     |               | segmentStyle               | 100.00%  | 0         |
 | ❌     |               | selectField                | 69.67%   | 169       |
+| ❌     |               | serviceFacts               | 68.35%   | 48        |
 | ✅     |               | shapeTitle                 | 100.00%  | 5         |
 | ✅     |               | share                      | 66.67%   | 1         |
 | ✅     |               | shareStyle                 | 100.00%  | 0         |
@@ -205,10 +204,11 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | slaClass                   | 75.00%   | 1         |
 | ❌     |               | sortLink                   | 67.92%   | 32        |
 | ✅     |               | sortedKeys                 | 100.00%  | 1         |
-| ❌     |               | spanRow                    | 65.43%   | 228       |
+| ✅     |               | spanColumns                | 100.00%  | 1         |
+| ❌     |               | spanRow                    | 66.87%   | 299       |
 | ❌     |               | stateBar                   | 69.49%   | 103       |
 | ✅     |               | stateClass                 | 100.00%  | 0         |
-| ❌     |               | statistics                 | 71.01%   | 227       |
+| ❌     |               | statistics                 | 70.97%   | 239       |
 | ✅     |               | statusClass                | 83.33%   | 1         |
 | ✅     |               | statusDot                  | 80.00%   | 1         |
 | ✅     |               | styleElement               | 100.00%  | 0         |
@@ -218,18 +218,18 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ❌     |               | timelineFoot               | 67.39%   | 37        |
 | ❌     |               | timelineLegend             | 65.71%   | 60        |
 | ✅     |               | traceDot                   | 80.00%   | 4         |
-| ❌     |               | traceFacts                 | 66.78%   | 271       |
+| ❌     |               | traceFacts                 | 66.78%   | 286       |
 | ❌     |               | traceLink                  | 68.42%   | 46        |
-| ❌     |               | traceLogs                  | 50.98%   | 66        |
+| ❌     |               | traceLogs                  | 55.22%   | 81        |
 | ❌     |               | traceRow                   | 68.78%   | 147       |
 | ✅     |               | treeGlyph                  | 100.00%  | 1         |
 | ✅     |               | truncate                   | 40.00%   | 2         |
 | ✅     |               | uptimeText                 | 21.43%   | 5         |
-| ❌     |               | waves                      | 64.00%   | 16        |
+| ❌     |               | waves                      | 64.71%   | 22        |
 | ❌     |               | writeDetailText            | 74.47%   | 17        |
 | ✅     |               | writeHeaderText            | 88.89%   | 1         |
 | ✅     |               | writeHostsText             | 100.00%  | 1         |
-| ✅     |               | writeLogsText              | 86.67%   | 6         |
+| ✅     |               | writeLogsText              | 88.89%   | 8         |
 | ✅     |               | writeStateText             | 100.00%  | 1         |
 | ✅     |               | writeStatsText             | 100.00%  | 1         |
 | ✅     |               | writeTraceTableText        | 100.00%  | 3         |
@@ -314,6 +314,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Span.SetSource             | 100.00%  | 1         |
 | ✅     |               | Span.SourceText            | 66.67%   | 1         |
 | ✅     |               | Span.Trace                 | 66.67%   | 1         |
+| ✅     |               | Span.Warn                  | 100.00%  | 2         |
 | ✅     |               | Span.cloneInto             | 92.86%   | 5         |
 | ✅     |               | Span.lock                  | 100.00%  | 2         |
 | ✅     |               | Span.now                   | 66.67%   | 1         |
@@ -354,6 +355,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Trace.StartSpan            | 100.00%  | 2         |
 | ✅     |               | Trace.StateTimes           | 75.00%   | 2         |
 | ✅     |               | Trace.TrackMemory          | 66.67%   | 1         |
+| ✅     |               | Trace.Warn                 | 100.00%  | 1         |
 | ✅     |               | Trace.appendLog            | 95.24%   | 7         |
 | ✅     |               | Trace.appendSpan           | 96.88%   | 8         |
 | ✅     |               | Trace.lock                 | 100.00%  | 2         |
@@ -377,7 +379,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | firstKind                  | 100.00%  | 3         |
 | ✅     |               | formatLogText              | 81.82%   | 4         |
 | ✅     |               | groupKey                   | 80.00%   | 2         |
-| ✅     |               | hostStatistics             | 97.67%   | 19        |
+| ✅     |               | hostStatistics             | 97.62%   | 19        |
 | ✅     |               | invalidOption              | 100.00%  | 0         |
 | ✅     |               | logAttributes              | 100.00%  | 6         |
 | ❌     |               | pauseTotalNs               | 76.92%   | 8         |

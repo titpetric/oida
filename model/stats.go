@@ -109,7 +109,7 @@ func hostStatistics(window []Trace, requests map[string]uint64) []HostStat {
 			stat.Errors++
 		}
 		stat.totalDuration += trace.Duration
-		stat.totalSpans += uint64(len(trace.Spans))
+		stat.Spans += uint64(len(trace.Spans))
 		if trace.Duration > stat.MaxDuration {
 			stat.MaxDuration = trace.Duration
 		}
@@ -122,7 +122,6 @@ func hostStatistics(window []Trace, requests map[string]uint64) []HostStat {
 		stat.Routes = len(routes[name])
 		if stat.Traces > 0 {
 			stat.AverageDuration = stat.totalDuration / time.Duration(stat.Traces)
-			stat.AverageSpans = float64(stat.totalSpans) / float64(stat.Traces)
 			if len(window) > 0 {
 				stat.Share = float64(stat.Traces) * 100 / float64(len(window))
 			}

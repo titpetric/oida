@@ -98,10 +98,14 @@ func TestHandlerRendersDetail(t *testing.T) {
 		// test about rendering.
 		`class="kind" style="background:` + oida.KindDatabase.Color() + `;color:#07090c;"`,
 		`background:` + oida.KindTemplate.Color(), // the render span carries its kind
+		`class="span-row root-span`,                 // the transaction row has its own hierarchy
 		"<th>rows</th><td>3</td>",                 // attributes are a table when expanded
 		"Transaction",                             // the drawing
-		"<h3>Request</h3>",                        // and the two tables under it
-		"<h3>System</h3>",
+		"<h2>Request</h2>",                        // and the two tables under it
+		"<h2>System</h2>",
+		// The root keeps total duration; child rows end in their start offset.
+		`GET /users/{id}</span> <span class="mobile-time">7.00ms</span>`,
+		`render users.html</span> <span class="mobile-time">5.00ms</span>`,
 		`data-copy="` + trace.ID + `"`, // the full id is one click away
 	} {
 		if !strings.Contains(body, want) {
@@ -136,11 +140,25 @@ func TestHandlerRendersSpanAttributes(t *testing.T) {
 
 	// The span row names the operation; the statement is not repeated beside
 	// it, because "SELECT users" already says what it is.
-	if !strings.Contains(body, "<summary>attributes: args, query, rows</summary>") {
+	if !strings.Contains(body, "attributes: args, query, rows") {
 		t.Error("attributes are not summarised by their keys")
+	}
+	if !strings.Contains(body, `class="attrs-hint"`) {
+		t.Error("the key list is not rendered as the disclosure control")
 	}
 	if strings.Count(body, `<code class="query"`) != 1 {
 		t.Error("the query is rendered outside the attribute table")
+	}
+
+	// The values open as their own full-width row behind the span.
+	if !strings.Contains(body, "has-attrs") {
+		t.Error("the span row is not marked as expandable")
+	}
+	if !strings.Contains(body, `class="attr-row"`) {
+		t.Error("the attribute table has no row of its own")
+	}
+	if !strings.Contains(body, `colspan="5"`) {
+		t.Error("the attribute row does not span the table")
 	}
 
 	// Expanded, the attributes are a table, and the query keeps its shape.
@@ -184,7 +202,7 @@ func TestHandlerRendersTransactionMemory(t *testing.T) {
 	body := request(t, frontend.Handler(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
 
 	for _, want := range []string{
-		"<h3>Transaction</h3>",
+		"<h2>Transaction</h2>",
 		"Memory limit", // the key read as a label
 		"1.0 MiB",      // the value read as a size
 		"Memory usage",
@@ -200,12 +218,18 @@ func TestHandlerRendersTransactionMemory(t *testing.T) {
 		}
 	}
 
+	spans := strings.Index(body, `class="section-peek span-peek"`)
+	memory := strings.Index(body, `class="detail-fold memory-fold"`)
+	if spans < 0 || memory < spans {
+		t.Error("the memory view should follow the span view")
+	}
+
 	// Once in the memory column, once in the attributes of that span, once in
-	// the hover title of its stretch of the memory graph, and once per axis
-	// tick where it is still the level in use, which is four of the five here.
+	// the hover title of its stretch of the memory graph, and at the start and
+	// middle positions of the three-value legend.
 	// The graph markup itself is asserted black box, in tests/memory_test.go.
-	if got := strings.Count(body, "10.0 KiB"); got != 7 {
-		t.Errorf("the first reading is rendered %d times, want 7", got)
+	if got := strings.Count(body, "10.0 KiB"); got != 5 {
+		t.Errorf("the first reading is rendered %d times, want 5", got)
 	}
 }
 
@@ -219,12 +243,21 @@ func TestHandlerOmitsColumnsWithoutData(t *testing.T) {
 	if strings.Contains(body, ">Source<") {
 		t.Error("the source column is drawn for spans that recorded no source")
 	}
-	if strings.Contains(body, "<h3>Transaction</h3>") {
-		t.Error("the transaction table is drawn for a trace with no attributes")
+	if !strings.Contains(body, "Record transaction attributes to show them here.") {
+		t.Error("the empty transaction disclosure does not explain what to record")
+	}
+
+	// Of the two spans only the attributed one has anything to unfold; the
+	// other gets no attribute row and no disclosure.
+	if got := strings.Count(body, `class="attr-row"`); got != 1 {
+		t.Errorf("rendered %d attribute rows, want 1", got)
+	}
+	if got := strings.Count(body, `class="attrs-hint"`); got != 1 {
+		t.Errorf("rendered %d disclosure controls, want 1", got)
 	}
 }
 
-func TestHandlerRendersSourceColumn(t *testing.T) {
+func TestHandlerRendersSourceInAttributes(t *testing.T) {
 	tracer, clock := newTestTracer(t, nil)
 
 	err := tracer.Observe(t.Context(), "GET /report", func(ctx context.Context) error {
@@ -240,10 +273,16 @@ func TestHandlerRendersSourceColumn(t *testing.T) {
 
 	trace := tracer.Traces()[0]
 	body := request(t, frontend.Handler(tracer), oida.DefaultPath+"/trace/"+trace.ID, nil).Body.String()
-	for _, want := range []string{">Source<", "internal/billing/repo.go:L42"} {
+
+	// The source is a row of the attribute table, not a column of its own; a
+	// span with only a source still gets the disclosure.
+	for _, want := range []string{"<th>source</th>", "internal/billing/repo.go:L42", `class="attrs-hint"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("detail view misses %q", want)
 		}
+	}
+	if strings.Contains(body, ">Source<") {
+		t.Error("the source column came back")
 	}
 }
 
@@ -254,6 +293,8 @@ func TestHandlerDrawsTheTrace(t *testing.T) {
 	body := request(t, handler, detail, nil).Body.String()
 	for _, want := range []string{
 		`<canvas id="oida-waves"`,
+		`id="oida-wave-summary"`,
+		`aria-label="Show span kind summary"`,
 		`id="oida-waves-data"`,
 		`src="/debug/oida/assets/waves.js"`,
 		`"kind":"database"`, // the payload carries the spans whole
@@ -662,13 +703,19 @@ func TestHandlerHostStatistics(t *testing.T) {
 	if got := byHost["admin.example"]; got.Requests != 1 || got.Traces != 1 {
 		t.Errorf("admin.example: %d requests, %d traces, want 1 and 1", got.Requests, got.Traces)
 	}
+	if got := byHost["shop.example"]; got.Spans != 3 {
+		t.Errorf("shop.example: %d spans, want the recorded total 3", got.Spans)
+	}
 
 	// Hosts are the landing page, not a section of the statistics view.
 	body := request(t, handler, oida.DefaultPath, nil).Body.String()
-	for _, want := range []string{"shop.example", "admin.example", "Requests"} {
+	for _, want := range []string{"shop.example", "admin.example", "Requests", "Spans"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("host overview misses %q", want)
 		}
+	}
+	if strings.Contains(body, ">live</a>") {
+		t.Error("host overview still carries the trailing live action")
 	}
 
 	statsBody := request(t, handler, oida.DefaultPath+"/stats", nil).Body.String()

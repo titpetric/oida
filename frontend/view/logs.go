@@ -42,8 +42,11 @@ func (p Page) LogSpan(entry model.LogEntry) *model.Span {
 
 // logLevelClass returns the CSS class of a log level.
 func logLevelClass(level string) string {
-	if level == model.LevelError {
+	switch level {
+	case model.LevelError:
 		return "log-level log-level-error"
+	case model.LevelWarn:
+		return "log-level log-level-warn"
 	}
 	return "log-level"
 }

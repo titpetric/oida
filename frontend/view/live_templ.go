@@ -152,7 +152,7 @@ func liveSection(page Page) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><div class=\"scroll\"><table><thead><tr><th>State</th><th class=\"c-medium\">Trace</th><th class=\"num\">Age</th><th class=\"name\">Name</th><th class=\"num\">Duration</th><th class=\"flex\">Shape</th><th class=\"num c-medium\">Spans</th><th class=\"num c-wide\">Allocated</th><th class=\"dim c-wide\">Remote</th></tr></thead> <tbody id=\"oida-feed\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><div class=\"scroll\"><table><thead><tr><th>State</th><th class=\"c-medium\">Trace</th><th class=\"num\">Age</th><th class=\"name\">Name</th><th class=\"num\">Duration</th><th class=\"flex c-medium\">Shape</th><th class=\"num c-medium\">Spans</th><th class=\"num c-wide\">Allocated</th><th class=\"dim c-wide\">Remote</th></tr></thead> <tbody id=\"oida-feed\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -357,7 +357,7 @@ func liveSection(page Page) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</td><td class=\"flex\"><div class=\"bar plot\" title=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</td><td class=\"flex c-medium\"><div class=\"bar plot\" title=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -443,20 +443,7 @@ func liveSection(page Page) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</tbody></table></div><p class=\"note\">Newest first, ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var25 string
-		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(FeedRows))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `frontend/view/live.templ`, Line: 103, Col: 40}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, " rows. Running traces show their scoreboard state (_ waiting, s starting, R reading, P processing, W writing, K keepalive, C closing, E error) and their elapsed time so far.</p><h2>Lifetime state time</h2><div id=\"oida-state\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</tbody></table></div><h2>Lifetime state time</h2><div id=\"oida-state\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -464,7 +451,7 @@ func liveSection(page Page) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</div><p class=\"note\">Aggregated since process start. Concurrent trace time is cumulative and may exceed uptime.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

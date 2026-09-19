@@ -54,15 +54,15 @@ A trace detail page shows:
 - Transaction attributes recorded on the trace, keys read as labels and byte-valued keys read as sizes
 - HTTP request and response details when the trace came from a request
 - Heap delta, allocated bytes, allocations, GC cycles, and GC pause
-- A Log tab beside the spans, showing the entries recorded with `Info` and `Error`: offset from the trace start, level, the span each entry was written under, and the message with its key/value pairs
+- A Log disclosure after the spans, showing the entries recorded with `Info` and `Error`: offset from the trace start, level, the span each entry was written under, and the message with its key/value pairs
 
-The Log tab switches without scripting and names its entry count. A trace without entries shows how to record one; entries over the `MaxSpansPerTrace` bound are dropped and counted. The plain text rendering carries the same table, and the trace JSON carries the entries under `logs`.
+The Log disclosure works without scripting, remembers its state when storage is available, and names its entry count. A trace without entries shows how to record one; entries over the `MaxSpansPerTrace` bound are dropped and counted. The plain text rendering carries the same table, and the trace JSON carries the entries under `logs`.
 
 Memory values under System are process-wide observations. Concurrent traces can overlap, so use them to identify trends rather than as isolated accounting.
 
 A trace that recorded `memory_limit` shows it under Transaction, and shows what it used of it as a share once it also recorded `memory_usage`. When its spans recorded `memory_usage`, the span table gains a memory column, each reading drawn against the largest one in the trace. The column is the memory curve of the request, and the row where the curve steps is the span that allocated. How close the request came to its limit is one number, and it is in the Transaction table rather than in every row. Both attributes are optional, and a Go service records neither by default; see [the instrumentation guide](guide-instrumentation.md).
 
-The same readings are drawn as a memory graph between the trace drawing and the span table: a step line over the same time axis, one point per span that recorded `memory_usage`, placed where the span finished. The line holds flat between readings and steps where one was taken, so the step is the span that allocated; hovering a stretch of the line names it. The head line above the graph gives the peak reading. The scale runs to that peak, and a `memory_limit` up to twice the peak is drawn as a dashed reference line; a limit further away is written in the head line instead, so a small request keeps its shape rather than flattening against the floor. A trace whose spans recorded no memory draws neither the graph nor the column.
+The same readings are drawn as a memory graph after the span and log disclosures: a step line over the trace, one point per span that recorded `memory_usage`, placed where the span finished. The line holds flat between readings and steps where one was taken, so the step is the span that allocated; hovering a stretch of the line names it. A one-line legend compares memory at the start, middle, and end of the trace. The scale runs to the peak, and a `memory_limit` up to twice the peak is drawn as a dashed reference line, so a small request keeps its shape rather than flattening against a distant limit. A trace whose spans recorded no memory draws neither the graph nor the column.
 
 ## Statistics
 

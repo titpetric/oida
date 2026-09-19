@@ -43,7 +43,7 @@ if curl -fsS -o /dev/null "${BASE}${UI}/login"; then
     {
       "out": "docs/assets/login.png",
       "path": "${UI}/login",
-      "pick": "q('section.login')"
+      "pick": "[q('header.top'), q('section.login'), q('footer')]"
     }
   ]
 }
@@ -149,26 +149,31 @@ shots=$(cat <<MANIFEST | node scripts/shot.js
     {
       "out": "docs/assets/detail-waves.png",
       "path": "${detail}",
-      "pick": "[q('.trace-head'), q('.live-head'), q('.waves'), q('.axis')]"
+      "prepare": "q('.wave-summary').style.transition = 'none'; q('#oida-wave-summary').checked = true",
+      "pick": "[q('.trace-head'), q('.live-head'), q('.wave-disclosure')]"
     },
     {
       "out": "docs/assets/detail-memory.png",
       "path": "${detail}",
-      "pick": "[qa('.live-head')[1], q('.memory-graph'), qa('.axis')[1]]"
+      "prepare": "q('.memory-fold').style.transition = 'none'; q('input[data-peek=memory]').checked = true",
+      "pick": "[q('input[data-peek=memory]').closest('.section-peek'), q('.memory-fold')]"
     },
     {
       "out": "docs/assets/detail-spans.png",
       "path": "${detail}",
-      "pick": "(function(){ var f = q('.spans'); f.style.transition = 'none'; q('input[data-peek]').checked = true; f.getBoundingClientRect(); return [q('.peek'), f]; })()"
+      "prepare": "q('.spans').style.transition = 'none'; q('input[data-peek=spans]').checked = true",
+      "pick": "[q('.span-peek'), q('.spans')]"
     },
     {
       "out": "docs/assets/detail-logs.png",
       "path": "${detail_logs}",
-      "pick": "(function(){ q('#oida-tab-logs').checked = true; var p = q('.logs-panel'); p.getBoundingClientRect(); return [q('div.tabs'), p]; })()"
+      "prepare": "q('.logs-panel').style.transition = 'none'; q('input[data-peek=logs]').checked = true",
+      "pick": "[q('.log-peek'), q('.logs-panel')]"
     },
     {
       "out": "docs/assets/detail-footer.png",
       "path": "${detail}",
+      "prepare": "qa('.facts .detail-fold').forEach((fold) => fold.style.transition = 'none'); qa('.facts input[data-peek]').forEach((input) => input.checked = true)",
       "pick": "[q('.facts'), q('footer')]"
     }
   ]

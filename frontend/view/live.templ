@@ -44,7 +44,7 @@ templ liveSection(page Page) {
 					<th class="num">Age</th>
 					<th class="name">Name</th>
 					<th class="num">Duration</th>
-					<th class="flex">Shape</th>
+					<th class="flex c-medium">Shape</th>
 					<th class="num c-medium">Spans</th>
 					<th class="num c-wide">Allocated</th>
 					<th class="dim c-wide">Remote</th>
@@ -75,7 +75,7 @@ templ liveSection(page Page) {
 						<td class="num" title={ trace.StartedAt.Format("2006-01-02 15:04:05.000") }>{ page.Age(trace.StartedAt) }</td>
 						<td class="name" title={ trace.Name }>{ trace.Name }</td>
 						<td class="num">{ preciseText(trace.Duration) }</td>
-						<td class="flex">
+						<td class="flex c-medium">
 							<div class="bar plot" title={ shapeTitle(trace) }>
 								for _, segment := range page.Composition(trace) {
 									<span style={ segmentStyle(segment) }></span>
@@ -99,14 +99,8 @@ templ liveSection(page Page) {
 			</tbody>
 		</table>
 	</div>
-	<p class="note">
-		Newest first, { strconv.Itoa(FeedRows) } rows. Running traces show their scoreboard state
-		(_ waiting, s starting, R reading, P processing, W writing, K keepalive, C closing, E error)
-		and their elapsed time so far.
-	</p>
 	<h2>Lifetime state time</h2>
 	<div id="oida-state">
 		@stateBar(page.Snapshot.StateTime)
 	</div>
-	<p class="note">Aggregated since process start. Concurrent trace time is cumulative and may exceed uptime.</p>
 }

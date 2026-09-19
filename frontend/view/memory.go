@@ -59,8 +59,7 @@ const memoryHeadroom = 8.0
 //
 // The scale runs to the limit when the limit is within reach of the readings,
 // and to the peak reading when it is not: a transaction far under its limit
-// still draws its own shape rather than a sliver along the floor. Past the
-// reach, the head line above the graph carries the limit in words instead.
+// still draws its own shape rather than a sliver along the floor.
 func (p Page) MemorySeries() MemorySeries {
 	series := MemorySeries{}
 	if !p.Memory.Spans || p.Memory.Peak <= 0 {
@@ -186,7 +185,7 @@ func (p MemoryPoint) title() string {
 
 // overlayStyle places a marker of the graph at a reading.
 func (p MemoryPoint) overlayStyle() templ.SafeCSS {
-	return templ.SafeCSS("left:" + cssPercent(p.X) + ";top:" + cssPercent(p.Y))
+	return templ.SafeCSS("left:clamp(4px," + cssPercent(p.X) + ",calc(100% - 4px));top:clamp(4px," + cssPercent(p.Y) + ",calc(100% - 4px))")
 }
 
 // summary reads the graph in one line: the peak the spans reached, and the

@@ -7,7 +7,7 @@ templ login(page Page) {
 	@Layout(page) {
 		<section class="login">
 			<h2>Sign in</h2>
-			<p>This dashboard is protected. Sign in with a configured user to see the recorded traces.</p>
+			<p>This dashboard is protected.<br/>Sign in to view traces.</p>
 			if page.LoginError != "" {
 				<p class="login-error" role="alert">{ page.LoginError }</p>
 			}
@@ -25,10 +25,6 @@ templ login(page Page) {
 				</span>
 				<button type="submit">Sign in</button>
 			</form>
-			<p class="login-note">
-				Scripts and API calls skip the form: send the session as an
-				<code>Authorization: Bearer</code> token signed with the configured secret.
-			</p>
 		</section>
 	}
 }

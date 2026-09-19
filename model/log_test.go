@@ -92,6 +92,41 @@ func TestTraceLogsLinkToTheActiveSpan(t *testing.T) {
 	}
 }
 
+func TestTraceWarnRecordsWarnLevel(t *testing.T) {
+	trace := NewTrace("t1", "GET /", TraceOptions{Clock: logClock(), CaptureLogs: true})
+
+	trace.Warn("plain warning")
+
+	_, span := trace.StartSpan(context.Background(), "work")
+	span.Warn("span warning", "key", "value")
+	span.End()
+
+	logs := trace.Logs
+	if len(logs) != 2 {
+		t.Fatalf("recorded %d entries, want 2", len(logs))
+	}
+	if logs[0].Level != LevelWarn || logs[0].SpanID != 0 {
+		t.Errorf("entry %+v, want warn outside any span", logs[0])
+	}
+	if logs[1].Level != LevelWarn || logs[1].SpanID != span.ID {
+		t.Errorf("entry %+v, want warn on span %d", logs[1], span.ID)
+	}
+	if got, ok := logs[1].Attributes["key"]; !ok || got != "value" {
+		t.Errorf("entry attributes %+v, want key=value", logs[1].Attributes)
+	}
+
+	muted := NewTrace("t2", "GET /", TraceOptions{Clock: logClock()})
+	muted.Warn("dropped")
+	if len(muted.Logs) != 0 {
+		t.Error("a trace without log capture records warn entries")
+	}
+
+	var nilTrace *Trace
+	nilTrace.Warn("tolerated")
+	var nilSpan *Span
+	nilSpan.Warn("tolerated")
+}
+
 func TestTraceLogArguments(t *testing.T) {
 	trace := NewTrace("t1", "GET /", TraceOptions{Clock: logClock(), CaptureLogs: true})
 
