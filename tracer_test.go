@@ -116,6 +116,84 @@ func TestObserveRecordsError(t *testing.T) {
 	}
 }
 
+// TestObserveKeepsHandedOutContextValid pins who owns the box an observed
+// trace lives in. Observe hands fn a context derived from that box, and fn
+// may keep it: a module starting a ticker inside its startup trace goes on
+// observing under that context for the lifetime of the process. Releasing
+// the box when Observe returns hands the memory to the next trace while the
+// retained context still points into it, which zeroes the parent the span
+// context embeds and takes the next read down with it.
+func TestObserveKeepsHandedOutContextValid(t *testing.T) {
+	tracer, _ := newTestTracer(t, nil)
+
+	type jobKey struct{}
+	parent := context.WithValue(context.Background(), jobKey{}, "kept")
+
+	// One retained context per goroutine, not one shared: the pool drops a
+	// release at random under the race detector, and a dropped box is never
+	// reused, so a single context would clear the test by luck.
+	retained := make([]context.Context, 8)
+	started := make([]string, len(retained))
+	for i := range retained {
+		if err := tracer.Observe(parent, "start", func(ctx context.Context) error {
+			retained[i] = ctx
+			return nil
+		}); err != nil {
+			t.Fatalf("Observe: %v", err)
+		}
+		if started[i] = TraceID(retained[i]); started[i] == "" {
+			t.Fatal("the observed context carries no trace")
+		}
+	}
+
+	// Each goroutine observes under its own retained context, all at once:
+	// every one of those traces is finished and pooled, so a released box is
+	// handed to a later trace while the context still points into it.
+	var wg sync.WaitGroup
+	for _, ctx := range retained {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					t.Errorf("observing under the retained context panicked: %v", recovered)
+				}
+			}()
+			for range 64 {
+				_ = tracer.Observe(ctx, "sweep", func(ctx context.Context) error {
+					StartSpan(ctx, "step").End()
+					return nil
+				})
+			}
+		}()
+	}
+	wg.Wait()
+
+	// The retained contexts still resolve what they did before: no box was
+	// handed to a later trace.
+	for i, ctx := range retained {
+		value, traceID := resolveContext(t, ctx, jobKey{})
+		if value != "kept" {
+			t.Errorf("retained context %d resolves the parent value to %v, want kept", i, value)
+		}
+		if traceID != started[i] {
+			t.Errorf("retained context %d resolves to trace %q, want %q", i, traceID, started[i])
+		}
+	}
+}
+
+// resolveContext reads a value and the trace out of ctx, reporting a panic on
+// the way as the failure it is rather than taking the test binary down with it.
+func resolveContext(t *testing.T, ctx context.Context, key any) (value any, traceID string) {
+	t.Helper()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Errorf("reading the retained context panicked: %v", recovered)
+		}
+	}()
+	return ctx.Value(key), TraceID(ctx)
+}
+
 func TestSpanLimitDropsExcess(t *testing.T) {
 	tracer, _ := newTestTracer(t, func(o *Options) { o.MaxSpansPerTrace = 3 })
 
