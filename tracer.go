@@ -145,10 +145,12 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 	if err != nil {
 		return fn(ctx)
 	}
-	// Observe owns the trace end to end, so the box is released once the
-	// trace is finished and stored. Deferred in this order, Release runs
-	// after Finish.
-	defer trace.Release()
+	// StartTrace already armed the box to return to the pool once nothing
+	// can reach it, which is the only owner this trace can have: fn is handed
+	// a context that lives in the box, and a job keeping that context past
+	// the call is what a module starting background work inside its startup
+	// trace does. Releasing here would hand the memory to the next trace
+	// while that context still points into it.
 	defer t.Finish(trace)
 
 	err = fn(traced)
