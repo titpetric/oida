@@ -49,8 +49,8 @@ func TestPreciseText(t *testing.T) {
 
 func TestMillisecondsText(t *testing.T) {
 	tests := map[time.Duration]string{
-		-time.Millisecond:            "0.00ms",
-		1500 * time.Microsecond:      "1.50ms",
+		-time.Millisecond:                "0.00ms",
+		1500 * time.Microsecond:          "1.50ms",
 		2*time.Second + time.Microsecond: "2000.00ms",
 	}
 

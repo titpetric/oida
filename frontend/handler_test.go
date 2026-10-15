@@ -98,7 +98,7 @@ func TestHandlerRendersDetail(t *testing.T) {
 		// test about rendering.
 		`class="kind" style="background:` + oida.KindDatabase.Color() + `;color:#07090c;"`,
 		`background:` + oida.KindTemplate.Color(), // the render span carries its kind
-		`class="span-row root-span`,                 // the transaction row has its own hierarchy
+		`class="span-row root-span`,               // the transaction row has its own hierarchy
 		"<th>rows</th><td>3</td>",                 // attributes are a table when expanded
 		"Transaction",                             // the drawing
 		"<h2>Request</h2>",                        // and the two tables under it

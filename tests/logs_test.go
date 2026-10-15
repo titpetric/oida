@@ -88,7 +88,7 @@ func TestLogsDisclosure(t *testing.T) {
 	body := detailPage(t, tracer, trace.ID, "")
 	for _, want := range []string{
 		`data-peek="logs"`, // the remembered disclosure after the spans
-		`Log <b>2</b>`,      // named with its count
+		`Log <b>2</b>`,     // named with its count
 		"user loaded",
 		"user_id=42", // the slog-style pair, rendered inline
 		"database",   // the entry retains the span kind as its origin
