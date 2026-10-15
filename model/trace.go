@@ -149,9 +149,7 @@ func (t *Trace) appendSpan(parent *Span, name string, kind Kind) *Span {
 		StartedAt: t.time(),
 		mu:        &box.mu,
 		trace:     t,
-		boxCtx:    &box.ctx,
 	}
-	box.ctx.span = span
 	if parent != nil && parent.TraceID == t.ID {
 		span.ParentID = parent.ID
 		span.Depth = parent.Depth + 1
@@ -576,12 +574,14 @@ func (t *Trace) RecordMemory() {
 	t.memBefore = memCounters{}
 }
 
-// spanBox is one allocation holding a span, the mutex it locks with and the
-// context it derives, kept apart from the copyable Span value itself.
+// spanBox is one allocation holding a span and the mutex it locks with, kept
+// apart from the copyable Span value itself.
+//
+// The context a span derives lives outside the box: Span.Context states why a
+// pooled box cannot lend a pointer to one.
 type spanBox struct {
 	span Span
 	mu   sync.Mutex
-	ctx  spanCtx
 }
 
 // delta returns after-before, clamped at zero.

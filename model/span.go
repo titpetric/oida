@@ -35,10 +35,6 @@ type Span struct {
 
 	trace *Trace
 
-	// boxCtx is the preallocated context of the span's box, nil on inert
-	// copies.
-	boxCtx *spanCtx
-
 	// err is the value behind Error, so Err returns what was recorded.
 	err   error
 	ended bool
@@ -180,20 +176,24 @@ func (s *Span) Trace() *Trace {
 }
 
 // Context returns a context with the span as the active parent, so spans
-// started from it nest below this one. The context comes preallocated with
-// the span, so one derivation per span costs nothing; a second call rebinds
-// that same context to the new parent.
+// started from it nest below this one.
+//
+// One allocation per call, and no pointer into the span's box. A box returns
+// to tracePool when the trace is collected and zeroes on the next acquire, so
+// a context living in the box reads a nil parent for every holder that outlasts
+// the span: a `select` on `Done()` faults, because spanCtx promotes Done, Err
+// and Deadline to the embedded parent and overrides Value alone. Rebinding one
+// shared context is the other half of that: a second call rewrites the parent
+// a first caller still reads. `database/sql` drivers hold the context past the
+// query in a goroutine watching `Done()`, so both reach a caller that does
+// nothing wrong.
 func (s *Span) Context(ctx context.Context) context.Context {
 	if s == nil {
 		return ctx
 	}
-	if s.boxCtx != nil {
-		s.boxCtx.Context = ctx
-		return s.boxCtx
-	}
-	// The span alone: TraceFromContext resolves the trace through it, so a
-	// span context costs one value instead of two.
-	return context.WithValue(ctx, spanKey{}, s)
+	// TraceFromContext resolves the trace through the span, so one value
+	// carries both.
+	return &spanCtx{Context: ctx, span: s}
 }
 
 // SourceText returns the "file:L12" location of the span, or an empty string.
@@ -230,7 +230,6 @@ func (s *Span) Inert() Span {
 	copied := *s
 	copied.mu = nil
 	copied.trace = nil
-	copied.boxCtx = nil
 	if s.Attributes != nil {
 		copied.Attributes = maps.Clone(s.Attributes)
 	}
@@ -248,7 +247,6 @@ func (s *Span) cloneInto(dst *Span) {
 	*dst = *s
 	dst.mu = nil
 	dst.trace = nil
-	dst.boxCtx = nil
 	if s.Attributes != nil {
 		dst.Attributes = maps.Clone(s.Attributes)
 	}
