@@ -16,7 +16,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ❌     | cmd/oida      | 0.00%    | 32        | 257   |
 | ✅     | frontend      | 88.50%   | 73        | 384   |
 | ❌     | frontend/view | 71.16%   | 3989      | 6824  |
-| ✅     | internal      | 85.92%   | 174       | 577   |
+| ✅     | internal      | 86.35%   | 177       | 593   |
 | ✅     | internal/ring | 84.21%   | 18        | 65    |
 | ✅     | model         | 90.62%   | 366       | 1649  |
 | ❌     | storage       | 76.09%   | 75        | 297   |
@@ -248,10 +248,11 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | RemoteAddr                 | 93.33%   | 10        |
 | ✅     |               | RequestID                  | 57.14%   | 4         |
 | ✅     |               | ResponseWriter.Bytes       | 100.00%  | 0         |
+| ✅     |               | ResponseWriter.Hijack      | 90.91%   | 3         |
 | ✅     |               | ResponseWriter.Release     | 75.00%   | 1         |
 | ✅     |               | ResponseWriter.Status      | 100.00%  | 0         |
 | ✅     |               | ResponseWriter.Write       | 100.00%  | 1         |
-| ✅     |               | ResponseWriter.WriteHeader | 83.33%   | 1         |
+| ✅     |               | ResponseWriter.WriteHeader | 100.00%  | 1         |
 | ✅     |               | RoutePattern               | 71.43%   | 4         |
 | ✅     |               | SamplerFor                 | 100.00%  | 1         |
 | ✅     |               | SymbolName                 | 100.00%  | 1         |

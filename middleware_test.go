@@ -1,6 +1,8 @@
 package oida
 
 import (
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -88,6 +90,61 @@ func TestMiddlewareRecordsPanic(t *testing.T) {
 	}
 	if !strings.Contains(traces[0].ErrorText, "deliberate") {
 		t.Fatalf("panic not recorded: %q", traces[0].ErrorText)
+	}
+}
+
+// A handler that upgrades the connection is served through the middleware,
+// over a real server: the writer it is handed has to be an http.Hijacker
+// itself, because golang.org/x/net/websocket asserts the interface on it and
+// reaches no wrapper through Unwrap. A terminal attach panicked in here before
+// the wrapper implemented it.
+func TestMiddlewareServesHijack(t *testing.T) {
+	tracer, _ := newTestTracer(t, nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /attach", func(w http.ResponseWriter, _ *http.Request) {
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			t.Error("the writer the middleware passes on is no http.Hijacker")
+			return
+		}
+		conn, buffered, err := hijacker.Hijack()
+		if err != nil {
+			t.Errorf("hijack: %v", err)
+			return
+		}
+		defer conn.Close()
+		_, _ = buffered.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: terminal\r\n\r\nattached")
+		if err := buffered.Flush(); err != nil {
+			t.Errorf("flush: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(tracer.Middleware(mux))
+	defer server.Close()
+
+	conn, err := net.Dial("tcp", strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.Write([]byte("GET /attach HTTP/1.1\r\nHost: test\r\n\r\n")); err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	answer, err := io.ReadAll(conn)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(string(answer), "101 Switching Protocols") || !strings.HasSuffix(string(answer), "attached") {
+		t.Fatalf("the upgrade did not come back: %q", answer)
+	}
+
+	traces := tracer.Traces()
+	if len(traces) != 1 {
+		t.Fatalf("recorded %d traces, want 1", len(traces))
+	}
+	if traces[0].HTTP == nil || traces[0].HTTP.Status != http.StatusSwitchingProtocols {
+		t.Fatalf("unexpected http info: %+v", traces[0].HTTP)
 	}
 }
 

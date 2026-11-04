@@ -1,12 +1,20 @@
 package internal
 
 import (
+	"bufio"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 
 	"github.com/titpetric/oida/model"
 )
+
+// ErrNotHijackable is what a hijack of a writer that cannot be hijacked
+// answers, where the wrapper used to answer a panic from the handler asserting
+// http.Hijacker on it.
+var ErrNotHijackable = errors.New("oida: the response writer does not support hijacking")
 
 // ResponseWriter records the status and the number of bytes written while
 // preserving the optional interfaces of the wrapped writer.
@@ -23,6 +31,7 @@ var (
 	_ http.ResponseWriter = (*ResponseWriter)(nil)
 	_ http.Flusher        = (*ResponseWriter)(nil)
 	_ io.ReaderFrom       = (*ResponseWriter)(nil)
+	_ http.Hijacker       = (*ResponseWriter)(nil)
 )
 
 // writerPool recycles response writers across requests.
@@ -101,6 +110,33 @@ func (w *ResponseWriter) ReadFrom(r io.Reader) (int64, error) {
 	n, err := io.Copy(w.ResponseWriter, r)
 	w.bytes += n
 	return n, err
+}
+
+// Hijack hands the connection over, which is how a websocket or any other
+// protocol upgrade is served.
+//
+// The assertion has to hold on the wrapper itself and not only through Unwrap:
+// golang.org/x/net/websocket asserts http.Hijacker on the writer it is given,
+// and a traced route that upgrades panicked in the middleware without this.
+//
+// The handler writes the switch itself, over the connection it now owns, so
+// the status is recorded here and no header goes out: 101, and the bytes of
+// the stream after it are the connection's and not the response's.
+func (w *ResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, ErrNotHijackable
+	}
+	conn, buffered, err := hijacker.Hijack()
+	if err != nil {
+		return conn, buffered, err
+	}
+	if !w.wrote {
+		w.wrote = true
+		w.status = http.StatusSwitchingProtocols
+		w.trace.SetState(model.StateWriting)
+	}
+	return conn, buffered, nil
 }
 
 // Flush forwards a flush to the wrapped writer.
