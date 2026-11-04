@@ -21,7 +21,7 @@ link github.com/titpetric/oida/internal to github.com/titpetric/oida/storage--><
 link github.com/titpetric/oida/internal/ring to github.com/titpetric/oida/model--><path d="M594.02,443.34 C559.82,457.84 512.18,478.04 473.9,494.26 " fill="none" id="github.com/titpetric/oida/internal/ring-&gt;github.com/titpetric/oida/model" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="none" points="476.84,500.62,455.7,501.98,471.38,487.73,476.84,500.62" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[9f486c5336df1f6a8d5b1c5f7d90ef8d]
 link github.com/titpetric/oida/storage to github.com/titpetric/oida/internal/ring--><path d="M568.49,344.05 C579.5,356.32 594.22,372.75 607.35,387.39 " fill="none" id="github.com/titpetric/oida/storage-&gt;github.com/titpetric/oida/internal/ring" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="none" points="612.55,382.72,620.69,402.28,602.13,392.06,612.55,382.72" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[360831d4d7bf5dd1f31f2110307b366d]
 link github.com/titpetric/oida/storage to github.com/titpetric/oida/model--><path d="M532.83,344.12 C517.85,359.5 496.84,382.18 480.72,403.86 C461.69,429.48 443.15,460.44 429.8,484.17 " fill="none" id="github.com/titpetric/oida/storage-&gt;github.com/titpetric/oida/model" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="none" points="436.02,487.37,420.24,501.51,423.76,480.62,436.02,487.37" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[8766a200835968c50a1a2db74dffdcbc]
-link github.com/titpetric/oida/tests to github.com/titpetric/oida--><path d="M573.78,47.07 C554.79,60.43 528.91,78.64 506.92,94.11 " fill="none" id="github.com/titpetric/oida/tests-&gt;github.com/titpetric/oida" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="none" points="511.21,99.64,490.83,105.43,503.16,88.19,511.21,99.64" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[4179f015be28d4650b69de4dd5f4e501]
+link github.com/titpetric/oida/tests to github.com/titpetric/oida--><path d="M573.78,47.07 C554.79,60.43 528.91,78.64 506.92,94.11 " fill="none" id="github.com/titpetric/oida/tests-&gt;github.com/titpetric/oida" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="none" points="511.21,99.64,490.83,105.43,503.16,88.19,511.21,99.64" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[2b65460a7e2a16df7f74a33cee2283f7]
 @startuml
 [github.com/titpetric/oida] - -|> [github.com/titpetric/oida/frontend]
 [github.com/titpetric/oida] - -|> [github.com/titpetric/oida/internal]
@@ -43,7 +43,7 @@ PlantUML version 1.2020.02(Sun Mar 01 11:22:07 CET 2020)
 (GPL source distribution)
 Java Runtime: OpenJDK Runtime Environment
 JVM: OpenJDK 64-Bit Server VM
-Java Version: 25.0.4+7-1-26.04-Ubuntu
+Java Version: 25.0.4.1+1-1-26.04.4-Ubuntu
 Operating System: Linux
 Default Encoding: UTF-8
 Language: en

@@ -70,6 +70,9 @@ func OptionsFromEnv(opts *model.Options) error {
 	if err := envInt("OIDA_REFRESH_INTERVAL", &opts.RefreshInterval, defaults.RefreshInterval); err != nil {
 		return err
 	}
+	if err := envDurationField("OIDA_DEBUG_SPAN_MIN_DURATION", &opts.DebugSpanMinDuration, defaults.DebugSpanMinDuration); err != nil {
+		return err
+	}
 
 	if value := envValue("OIDA_SAMPLE_RATE"); value != "" && opts.SampleRate == defaults.SampleRate {
 		rate, err := strconv.ParseFloat(value, 64)
@@ -250,6 +253,25 @@ func envDuration(name string) (time.Duration, error) {
 		return 0, InvalidOption(name, "must be a positive duration")
 	}
 	return parsed, nil
+}
+
+// envDurationField applies a duration variable when the field still holds its
+// default. Zero is a value here and not an unset variable, so a filter
+// configured in code is turned off from the environment with 0s.
+func envDurationField(name string, field *time.Duration, unset time.Duration) error {
+	value := envValue(name)
+	if value == "" || *field != unset {
+		return nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return InvalidOption(name, "must be a duration, such as 1ms")
+	}
+	if parsed < 0 {
+		return InvalidOption(name, "must not be negative")
+	}
+	*field = parsed
+	return nil
 }
 
 // envInt applies an integer variable when the field still holds its default.

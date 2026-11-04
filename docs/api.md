@@ -6,7 +6,7 @@ import (
 )
 ```
 
-Package oida records in-process telemetry: traces and spans held in a ring buffer inside the process, with a server side rendered front end mounted at /debug/oida.
+Package `oida` records in-process telemetry: traces and spans held in a ring buffer inside the process, with a server side rendered front end mounted at /debug/oida.
 
 Wire it into a service in three calls: configure the tracer, mount it, add the middleware. Recording is opt-in: enable it in code, or leave the field alone and set OIDA_ENABLED=true in the environment. The tracer is an http.Handler serving the debug front end, so it mounts like any other handler and no second import is needed:
 
@@ -437,6 +437,8 @@ var (
 - `func SpanFromContext (ctx context.Context) *Span`
 - `func Start (ctx context.Context, name string, kind ...Kind) (context.Context, *Span)`
 - `func StartAuto (ctx context.Context, symbol any, kind ...Kind) (context.Context, *Span)`
+- `func StartDebug (ctx context.Context, name string, kind ...Kind) (context.Context, *Span)`
+- `func StartDebugSpan (ctx context.Context, name string, kind ...Kind) *Span`
 - `func StartRequest (r *http.Request, name string, kind ...Kind) (*http.Request, *Span)`
 - `func StartSpan (ctx context.Context, name string, kind ...Kind) *Span`
 - `func TraceFromContext (ctx context.Context) *Trace`
@@ -459,17 +461,17 @@ var (
 - `func (*Tracer) Traces () []Trace`
 - `func (RouterFunc) Handle (pattern string, h http.Handler)`
 
-### Do
+### `Do`
 
-Do runs fn inside a span, records the returned error on it and ends it. The error is returned unchanged.
+`Do` runs fn inside a span, records the returned error on it and ends it. The error is returned unchanged.
 
 ```go
 func Do(ctx context.Context, name string, fn func(context.Context) error, kind ...Kind) error
 ```
 
-### Mount
+### `Mount`
 
-Mount registers the debug front end of t on r, under the path t was configured with. Mounting the tracer itself, r.Handle(path, tracer), is equivalent; this call adds the patterns each router uses to serve a subtree.
+`Mount` registers the debug front end of t on r, under the path t was configured with. Mounting the tracer itself, r.Handle(path, tracer), is equivalent; this call adds the patterns each router uses to serve a subtree.
 
 Three patterns are registered: the bare path, the trailing slash form that is the subtree on a ServeMux, and the /* wildcard that is the subtree on chi. Each router uses the ones it understands.
 
@@ -479,9 +481,9 @@ It returns an error when r or t is nil.
 func Mount(r Router, t *Tracer) error
 ```
 
-### New
+### `New`
 
-New returns a tracer built from opts. Nothing is stored in a package level variable: the tracer a request records into is the one in its context, and the tracer an entry point uses is the one handed to it.
+`New` returns a tracer built from opts. Nothing is stored in a package level variable: the tracer a request records into is the one in its context, and the tracer an entry point uses is the one handed to it.
 
 With Options.ReadEnv set, which is what NewOptions returns, the OIDA_* environment is applied to opts first. A variable applies only where the code left the field at its default, so options set in code win over the environment, and a variable set to nothing leaves the default alone. The configuration guide lists them.
 
@@ -489,25 +491,25 @@ With Options.ReadEnv set, which is what NewOptions returns, the OIDA_* environme
 func New(opts Options) (*Tracer, error)
 ```
 
-### NewAuth
+### `NewAuth`
 
-NewAuth builds the authentication state out of the options, or nil when no authentication option is set: no allow list, no users and no signing secret leaves the front end open. Session mints a token from it, which is how a deployment issues one for a job that reads the dashboard API.
+`NewAuth` builds the authentication state out of the options, or nil when no authentication option is set: no allow list, no users and no signing secret leaves the front end open. Session mints a token from it, which is how a deployment issues one for a job that reads the dashboard API.
 
 ```go
 func NewAuth(opts Options) (*Auth, error)
 ```
 
-### NewOptions
+### `NewOptions`
 
-NewOptions returns the default options for the named service.
+`NewOptions` returns the default options for the named service.
 
 ```go
 func NewOptions(serviceName string) Options
 ```
 
-### RecordError
+### `RecordError`
 
-RecordError records err on the innermost span in ctx and on its trace.
+`RecordError` records err on the innermost span in ctx and on its trace.
 
 ```go
 if err := store.Save(ctx, u); err != nil {
@@ -522,17 +524,17 @@ It is Span.RecordError for code that holds a context rather than the span. A nil
 func RecordError(ctx context.Context, err error)
 ```
 
-### SpanFromContext
+### `SpanFromContext`
 
-SpanFromContext returns the innermost span in ctx, or nil.
+`SpanFromContext` returns the innermost span in ctx, or nil.
 
 ```go
 func SpanFromContext(ctx context.Context) *Span
 ```
 
-### Start
+### `Start`
 
-Start records a span in the trace carried by ctx and returns a context carrying it. When ctx has no trace, or the trace was not sampled, it returns ctx unchanged and a nil span: every span method tolerates that.
+`Start` records a span in the trace carried by ctx and returns a context carrying it. When ctx has no trace, or the trace was not sampled, it returns ctx unchanged and a nil span: every span method tolerates that.
 
 ```go
 ctx, span := oida.Start(ctx, "SELECT users", oida.KindDatabase)
@@ -545,9 +547,9 @@ The kind is optional and defaults to KindInternal.
 func Start(ctx context.Context, name string, kind ...Kind) (context.Context, *Span)
 ```
 
-### StartAuto
+### `StartAuto`
 
-StartAuto is Start with the span name read from a symbol. Pass a function or a value and the package, type and function names are joined with a dot, which gives names like billing.UserStore.GetUsers without spelling them out.
+`StartAuto` is Start with the span name read from a symbol. Pass a function or a value and the package, type and function names are joined with a dot, which gives names like billing.UserStore.GetUsers without spelling them out.
 
 ```go
 ctx, span := oida.StartAuto(ctx, s.GetUsers)
@@ -560,9 +562,32 @@ The name comes from reflection and the runtime symbol table, so it does not surv
 func StartAuto(ctx context.Context, symbol any, kind ...Kind) (context.Context, *Span)
 ```
 
-### StartRequest
+### `StartDebug`
 
-StartRequest is Start for code holding an *http.Request rather than a context. It returns a request carrying the span, so spans started from the returned request nest below this one.
+`StartDebug` is Start for a debug span: one the trace keeps only when it ran at least Options.DebugSpanMinDuration, and counts in Trace.DroppedSpans when it did not.
+
+```go
+ctx, span := oida.StartDebug(ctx, "Row::text")
+defer span.End()
+```
+
+Use it where the call is instrumented because it might be slow and not because it is interesting: a frame of an interpreter, a column read, a cache lookup. The filter runs as the span ends, so the span nests and carries attributes like any other while the region runs.
+
+```go
+func StartDebug(ctx context.Context, name string, kind ...Kind) (context.Context, *Span)
+```
+
+### `StartDebugSpan`
+
+`StartDebugSpan` is StartDebug without deriving a context, for a debug span that will not nest.
+
+```go
+func StartDebugSpan(ctx context.Context, name string, kind ...Kind) *Span
+```
+
+### `StartRequest`
+
+`StartRequest` is Start for code holding an *http.Request rather than a context. It returns a request carrying the span, so spans started from the returned request nest below this one.
 
 ```go
 r, span := oida.StartRequest(r, "user.Handler")
@@ -575,65 +600,65 @@ When the request carries no trace it is returned unchanged along with a nil span
 func StartRequest(r *http.Request, name string, kind ...Kind) (*http.Request, *Span)
 ```
 
-### StartSpan
+### `StartSpan`
 
-StartSpan records a span without deriving a context. Use it for leaf spans that will not nest.
+`StartSpan` records a span without deriving a context. Use it for leaf spans that will not nest.
 
 ```go
 func StartSpan(ctx context.Context, name string, kind ...Kind) *Span
 ```
 
-### TraceFromContext
+### `TraceFromContext`
 
-TraceFromContext returns the trace in ctx, or nil.
+`TraceFromContext` returns the trace in ctx, or nil.
 
 ```go
 func TraceFromContext(ctx context.Context) *Trace
 ```
 
-### TraceID
+### `TraceID`
 
-TraceID returns the identifier of the trace in ctx, or an empty string. It is the value of the Request-Id header for HTTP traces, which makes it the cheapest correlation key for logs.
+`TraceID` returns the identifier of the trace in ctx, or an empty string. It is the value of the Request-Id header for HTTP traces, which makes it the cheapest correlation key for logs.
 
 ```go
 func TraceID(ctx context.Context) string
 ```
 
-### WithTrace
+### `WithTrace`
 
-WithTrace returns a context carrying the trace. Spans started from the returned context, or any context derived from it, are recorded on it.
+`WithTrace` returns a context carrying the trace. Spans started from the returned context, or any context derived from it, are recorded on it.
 
 ```go
 func WithTrace(ctx context.Context, t *Trace) context.Context
 ```
 
-### Enabled
+### `Enabled`
 
-Enabled reports whether the tracer records traces.
+`Enabled` reports whether the tracer records traces.
 
 ```go
 func (*Tracer) Enabled() bool
 ```
 
-### Finish
+### `Finish`
 
-Finish completes a trace and moves it into the ring buffer. The trace keeps its recorded values, so a caller holding it may still read it; the stored copy is read back through Traces, Trace and Snapshot.
+`Finish` completes a trace and moves it into the ring buffer. The trace keeps its recorded values, so a caller holding it may still read it; the stored copy is read back through Traces, Trace and Snapshot.
 
 ```go
 func (*Tracer) Finish(trace *Trace)
 ```
 
-### Live
+### `Live`
 
-Live returns the traces currently in flight, newest first.
+`Live` returns the traces currently in flight, newest first.
 
 ```go
 func (*Tracer) Live() []Trace
 ```
 
-### Middleware
+### `Middleware`
 
-Middleware records every sampled request handled by next. It is compatible with chi's Use, with alice, and with any func(http.Handler) http.Handler chain:
+`Middleware` records every sampled request handled by next. It is compatible with chi's Use, with alice, and with any func(http.Handler) http.Handler chain:
 
 ```go
 r.Use(tracer.Middleware)
@@ -645,41 +670,41 @@ A nil tracer passes every request through, so instrumented wiring runs unchanged
 func (*Tracer) Middleware(next http.Handler) http.Handler
 ```
 
-### Observe
+### `Observe`
 
-Observe runs fn inside its own trace, records the returned error and completes the trace. It is what background jobs and cron ticks should use.
+`Observe` runs fn inside its own trace, records the returned error and completes the trace. It is what background jobs and cron ticks should use.
 
 ```go
 func (*Tracer) Observe(ctx context.Context, name string, fn func(context.Context) error) error
 ```
 
-### Options
+### `Options`
 
-Options returns the options the tracer was built with, as a copy the caller owns. The retention driver is left out and the list and map are cloned: a reader of the configuration has no business reaching the storage behind it or rewriting what the tracer runs on.
+`Options` returns the options the tracer was built with, as a copy the caller owns. The retention driver is left out and the list and map are cloned: a reader of the configuration has no business reaching the storage behind it or rewriting what the tracer runs on.
 
 ```go
 func (*Tracer) Options() Options
 ```
 
-### ReportError
+### `ReportError`
 
-ReportError forwards a failure to Options.OnError, which is where the front end reports its render failures too. Nothing is written to stdout or stderr.
+`ReportError` forwards a failure to Options.OnError, which is where the front end reports its render failures too. Nothing is written to stdout or stderr.
 
 ```go
 func (*Tracer) ReportError(err error)
 ```
 
-### Reset
+### `Reset`
 
-Reset drops every retained trace and the lifetime counters. Traces in flight are left alone and are recorded when they complete.
+`Reset` drops every retained trace and the lifetime counters. Traces in flight are left alone and are recorded when they complete.
 
 ```go
 func (*Tracer) Reset()
 ```
 
-### ServeHTTP
+### `ServeHTTP`
 
-ServeHTTP serves the debug front end of the tracer, so a tracer mounts like any other handler:
+`ServeHTTP` serves the debug front end of the tracer, so a tracer mounts like any other handler:
 
 ```go
 mux := http.NewServeMux()
@@ -695,33 +720,33 @@ A path that does not start with Options.Path is treated as already relative, the
 func (*Tracer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ```
 
-### SetEnabled
+### `SetEnabled`
 
-SetEnabled turns recording on or off at runtime. Retained traces are kept.
+`SetEnabled` turns recording on or off at runtime. Retained traces are kept.
 
 ```go
 func (*Tracer) SetEnabled(enabled bool)
 ```
 
-### Snapshot
+### `Snapshot`
 
-Snapshot returns a race free copy of the tracer state. Nothing in the result aliases live state.
+`Snapshot` returns a race free copy of the tracer state. Nothing in the result aliases live state.
 
 ```go
 func (*Tracer) Snapshot() Snapshot
 ```
 
-### StartTrace
+### `StartTrace`
 
-StartTrace begins a trace for work that does not arrive over HTTP. The caller must complete it with Finish.
+`StartTrace` begins a trace for work that does not arrive over HTTP. The caller must complete it with Finish.
 
 ```go
 func (*Tracer) StartTrace(ctx context.Context, name string) (context.Context, *Trace, error)
 ```
 
-### Subscribe
+### `Subscribe`
 
-Subscribe returns a channel notified whenever a trace starts or completes, and a function releasing it. The live view streams from this.
+`Subscribe` returns a channel notified whenever a trace starts or completes, and a function releasing it. The live view streams from this.
 
 ```go
 events, cancel := tracer.Subscribe()
@@ -737,25 +762,25 @@ Notifications are coalesced, so a slow consumer cannot slow down recording.
 func (*Tracer) Subscribe() (<-chan struct{}, func())
 ```
 
-### Trace
+### `Trace`
 
-Trace returns the retained or in flight trace with the given ID. A retained trace is read only, the way Traces returns them; an in flight one is a copy the caller owns.
+`Trace` returns the retained or in flight trace with the given ID. A retained trace is read only, the way Traces returns them; an in flight one is a copy the caller owns.
 
 ```go
 func (*Tracer) Trace(id string) (Trace, bool)
 ```
 
-### Traces
+### `Traces`
 
-Traces returns the retained traces, newest first. The result is read only: its spans are the ones the front end renders, so recording into them is not a caller's to do.
+`Traces` returns the retained traces, newest first. The result is read only: its spans are the ones the front end renders, so recording into them is not a caller's to do.
 
 ```go
 func (*Tracer) Traces() []Trace
 ```
 
-### Handle
+### `Handle`
 
-Handle implements Router.
+`Handle` implements Router.
 
 ```go
 func (RouterFunc) Handle(pattern string, h http.Handler)

@@ -267,13 +267,30 @@ The entries live in one slice, `Trace.Logs`, each carrying its level, its offset
 
 `Options.CaptureLogs` gates the recording, and `NewOptions` turns it on. Disabled, `Info` does nothing, and `Error` records its text as `message key=value` through `RecordError` on the active span, so the failure still shows. Enabled, `Error` only logs: marking the transaction as failed stays with `RecordError`.
 
-## 7. What not to instrument
+## 7. Debug spans
 
-- Loops with thousands of iterations. Span one loop, attribute the count. `MaxSpansPerTrace` will otherwise drop the tail and `DroppedSpans` will grow.
+A producer that cannot know which of its calls matter marks them debug, and the trace keeps the ones that were slow:
+
+```go
+ctx, span := oida.StartDebug(ctx, "Row::text")
+defer span.End()
+```
+
+`Span.SetDebug` marks a span already started, which is what a host does to a span it got back from somebody else's hook. Either way the mark has to be on before the span ends, because that is where the filter runs: `End` records the duration, and a debug span under `Options.DebugSpanMinDuration` leaves the trace and counts in `Trace.DroppedSpans`. A normal span is never filtered, whatever it cost.
+
+The default minimum is a microsecond, which drops no more than the spans that measured the measuring. A deployment reading a trace of a thousand interpreter frames sets its own, and `100us` or `1ms` is where that becomes a readable request rather than a listing.
+
+This is the setting an interpreter, an ORM or a template engine needs: instrument every frame, every column read and every include, and read a trace that holds the handful of them worth reading. Dropping gives the slot in `MaxSpansPerTrace` back, so the cheap work no longer spends the budget the expensive work needs. Set the minimum to `0` and every debug span is recorded, which is the `log_level = debug` of a tracer.
+
+A dropped span can leave children behind: one that ended before its parent is already recorded, and it renders where the span limit's orphans render, at the root of the tree. Nest deliberately and that is rare, because a frame that ran under a millisecond has children that ran under it too.
+
+## 8. What not to instrument
+
+- Loops with thousands of iterations. Span one loop, attribute the count. `MaxSpansPerTrace` will otherwise drop the tail and `DroppedSpans` will grow. Where the loop body is sometimes slow and usually not, a debug span is the answer instead.
 - Functions that take nanoseconds. The span costs more than the work.
 - Anything holding a lock you also need for the work: `SetAttribute` takes the span mutex, so build the value first, then set it once.
 
-## 8. Testing instrumented code
+## 9. Testing instrumented code
 
 ```go
 func TestRepoSpans(t *testing.T) {

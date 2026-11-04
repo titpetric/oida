@@ -16,6 +16,11 @@ type TraceOptions struct {
 	// excess is counted in Trace.DroppedLogs. Zero means unlimited.
 	MaxSpans int
 
+	// DebugSpanMinDuration is the shortest debug span the trace keeps. One
+	// that ends under it is dropped and counted in Trace.DroppedSpans. Zero
+	// keeps every debug span.
+	DebugSpanMinDuration time.Duration
+
 	// Clock is the time source of the trace. A nil clock uses time.Now.
 	Clock func() time.Time
 

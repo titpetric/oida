@@ -8,9 +8,10 @@ import (
 // carries.
 func TraceOptionsFor(o model.Options) model.TraceOptions {
 	return model.TraceOptions{
-		Service:     o.ServiceName,
-		MaxSpans:    o.MaxSpansPerTrace,
-		Clock:       o.Clock,
-		CaptureLogs: o.CaptureLogs,
+		Service:              o.ServiceName,
+		MaxSpans:             o.MaxSpansPerTrace,
+		DebugSpanMinDuration: o.DebugSpanMinDuration,
+		Clock:                o.Clock,
+		CaptureLogs:          o.CaptureLogs,
 	}
 }

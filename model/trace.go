@@ -44,7 +44,12 @@ type Trace struct {
 	clock func() time.Time
 
 	// err is the value behind Error, so Err returns what was recorded.
-	err       error
+	err error
+
+	// debugMinSpan is the shortest debug span the trace keeps, set once from
+	// TraceOptions and never written after, so it is read without the lock.
+	debugMinSpan time.Duration
+
 	maxSpans  int
 	sequence  int
 	changedAt time.Time
@@ -95,6 +100,8 @@ func NewTrace(id, name string, opts TraceOptions) *Trace {
 		clock:     opts.Clock,
 		maxSpans:  opts.MaxSpans,
 		changedAt: now,
+
+		debugMinSpan: opts.DebugSpanMinDuration,
 
 		captureLogs: opts.CaptureLogs,
 		box:         box,

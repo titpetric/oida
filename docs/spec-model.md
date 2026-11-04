@@ -29,6 +29,7 @@ type Span struct {
 	TraceID    string        `json:"trace_id"`
 	Name       string        `json:"name"`
 	Kind       Kind          `json:"kind"`
+	Debug      bool          `json:"debug,omitempty"`
 	StartedAt  time.Time     `json:"started_at"`
 	Duration   time.Duration `json:"duration_ns,omitempty"`
 	Depth      int           `json:"depth"`
@@ -39,7 +40,7 @@ type Span struct {
 }
 ```
 
-Span IDs start at 1 within each trace. `ParentID` is zero for a root span. For active traces, `Duration` is the elapsed time when the trace was read. `ErrorText` contains the latest error recorded on the span; the Go field is not named `Error` because that name is the span's error logging method, and the JSON key is `error` either way.
+Span IDs start at 1 within each trace. `ParentID` is zero for a root span. For active traces, `Duration` is the elapsed time when the trace was read. `Debug` marks a span as detail, which subjects it to `Options.DebugSpanMinDuration`: ending under that minimum drops it from the trace and counts it in `DroppedSpans`. `ErrorText` contains the latest error recorded on the span; the Go field is not named `Error` because that name is the span's error logging method, and the JSON key is `error` either way.
 
 ## Trace
 

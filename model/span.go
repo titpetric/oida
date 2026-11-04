@@ -13,11 +13,19 @@ import (
 // nil span, which is what Start returns when the context carries no trace or
 // the trace was not sampled.
 type Span struct {
-	ID         int           `json:"id"`
-	ParentID   int           `json:"parent_id,omitempty"`
-	TraceID    string        `json:"trace_id"`
-	Name       string        `json:"name"`
-	Kind       Kind          `json:"kind"`
+	ID       int    `json:"id"`
+	ParentID int    `json:"parent_id,omitempty"`
+	TraceID  string `json:"trace_id"`
+	Name     string `json:"name"`
+	Kind     Kind   `json:"kind"`
+
+	// Debug marks the span as detail: something the producer records at every
+	// opportunity, which a reader wants only when it was slow. A debug span
+	// that ran shorter than Options.DebugSpanMinDuration is dropped as it ends
+	// and counted in Trace.DroppedSpans, so instrumenting every call in an
+	// interpreter or an ORM costs the trace nothing but the slow ones.
+	Debug bool `json:"debug,omitempty"`
+
 	StartedAt  time.Time     `json:"started_at"`
 	Duration   time.Duration `json:"duration_ns,omitempty"`
 	Depth      int           `json:"depth"`
@@ -47,8 +55,8 @@ func (s *Span) End() {
 		return
 	}
 	s.lock()
-	defer s.unlock()
 	if s.ended {
+		s.unlock()
 		return
 	}
 	s.ended = true
@@ -56,6 +64,15 @@ func (s *Span) End() {
 	// increase, so the end reading is after the start even when the clock
 	// stood still between them.
 	s.Duration = s.now().Sub(s.StartedAt)
+	debug, duration, trace := s.Debug, s.Duration, s.trace
+	s.unlock()
+
+	// The filter reads the duration, so it can only run once there is one.
+	// The span lock goes first, the way RecordError releases it before the
+	// trace takes its own.
+	if debug {
+		trace.filterDebugSpan(s, duration)
+	}
 }
 
 // EndWithError records err on the span and ends it.

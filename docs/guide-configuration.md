@@ -23,6 +23,8 @@ Field: `Options.TopRequests`<br>Default: `20`<br>Meaning: Rows in the statistics
 
 Field: `Options.MaxSpansPerTrace`<br>Default: `1000`<br>Meaning: Spans recorded per trace; further spans are counted in `DroppedSpans` and dropped. 0 means unlimited.
 
+Field: `Options.DebugSpanMinDuration`<br>Default: `1µs`<br>Meaning: The shortest debug span a trace keeps. A span marked debug (`oida.StartDebug`, `Span.SetDebug`) that ends under it is dropped and counted in `DroppedSpans`, and gives its slot in `MaxSpansPerTrace` back. A normal span is never filtered. 0 keeps every debug span.
+
 Field: `Options.SampleRate`<br>Default: `100`<br>Meaning: Percentage of requests traced, `[0,100]`.
 
 Field: `Options.TrackMemoryUse`<br>Default: `true`<br>Meaning: Read the runtime allocation counters around each trace, through `runtime/metrics`, without stopping the world.
@@ -203,6 +205,7 @@ oida:
   ring_buffer_size: 500
   top_requests: 20
   max_spans_per_trace: 1000
+  debug_span_min_duration: 500us
   sample_rate: 25
   track_memory_use: true
   trust_request_id: false
@@ -233,11 +236,11 @@ Note the ordering: unmarshal *into* the defaults, so keys absent from the file k
 
 `Options.Validate() error` is called by `New` and `Mount`:
 
-| Condition                                                                         | Error                  |
-|-----------------------------------------------------------------------------------|------------------------|
-| `Path` empty or not starting with `/`                                             | `ErrInvalidPath`       |
-| `SampleRate` outside `[0,100]` or NaN                                             | `ErrInvalidSampleRate` |
-| `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace` or `RefreshInterval` negative | `ErrInvalidOptions`    |
+| Condition                                                                                                 | Error                  |
+|-----------------------------------------------------------------------------------------------------------|------------------------|
+| `Path` empty or not starting with `/`                                                                     | `ErrInvalidPath`       |
+| `SampleRate` outside `[0,100]` or NaN                                                                     | `ErrInvalidSampleRate` |
+| `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace`, `DebugSpanMinDuration` or `RefreshInterval` negative | `ErrInvalidOptions`    |
 
 Start with `NewOptions(serviceName)` before applying overrides. This keeps defaults for fields you do not set while preserving meaningful zero values such as `SampleRate = 0`, `RingBufferSize = 0`, and `RefreshInterval = 0`.
 
@@ -328,31 +331,32 @@ oida:
 
 A variable set to nothing is a variable unset. Values are trimmed before they are read, so an empty string, whitespace, and a list of separators with no entries all leave the option at the default in the table below rather than at the zero value. That is what a compose file writes for a setting left alone. A value that is set to something is strict: anything that does not parse fails `New` instead of falling back.
 
-| Variable                   | Option             | When unset                               |
-|----------------------------|--------------------|------------------------------------------|
-| `OIDA_SERVICE_NAME`        | `ServiceName`      | the name passed to `NewOptions`          |
-| `OIDA_PATH`                | `Path`             | `/debug/oida`                            |
-| `OIDA_ENABLED`             | `Enabled`          | `false`: recording stays off             |
-| `OIDA_RING_BUFFER_SIZE`    | `RingBufferSize`   | `200`                                    |
-| `OIDA_TOP_REQUESTS`        | `TopRequests`      | `20`                                     |
-| `OIDA_MAX_SPANS_PER_TRACE` | `MaxSpansPerTrace` | `1000`                                   |
-| `OIDA_SAMPLE_RATE`         | `SampleRate`       | `100`; out of `[0,100]` clamps           |
-| `OIDA_TRACK_MEMORY_USE`    | `TrackMemoryUse`   | `true`                                   |
-| `OIDA_TRUST_REQUEST_ID`    | `TrustRequestID`   | `false`                                  |
-| `OIDA_REFRESH_INTERVAL`    | `RefreshInterval`  | `5`                                      |
-| `OIDA_LIVE_STREAM`         | `LiveStream`       | `true`                                   |
-| `OIDA_CAPTURE_LOGS`        | `CaptureLogs`      | `true`                                   |
-| `OIDA_IGNORE_PATHS`        | `IgnorePaths`      | `/healthz,/readyz,/metrics,/favicon.ico` |
-| `OIDA_ALLOWED_NETWORKS`    | `AllowedNetworks`  | none: every peer is served               |
-| `OIDA_STORAGE_DRIVER`      | `Storage`          | `memory`; `disk` is the other driver     |
-| `OIDA_STORAGE_MEMORY_SIZE` | `Storage`          | `OIDA_RING_BUFFER_SIZE`                  |
-| `OIDA_STORAGE_DISK_PATH`   | `Storage`          | none: a folder under the temp directory  |
-| `OIDA_STORAGE_DISK_LIMIT`  | `Storage`          | `OIDA_RING_BUFFER_SIZE`                  |
-| `OIDA_STORAGE_DISK_LIST`   | `Storage`          | `false`: the ring starts with this run   |
-| `OIDA_STORAGE_DISK_EXPIRE` | `Storage`          | none: documents are dropped by count     |
-| `OIDA_AUTH`                | `Users`            | none: no sign in screen                  |
-| `OIDA_USERS_FILE`          | `UsersFile`        | none                                     |
-| `OIDA_SIGNING_SECRET`      | `SigningSecret`    | none: a per-process secret is generated  |
+| Variable                       | Option                 | When unset                               |
+|--------------------------------|------------------------|------------------------------------------|
+| `OIDA_SERVICE_NAME`            | `ServiceName`          | the name passed to `NewOptions`          |
+| `OIDA_PATH`                    | `Path`                 | `/debug/oida`                            |
+| `OIDA_ENABLED`                 | `Enabled`              | `false`: recording stays off             |
+| `OIDA_RING_BUFFER_SIZE`        | `RingBufferSize`       | `200`                                    |
+| `OIDA_TOP_REQUESTS`            | `TopRequests`          | `20`                                     |
+| `OIDA_MAX_SPANS_PER_TRACE`     | `MaxSpansPerTrace`     | `1000`                                   |
+| `OIDA_DEBUG_SPAN_MIN_DURATION` | `DebugSpanMinDuration` | `1us`; `0s` keeps every debug span       |
+| `OIDA_SAMPLE_RATE`             | `SampleRate`           | `100`; out of `[0,100]` clamps           |
+| `OIDA_TRACK_MEMORY_USE`        | `TrackMemoryUse`       | `true`                                   |
+| `OIDA_TRUST_REQUEST_ID`        | `TrustRequestID`       | `false`                                  |
+| `OIDA_REFRESH_INTERVAL`        | `RefreshInterval`      | `5`                                      |
+| `OIDA_LIVE_STREAM`             | `LiveStream`           | `true`                                   |
+| `OIDA_CAPTURE_LOGS`            | `CaptureLogs`          | `true`                                   |
+| `OIDA_IGNORE_PATHS`            | `IgnorePaths`          | `/healthz,/readyz,/metrics,/favicon.ico` |
+| `OIDA_ALLOWED_NETWORKS`        | `AllowedNetworks`      | none: every peer is served               |
+| `OIDA_STORAGE_DRIVER`          | `Storage`              | `memory`; `disk` is the other driver     |
+| `OIDA_STORAGE_MEMORY_SIZE`     | `Storage`              | `OIDA_RING_BUFFER_SIZE`                  |
+| `OIDA_STORAGE_DISK_PATH`       | `Storage`              | none: a folder under the temp directory  |
+| `OIDA_STORAGE_DISK_LIMIT`      | `Storage`              | `OIDA_RING_BUFFER_SIZE`                  |
+| `OIDA_STORAGE_DISK_LIST`       | `Storage`              | `false`: the ring starts with this run   |
+| `OIDA_STORAGE_DISK_EXPIRE`     | `Storage`              | none: documents are dropped by count     |
+| `OIDA_AUTH`                    | `Users`                | none: no sign in screen                  |
+| `OIDA_USERS_FILE`              | `UsersFile`            | none                                     |
+| `OIDA_SIGNING_SECRET`          | `SigningSecret`        | none: a per-process secret is generated  |
 
 `OIDA_AUTH` holds one `username:password` pair, hashed at startup so the options carry a bcrypt hash the way a configured deployment would. This is how the demo serves its sign in screen without a line of auth code.
 

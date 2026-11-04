@@ -33,6 +33,17 @@ type Options struct {
 	// spans are counted in Trace.DroppedSpans. Zero means unlimited.
 	MaxSpansPerTrace int `yaml:"max_spans_per_trace"`
 
+	// DebugSpanMinDuration is the shortest debug span a trace keeps. A span
+	// marked debug (Span.SetDebug, StartDebug) that ends under it is dropped
+	// and counted in Trace.DroppedSpans, and a normal span is untouched
+	// whatever it cost.
+	//
+	// This is the knob a producer that instruments everything needs: an
+	// interpreter, an ORM or a template engine can report every call it makes
+	// and the trace still holds the calls worth reading instead of a thousand
+	// microsecond frames. Zero keeps every debug span.
+	DebugSpanMinDuration time.Duration `yaml:"debug_span_min_duration"`
+
 	// SampleRate is the percentage of requests traced, between 0 and 100. It
 	// is ignored when Sampler is set.
 	SampleRate float64 `yaml:"sample_rate"`
@@ -143,12 +154,16 @@ func NewOptions(serviceName string) Options {
 		RingBufferSize:   200,
 		TopRequests:      20,
 		MaxSpansPerTrace: 1000,
-		SampleRate:       100,
-		TrackMemoryUse:   true,
-		CaptureLogs:      true,
-		ReadEnv:          true,
-		RefreshInterval:  5,
-		LiveStream:       true,
+		// A microsecond: the floor under which a span measures the cost of
+		// measuring. Anything coarser is a judgement about the producer's
+		// work and belongs in the deployment's setting, not here.
+		DebugSpanMinDuration: time.Microsecond,
+		SampleRate:           100,
+		TrackMemoryUse:       true,
+		CaptureLogs:          true,
+		ReadEnv:              true,
+		RefreshInterval:      5,
+		LiveStream:           true,
 		IgnorePaths: []string{
 			"/healthz",
 			"/readyz",
@@ -176,6 +191,9 @@ func (o Options) WithDefaults() Options {
 	}
 	if !o.initialized && o.MaxSpansPerTrace == 0 {
 		o.MaxSpansPerTrace = defaults.MaxSpansPerTrace
+	}
+	if !o.initialized && o.DebugSpanMinDuration == 0 {
+		o.DebugSpanMinDuration = defaults.DebugSpanMinDuration
 	}
 	if !o.initialized && o.SampleRate == 0 && o.Sampler == nil {
 		o.SampleRate = defaults.SampleRate
@@ -210,6 +228,9 @@ func (o Options) Validate() error {
 	}
 	if o.MaxSpansPerTrace < 0 {
 		return invalidOption("max_spans_per_trace", "must not be negative")
+	}
+	if o.DebugSpanMinDuration < 0 {
+		return invalidOption("debug_span_min_duration", "must not be negative")
 	}
 	if o.RefreshInterval < 0 {
 		return invalidOption("refresh_interval", "must not be negative")

@@ -71,7 +71,7 @@ templ detail(page Page) {
 			</div>
 			if page.Trace.DroppedSpans > 0 {
 				<p class="note spans-note">
-					{ strconv.Itoa(page.Trace.DroppedSpans) } spans were dropped: this trace hit Options.MaxSpansPerTrace.
+					{ strconv.Itoa(page.Trace.DroppedSpans) } spans were dropped: debug spans that ran under Options.DebugSpanMinDuration, or everything past Options.MaxSpansPerTrace.
 				</p>
 			}
 			@traceLogs(page)

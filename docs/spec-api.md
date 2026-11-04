@@ -235,7 +235,7 @@ Disk storage is a write-through overlay of memory storage: a save goes to a JSON
 | `ErrTraceNotFound`     | A storage lookup did not find the trace          |
 | `ErrDisabled`          | `StartTrace` was called on a disabled tracer     |
 
-Negative `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace`, or `RefreshInterval` values wrap `ErrInvalidOptions`.
+Negative `RingBufferSize`, `TopRequests`, `MaxSpansPerTrace`, `DebugSpanMinDuration`, or `RefreshInterval` values wrap `ErrInvalidOptions`.
 
 Storage and dashboard errors are sent to `Options.OnError` when it is set. `Observe` still runs its function without tracing when the tracer is disabled.
 

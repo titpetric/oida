@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -308,7 +309,36 @@ var envKeys = []string{
 	"OIDA_ALLOWED_NETWORKS", "OIDA_STORAGE_DRIVER", "OIDA_STORAGE_MEMORY_SIZE",
 	"OIDA_STORAGE_DISK_PATH", "OIDA_STORAGE_DISK_LIMIT", "OIDA_STORAGE_DISK_LIST",
 	"OIDA_STORAGE_DISK_EXPIRE", "OIDA_AUTH", "OIDA_USERS_FILE",
-	"OIDA_SIGNING_SECRET",
+	"OIDA_SIGNING_SECRET", "OIDA_DEBUG_SPAN_MIN_DURATION",
+}
+
+func TestEnvDebugSpanMinDuration(t *testing.T) {
+	t.Setenv("OIDA_DEBUG_SPAN_MIN_DURATION", "5ms")
+	got, err := envRead(t)
+	if err != nil {
+		t.Fatalf("OIDA_DEBUG_SPAN_MIN_DURATION=5ms: %v", err)
+	}
+	if got.DebugSpanMinDuration != 5*time.Millisecond {
+		t.Errorf("DebugSpanMinDuration = %v, want 5ms", got.DebugSpanMinDuration)
+	}
+
+	// Zero is a value and not an unset variable: it is how a deployment turns
+	// the filter off and reads every debug span its producers record.
+	t.Setenv("OIDA_DEBUG_SPAN_MIN_DURATION", "0s")
+	got, err = envRead(t)
+	if err != nil {
+		t.Fatalf("OIDA_DEBUG_SPAN_MIN_DURATION=0s: %v", err)
+	}
+	if got.DebugSpanMinDuration != 0 {
+		t.Errorf("DebugSpanMinDuration = %v, want 0", got.DebugSpanMinDuration)
+	}
+
+	for _, value := range []string{"soon", "1", "-1ms"} {
+		t.Setenv("OIDA_DEBUG_SPAN_MIN_DURATION", value)
+		if _, err := envRead(t); !errors.Is(err, model.ErrInvalidOptions) {
+			t.Errorf("OIDA_DEBUG_SPAN_MIN_DURATION=%q gave %v, want model.ErrInvalidOptions", value, err)
+		}
+	}
 }
 
 func TestEnvSetToNothingKeepsEveryDefault(t *testing.T) {

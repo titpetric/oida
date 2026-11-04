@@ -284,7 +284,7 @@ func detail(page Page) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, " spans were dropped: this trace hit Options.MaxSpansPerTrace.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, " spans were dropped: debug spans that ran under Options.DebugSpanMinDuration, or everything past Options.MaxSpansPerTrace.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
