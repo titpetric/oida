@@ -39,6 +39,14 @@ var (
 	// ErrInvalidToken is returned when a session cookie or bearer token does
 	// not verify against the signing secret, or has expired.
 	ErrInvalidToken = errors.New("oida: invalid token")
+
+	// ErrInvalidTraceParent is returned when a traceparent header does not
+	// parse as W3C trace context.
+	ErrInvalidTraceParent = errors.New("oida: invalid traceparent")
+
+	// ErrInvalidTransaction is returned when a client posts a transaction the
+	// recorder will not record.
+	ErrInvalidTransaction = errors.New("oida: invalid transaction")
 )
 
 // invalidOption formats a field level configuration error.
