@@ -195,6 +195,19 @@ type Storage interface {
 </details>
 
 <details>
+<summary><code>type TraceContext</code></summary>
+
+```go
+// TraceContext is the W3C trace context of one transaction: the trace it
+// belongs to, one span of that trace, and the vendor state travelling beside
+// them. It lives in the model package so the front end can read it; the alias
+// keeps it spelled oida.TraceContext.
+type TraceContext = model.TraceContext
+```
+
+</details>
+
+<details>
 <summary><code>type Tracer</code></summary>
 
 ```go
@@ -262,6 +275,29 @@ type (
 
 </details>
 
+<details>
+<summary><code>type Collection, Collected, Receipt, Transaction, TransactionSpan</code></summary>
+
+```go
+// Collection is the batch of transactions a client posts, and Collected the
+// answer to one of them: the trace context the client nests its next
+// transaction and its next call below. Both live in the model package so the
+// front end can decode them.
+type (
+	Collection = model.Collection
+	Collected  = model.Collected
+	Receipt    = model.Receipt
+
+	// Transaction is one unit of work a client measured and posted.
+	Transaction = model.Transaction
+
+	// TransactionSpan is one operation inside a Transaction.
+	TransactionSpan = model.TransactionSpan
+)
+```
+
+</details>
+
 ## Consts
 
 <details>
@@ -306,7 +342,7 @@ const SessionTTL = model.SessionTTL
 </details>
 
 <details>
-<summary><code>const KindInternal, KindHTTP, KindDatabase, KindExternal, KindTemplate, KindCache, KindQueue</code></summary>
+<summary><code>const KindInternal, KindHTTP, KindDatabase, KindExternal, KindTemplate, KindCache, KindQueue, KindBrowser</code></summary>
 
 ```go
 // Span kinds. The set is open: an unrecognized value is valid.
@@ -318,6 +354,7 @@ const (
 	KindTemplate = model.KindTemplate
 	KindCache    = model.KindCache
 	KindQueue    = model.KindQueue
+	KindBrowser  = model.KindBrowser
 )
 ```
 
@@ -364,6 +401,19 @@ const (
 const (
 	LevelInfo  = model.LevelInfo
 	LevelError = model.LevelError
+)
+```
+
+</details>
+
+<details>
+<summary><code>const TraceParentHeader, TraceStateHeader</code></summary>
+
+```go
+// The headers W3C Trace Context propagates a trace with.
+const (
+	TraceParentHeader = model.TraceParentHeader
+	TraceStateHeader  = model.TraceStateHeader
 )
 ```
 
@@ -429,10 +479,13 @@ var (
 ## Function symbols
 
 - `func Do (ctx context.Context, name string, fn func(context.Context) error, kind ...Kind) error`
+- `func Environ (ctx context.Context) []string`
+- `func Inject (ctx context.Context, header http.Header)`
 - `func Mount (r Router, t *Tracer) error`
 - `func New (opts Options) (*Tracer, error)`
 - `func NewAuth (opts Options) (*Auth, error)`
 - `func NewOptions (serviceName string) Options`
+- `func Propagate (ctx context.Context) TraceContext`
 - `func RecordError (ctx context.Context, err error)`
 - `func SpanFromContext (ctx context.Context) *Span`
 - `func Start (ctx context.Context, name string, kind ...Kind) (context.Context, *Span)`
@@ -443,13 +496,16 @@ var (
 - `func StartSpan (ctx context.Context, name string, kind ...Kind) *Span`
 - `func TraceFromContext (ctx context.Context) *Trace`
 - `func TraceID (ctx context.Context) string`
+- `func TraceParent (ctx context.Context) string`
 - `func WithTrace (ctx context.Context, t *Trace) context.Context`
+- `func (*Tracer) Collect (ctx context.Context, collection Collection) (Receipt, error)`
 - `func (*Tracer) Enabled () bool`
 - `func (*Tracer) Finish (trace *Trace)`
 - `func (*Tracer) Live () []Trace`
 - `func (*Tracer) Middleware (next http.Handler) http.Handler`
 - `func (*Tracer) Observe (ctx context.Context, name string, fn func(context.Context) error) error`
 - `func (*Tracer) Options () Options`
+- `func (*Tracer) Record (ctx context.Context, tx Transaction) (Collected, error)`
 - `func (*Tracer) ReportError (err error)`
 - `func (*Tracer) Reset ()`
 - `func (*Tracer) ServeHTTP (w http.ResponseWriter, r *http.Request)`
@@ -467,6 +523,22 @@ var (
 
 ```go
 func Do(ctx context.Context, name string, fn func(context.Context) error, kind ...Kind) error
+```
+
+### `Environ`
+
+`Environ` returns the TRACEPARENT and TRACESTATE of the trace in ctx.
+
+```go
+func Environ(ctx context.Context) []string
+```
+
+### `Inject`
+
+`Inject` writes the trace context of ctx into an outbound header set.
+
+```go
+func Inject(ctx context.Context, header http.Header)
 ```
 
 ### `Mount`
@@ -505,6 +577,14 @@ func NewAuth(opts Options) (*Auth, error)
 
 ```go
 func NewOptions(serviceName string) Options
+```
+
+### `Propagate`
+
+`Propagate` returns the trace context of the innermost span in ctx, which an outbound call names as its parent.
+
+```go
+func Propagate(ctx context.Context) TraceContext
 ```
 
 ### `RecordError`
@@ -624,12 +704,28 @@ func TraceFromContext(ctx context.Context) *Trace
 func TraceID(ctx context.Context) string
 ```
 
+### `TraceParent`
+
+`TraceParent` returns the traceparent header of the span in ctx.
+
+```go
+func TraceParent(ctx context.Context) string
+```
+
 ### `WithTrace`
 
 `WithTrace` returns a context carrying the trace. Spans started from the returned context, or any context derived from it, are recorded on it.
 
 ```go
 func WithTrace(ctx context.Context, t *Trace) context.Context
+```
+
+### `Collect`
+
+`Collect` records a collection and answers one Collected per transaction.
+
+```go
+func (*Tracer) Collect(ctx context.Context, collection Collection) (Receipt, error)
 ```
 
 ### `Enabled`
@@ -684,6 +780,16 @@ func (*Tracer) Observe(ctx context.Context, name string, fn func(context.Context
 
 ```go
 func (*Tracer) Options() Options
+```
+
+### `Record`
+
+`Record` retains a transaction a client measured and posted, and returns the trace context naming it.
+
+The client keeps its own times and its own identifiers: a browser opens the trace, names the span its calls will carry, and the recorder records what it reports. Nothing else in this package trusts a client that way, so the route in front of this is off until a deployment turns it on.
+
+```go
+func (*Tracer) Record(ctx context.Context, tx Transaction) (Collected, error)
 ```
 
 ### `ReportError`

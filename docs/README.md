@@ -4,6 +4,8 @@
 |---------------------------------------------------|--------------------------------------------------------------------------------|
 | [Getting started](guide-getting-started.md)       | Add oida to `chi/v5`, `net/http` or gorilla/mux, protect the dashboard, verify |
 | [Instrumentation](guide-instrumentation.md)       | Record spans, attributes, errors, SQL, HTTP, cache, and concurrent work        |
+| [Distributed tracing](guide-tracing.md)           | `traceparent` across a process boundary, a run, a pipeline step                |
+| [The browser library](guide-browser.md)           | A pageload, a user action, the way a page went, and the trace they join        |
 | [Configuration](guide-configuration.md)           | Configure retention, sampling, limits, and access                              |
 | [Public API](spec-api.md)                         | Functions, methods, storage, and errors                                        |
 | [API reference](api.md)                           | Generated from the source by `atkins docs:api`, do not edit                    |

@@ -48,7 +48,37 @@ type Router interface {
 
 Three patterns are registered: the bare path, the trailing slash form that is the subtree on a ServeMux, and the `/*` wildcard that is the subtree on chi; each router uses the ones it understands. Mounting the tracer itself is the shortest path to a dashboard, and takes its configuration from the tracer.
 
-The middleware skips disabled, ignored, and unsampled requests. Traced HTTP requests receive a `Request-Id` header. When `TrustRequestID` is true, a valid client-supplied trace ID is reused. Panics are recorded and then passed on to the application's recovery middleware.
+The middleware skips disabled, ignored, and unsampled requests. Traced HTTP requests receive a `Request-Id` header and a `traceparent` one. When `TrustRequestID` is true, a valid client-supplied trace ID is reused; when `TrustTraceContext` is true, so is the W3C trace a caller propagated. Panics are recorded and then passed on to the application's recovery middleware.
+
+## Propagation
+
+```go
+func Propagate(ctx context.Context) TraceContext
+func TraceParent(ctx context.Context) string
+func Inject(ctx context.Context, header http.Header)
+func Environ(ctx context.Context) []string
+
+const TraceParentHeader = "traceparent"
+const TraceStateHeader = "tracestate"
+```
+
+`Inject` writes the trace context of a context into the headers of an outbound request; `Environ` writes it as the `TRACEPARENT` and `TRACESTATE` a child process reads. A context carrying no trace writes nothing in either case. See [the tracing guide](guide-tracing.md).
+
+```go
+cmd := exec.CommandContext(ctx, "atkins", "build")
+cmd.Env = append(os.Environ(), oida.Environ(ctx)...)
+```
+
+## Recording a client
+
+```go
+func (t *Tracer) Record(ctx context.Context, tx Transaction) (Collected, error)
+func (t *Tracer) Collect(ctx context.Context, collection Collection) (Receipt, error)
+```
+
+A `Transaction` is a unit of work something else measured: a browser pageload, a user action, a process reporting its own timings. It carries its own start, its own duration, its own spans and, where it has one, the trace and span identifiers it already propagated. `Record` retains one and answers with the trace context naming it; `Collect` does a batch and answers one `Collected` per transaction, leaving a refusal in that answer rather than failing the rest.
+
+`{Options.Path}/collect` is the same path over HTTP, off until `Options.Collect` turns it on. [The browser library](guide-browser.md) is its client.
 
 ## Instrumentation
 
