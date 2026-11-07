@@ -27,6 +27,11 @@ type Transaction struct {
 	// opens a trace of its own.
 	TraceID string `json:"trace_id,omitempty"`
 
+	// SpanID is the 16 hex digit span the client already named its work
+	// under, so the calls it made while the work ran arrive naming the same
+	// parent. Empty takes the identifier the recorder derives.
+	SpanID string `json:"span_id,omitempty"`
+
 	// ParentID is the 16 hex digit span the transaction nests under.
 	ParentID string `json:"parent_id,omitempty"`
 
@@ -53,6 +58,11 @@ type Transaction struct {
 	// Attributes is what the client recorded about the transaction as a
 	// whole: the URL of a pageload, the element of an action.
 	Attributes Attributes `json:"attributes,omitempty"`
+
+	// HTTP is the request the transaction is about, which puts a browser
+	// transaction on the host it was recorded for. The recorder overwrites
+	// the fields it knows better than the client.
+	HTTP *HTTPInfo `json:"http,omitempty"`
 
 	// Spans are the operations inside the transaction, each timed from its
 	// start.
@@ -105,6 +115,10 @@ func (tx Transaction) Validate() error {
 		return fmt.Errorf("%w: %q is no trace identifier", ErrInvalidTransaction, tx.TraceID)
 	case tx.ParentID != "" && !ValidSpanID(tx.ParentID):
 		return fmt.Errorf("%w: %q is no span identifier", ErrInvalidTransaction, tx.ParentID)
+	case tx.SpanID != "" && !ValidSpanID(tx.SpanID):
+		return fmt.Errorf("%w: %q is no span identifier", ErrInvalidTransaction, tx.SpanID)
+	case tx.SpanID != "" && tx.SpanID == tx.ParentID:
+		return fmt.Errorf("%w: a transaction cannot nest under itself", ErrInvalidTransaction)
 	}
 	for i, span := range tx.Spans {
 		switch {
@@ -134,6 +148,7 @@ func (tx Transaction) Trace(id string, opts TraceOptions) *Trace {
 	trace := &Trace{
 		ID:           id,
 		TraceID:      firstString(tx.TraceID, TraceIDHex(id)),
+		SpanID:       firstString(tx.SpanID, SpanIDFor(id, rootSpan)),
 		ParentSpanID: tx.ParentID,
 		TraceState:   CleanTraceState(tx.TraceState),
 		Name:         tx.Name,
@@ -151,6 +166,10 @@ func (tx Transaction) Trace(id string, opts TraceOptions) *Trace {
 	}
 	trace.stateTime[stateIndex(trace.State)] = trace.Duration
 	trace.Spans = tx.spans(started, trace)
+	if tx.HTTP != nil {
+		http := *tx.HTTP
+		trace.HTTP = &http
+	}
 	return trace
 }
 

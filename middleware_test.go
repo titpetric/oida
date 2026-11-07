@@ -75,7 +75,7 @@ func TestMiddlewareEmitsTraceContext(t *testing.T) {
 	if context.TraceID != model.TraceIDHex(trace.ID) || context.TraceID != trace.TraceID {
 		t.Fatalf("the header names %q, want the trace's own %q", context.TraceID, trace.TraceID)
 	}
-	if context.SpanID != model.SpanIDHex(trace.Spans[0].ID) || !context.Sampled() {
+	if context.SpanID != trace.SpanID || !context.Sampled() {
 		t.Fatalf("the header names span %q, want the root span sampled", context.SpanID)
 	}
 	if trace.ParentSpanID != "" {

@@ -157,31 +157,53 @@ func TestValidSpanID(t *testing.T) {
 }
 
 func TestSpanIDHex(t *testing.T) {
-	cases := map[int]string{
-		0:     "",
-		-1:    "",
-		1:     "0000000000000001",
-		15:    "000000000000000f",
-		4096:  "0000000000001000",
-		65535: "000000000000ffff",
+	cases := map[uint64]string{
+		0:                    "",
+		1:                    "0000000000000001",
+		15:                   "000000000000000f",
+		4096:                 "0000000000001000",
+		65535:                "000000000000ffff",
+		0xffffffffffffffff:   "ffffffffffffffff",
+		0x00f067aa0ba902b700: "f067aa0ba902b700",
 	}
-	for id, want := range cases {
-		if got := SpanIDHex(id); got != want {
-			t.Errorf("SpanIDHex(%d) = %q, want %q", id, got, want)
+	for value, want := range cases {
+		if got := SpanIDHex(value); got != want {
+			t.Errorf("SpanIDHex(%d) = %q, want %q", value, got, want)
 		}
 	}
 }
 
-func TestSpanIDValue(t *testing.T) {
-	for _, id := range []int{1, 7, 1000, 1 << 20} {
-		if got := SpanIDValue(SpanIDHex(id)); got != id {
-			t.Errorf("the round trip of %d came back as %d", id, got)
+func TestSpanIDFor(t *testing.T) {
+	const trace = "01K0000000000000000000000A"
+
+	root := SpanIDFor(trace, 1)
+	if !ValidSpanID(root) {
+		t.Fatalf("the root span of %q is %q", trace, root)
+	}
+	// Every span of one transaction has an identifier of its own, and so does
+	// the same sequence number of another transaction.
+	seen := map[string]int{root: 1}
+	for span := 2; span < 64; span++ {
+		id := SpanIDFor(trace, span)
+		if !ValidSpanID(id) {
+			t.Fatalf("span %d reads %q", span, id)
+		}
+		if before, ok := seen[id]; ok {
+			t.Fatalf("span %d and span %d share %q", span, before, id)
+		}
+		seen[id] = span
+	}
+	if other := SpanIDFor("01K0000000000000000000000B", 1); other == root {
+		t.Fatalf("two transactions claim span %q", root)
+	}
+
+	for _, id := range []string{"", "not-a-ulid"} {
+		if got := SpanIDFor(id, 1); got != "" {
+			t.Errorf("SpanIDFor(%q, 1) = %q, want nothing", id, got)
 		}
 	}
-	for _, value := range []string{"", "ffffffffffffffff", strings.Repeat("0", 16)} {
-		if got := SpanIDValue(value); got != 0 {
-			t.Errorf("SpanIDValue(%q) = %d, want 0", value, got)
-		}
+	if got := SpanIDFor(trace, 0); got != "" {
+		t.Errorf("SpanIDFor(%q, 0) = %q, want nothing", trace, got)
 	}
 }
 
@@ -218,8 +240,20 @@ func TestTrace_SpanContext(t *testing.T) {
 	defer trace.Release()
 	trace.SetParent(TraceContext{TraceID: exampleTraceID, SpanID: exampleSpanID, Flags: FlagSampled})
 
-	want := "00-" + exampleTraceID + "-0000000000000007-01"
-	if got := trace.SpanContext(7).TraceParent(); got != want {
-		t.Fatalf("the span context reads %q, want %q", got, want)
+	// The trace's own span is the one it was given; a span below it is
+	// derived from the trace and the sequence number.
+	root := trace.SpanContext(1)
+	if root.TraceID != exampleTraceID || root.SpanID != trace.SpanID {
+		t.Fatalf("the root context reads %+v", root)
+	}
+	nested := trace.SpanContext(7)
+	if nested.SpanID != SpanIDFor(trace.ID, 7) || nested.SpanID == root.SpanID {
+		t.Fatalf("the nested context reads %+v", nested)
+	}
+	if _, err := ParseTraceParent(nested.TraceParent()); err != nil {
+		t.Fatalf("the header a span wrote does not parse: %v", err)
+	}
+	if context := (*Trace)(nil).SpanContext(1); context.Valid() {
+		t.Fatalf("a nil trace propagates %+v", context)
 	}
 }

@@ -33,6 +33,9 @@ const FlagSampled byte = 0x01
 // specification allows; the rest are dropped.
 const traceStateMembers = 32
 
+// rootSpan is the sequence number of the span a transaction opens for itself.
+const rootSpan = 1
+
 // TraceContext is the W3C trace context of one transaction: the trace it
 // belongs to, one span of that trace, and the vendor state travelling beside
 // them. The zero value names no trace.
@@ -168,9 +171,19 @@ func (t *Trace) Parent() TraceContext {
 	return TraceContext{TraceID: t.TraceID, SpanID: t.ParentSpanID, Flags: FlagSampled, State: t.TraceState}
 }
 
-// SpanContext returns the trace context an outbound call propagates.
-func (t *Trace) SpanContext(spanID int) TraceContext {
-	return t.Parent().WithSpan(SpanIDHex(spanID))
+// SpanContext returns the trace context an outbound call propagates, naming
+// one span of the trace.
+func (t *Trace) SpanContext(span int) TraceContext {
+	if t == nil {
+		return TraceContext{}
+	}
+	t.lock()
+	id, own, state := t.TraceID, t.SpanID, t.TraceState
+	t.unlock()
+	if span != rootSpan || own == "" {
+		own = SpanIDFor(t.ID, span)
+	}
+	return TraceContext{TraceID: id, SpanID: own, Flags: FlagSampled, State: state}
 }
 
 // ValidTraceID reports whether id is 32 hex digits and not all zeroes.
@@ -183,32 +196,38 @@ func ValidSpanID(id string) bool {
 	return len(id) == spanIDLength && hexOnly(id) && strings.Trim(id, "0") != ""
 }
 
-// SpanIDHex returns the 16 hex digit identifier of a span sequence number,
-// empty for a number no span carries.
-func SpanIDHex(id int) string {
-	if id <= 0 {
+// SpanIDFor returns the identifier of one span of a trace: the 64 random bits
+// of the trace's ULID mixed with the span's sequence number.
+//
+// A parent-id names a span inside the trace, not inside the transaction: a
+// sequence number alone would have every transaction claiming span one.
+func SpanIDFor(id string, span int) string {
+	data, ok := idBytes(id)
+	if !ok || span <= 0 {
+		return ""
+	}
+	var value uint64
+	for _, b := range data[8:] {
+		value = value<<8 | uint64(b)
+	}
+	value ^= uint64(span)
+	if value == 0 {
+		value = uint64(span)
+	}
+	return SpanIDHex(value)
+}
+
+// SpanIDHex returns the 16 hex digit rendering of 64 bits, empty for zero.
+func SpanIDHex(value uint64) string {
+	if value == 0 {
 		return ""
 	}
 	out := []byte("0000000000000000")
-	for i, value := spanIDLength-1, uint64(id); value > 0 && i >= 0; i, value = i-1, value>>4 {
+	for i := spanIDLength - 1; value > 0 && i >= 0; i, value = i-1, value>>4 {
 		out[i] = hexDigits[value&0x0f]
 	}
 	return string(out)
 }
-
-// SpanIDValue returns the span sequence number a 16 hex digit identifier
-// encodes, zero for one that encodes none.
-func SpanIDValue(id string) int {
-	value, err := strconv.ParseUint(id, 16, 64)
-	if !ValidSpanID(id) || err != nil || value > maxSpanID {
-		return 0
-	}
-	return int(value)
-}
-
-// maxSpanID bounds SpanIDValue, so a hostile identifier cannot overflow the
-// int it decodes into.
-const maxSpanID = 1 << 31
 
 // hexDigits is the lowercase alphabet every identifier is written in.
 const hexDigits = "0123456789abcdef"

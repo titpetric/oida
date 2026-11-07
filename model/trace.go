@@ -21,6 +21,10 @@ type Trace struct {
 	// another.
 	TraceID string `json:"trace_id,omitempty"`
 
+	// SpanID is the 16 hex digit identifier of the transaction's own span
+	// inside the trace, which a caller names to nest work below it.
+	SpanID string `json:"span_id,omitempty"`
+
 	// ParentSpanID is the 16 hex digit span identifier of the caller that
 	// propagated the trace, empty on a trace nobody called.
 	ParentSpanID string `json:"parent_span_id,omitempty"`
@@ -106,6 +110,7 @@ func NewTrace(id, name string, opts TraceOptions) *Trace {
 	*trace = Trace{
 		ID:        id,
 		TraceID:   TraceIDHex(id),
+		SpanID:    SpanIDFor(id, rootSpan),
 		Name:      name,
 		Service:   opts.Service,
 		State:     StateStarting,
