@@ -494,7 +494,9 @@ func (t *Trace) CloneInto(dst *Trace) {
 		copied.Spans = spans
 		copied.spanBlock = block
 	}
-	if copied.Duration == 0 {
+	// A finished trace knows its duration, a posted transaction of no
+	// duration included; only a running one reads one off the clock.
+	if copied.Duration == 0 && !t.finished {
 		copied.Duration = t.peek().Sub(t.StartedAt)
 	}
 	if n := len(t.Logs); n > 0 {

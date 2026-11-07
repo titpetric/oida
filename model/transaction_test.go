@@ -111,13 +111,43 @@ func TestTransaction_TraceOpensItsOwn(t *testing.T) {
 
 func TestTransaction_TraceCorrectsTheClientClock(t *testing.T) {
 	now := time.UnixMilli(1700000000900)
-	tx := browserTransaction()
-	// A browser clock a year out: the start gives way to the recorder's.
-	tx.StartedAt = float64(time.UnixMilli(1700000000000).AddDate(1, 0, 0).UnixMilli())
-	trace := tx.Trace("01K0000000000000000000000A", TraceOptions{Clock: func() time.Time { return now }})
+	want := now.Add(-820 * time.Millisecond)
 
-	if want := now.Add(-820 * time.Millisecond); !trace.StartedAt.Equal(want) {
-		t.Fatalf("the start reads %s, want the recorder's %s", trace.StartedAt, want)
+	cases := map[string]float64{
+		"a clock a year ahead":  float64(now.AddDate(1, 0, 0).UnixMilli()),
+		"a clock a year behind": float64(now.AddDate(-1, 0, 0).UnixMilli()),
+		// A browser a few seconds fast dates its work after the work it
+		// reports, which the log would then sort wrong.
+		"a clock seconds ahead": float64(now.Add(4 * time.Second).UnixMilli()),
+		"no clock at all":       0,
+	}
+	for name, startedAt := range cases {
+		t.Run(name, func(t *testing.T) {
+			tx := browserTransaction()
+			tx.StartedAt = startedAt
+			trace := tx.Trace("01K0000000000000000000000A", TraceOptions{Clock: func() time.Time { return now }})
+			if !trace.StartedAt.Equal(want) {
+				t.Fatalf("the start reads %s, want the recorder's %s", trace.StartedAt, want)
+			}
+		})
+	}
+}
+
+// A click superseded by the next action is measured as taking no time, and
+// the clone must keep that rather than reading a duration off the clock: the
+// start is the client's, so the reading comes out negative.
+func TestTransaction_TraceOfNoDuration(t *testing.T) {
+	now := time.UnixMilli(1700000000900)
+	tx := browserTransaction()
+	tx.Duration = 0
+	tx.StartedAt = float64(now.Add(-time.Second).UnixMilli())
+
+	trace := tx.Trace("01K0000000000000000000000A", TraceOptions{Clock: func() time.Time { return now }})
+	if trace.Duration != 0 {
+		t.Fatalf("the transaction took %s, want none", trace.Duration)
+	}
+	if clone := trace.Clone(); clone.Duration != 0 {
+		t.Fatalf("the clone took %s, want none", clone.Duration)
 	}
 }
 

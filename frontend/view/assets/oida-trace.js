@@ -91,6 +91,7 @@
   var queue = [];
   var open = null;
   var timer = 0;
+  var closed = false;
 
   function round(value) {
     return Math.round(value * 1000) / 1000;
@@ -462,6 +463,12 @@
   // unload is never used: a listener on it makes the page ineligible for the
   // back/forward cache, and mobile browsers never fire it.
   function closing(reason) {
+    // visibilitychange and pagehide both fire as a page is torn down, and
+    // the page went away once.
+    if (closed) {
+      return;
+    }
+    closed = true;
     settle(true);
     var tx = transaction("close " + location.pathname, hex(8), pageSpan, {
       event: reason,
@@ -487,7 +494,11 @@
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") {
       closing("hidden");
+      return;
     }
+    // A tab switched away from and back is one page still being read, so the
+    // next teardown is recorded again.
+    closed = false;
   });
 
   window.addEventListener("pagehide", function (event) {

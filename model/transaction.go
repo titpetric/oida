@@ -12,9 +12,10 @@ const (
 	maxTransactionSpans = 256
 	maxTransactionAttrs = 64
 
-	// maxClockSkew is how far a client start may sit from the recorder's own
-	// clock. A browser clock is the user's to set, and a transaction dated
-	// next year would sort above every recorded trace forever.
+	// maxClockSkew is how far back a client start may sit from the
+	// recorder's own clock. A browser clock is the user's to set, and a
+	// transaction dated last year would sort below every recorded trace
+	// forever.
 	maxClockSkew = 24 * time.Hour
 )
 
@@ -136,12 +137,13 @@ func (tx Transaction) Validate() error {
 // Trace returns the finished trace of the transaction, under the given ID.
 //
 // It joins the trace the client named, or opens one keyed on the hex form of
-// its own ID. A start further from now than maxClockSkew gives way to the
-// recorder's clock, which a wrong client clock would otherwise reorder.
+// its own ID. A start in the future, or further back than maxClockSkew, gives
+// way to the recorder's clock: a wrong client clock would otherwise reorder
+// the log and date a transaction after the work it reports.
 func (tx Transaction) Trace(id string, opts TraceOptions) *Trace {
 	now := opts.now()
 	started := time.UnixMilli(int64(tx.StartedAt)).UTC()
-	if tx.StartedAt == 0 || started.Sub(now).Abs() > maxClockSkew {
+	if tx.StartedAt == 0 || started.After(now) || now.Sub(started) > maxClockSkew {
 		started = now.Add(-milliseconds(tx.Duration))
 	}
 
