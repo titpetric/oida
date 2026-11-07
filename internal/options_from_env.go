@@ -41,6 +41,7 @@ func OptionsFromEnv(opts *model.Options) error {
 	if opts.SigningSecret == "" {
 		opts.SigningSecret = envValue("OIDA_SIGNING_SECRET")
 	}
+	traceContextFromEnv(opts)
 
 	if err := envBool("OIDA_ENABLED", &opts.Enabled, defaults.Enabled); err != nil {
 		return err
@@ -49,6 +50,12 @@ func OptionsFromEnv(opts *model.Options) error {
 		return err
 	}
 	if err := envBool("OIDA_TRUST_REQUEST_ID", &opts.TrustRequestID, defaults.TrustRequestID); err != nil {
+		return err
+	}
+	if err := envBool("OIDA_TRUST_TRACE_CONTEXT", &opts.TrustTraceContext, defaults.TrustTraceContext); err != nil {
+		return err
+	}
+	if err := envBool("OIDA_COLLECT", &opts.Collect, defaults.Collect); err != nil {
 		return err
 	}
 	if err := envBool("OIDA_LIVE_STREAM", &opts.LiveStream, defaults.LiveStream); err != nil {
