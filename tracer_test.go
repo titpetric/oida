@@ -8,6 +8,28 @@ import (
 	"time"
 )
 
+// recorded waits for the tracer to have retained n traces and returns them.
+// It is for the handler that completes after the client already has its
+// answer, which a hijacked connection does.
+func recorded(t *testing.T, tracer *Tracer, n int) []Trace {
+	t.Helper()
+
+	events, cancel := tracer.Subscribe()
+	defer cancel()
+
+	deadline := time.After(time.Second)
+	for {
+		if traces := tracer.Traces(); len(traces) >= n {
+			return traces
+		}
+		select {
+		case <-events:
+		case <-deadline:
+			return tracer.Traces()
+		}
+	}
+}
+
 // newTestTracer returns a tracer with a deterministic clock the test can drive.
 func newTestTracer(t *testing.T, apply func(*Options)) (*Tracer, *testClock) {
 	t.Helper()

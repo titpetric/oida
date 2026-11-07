@@ -231,6 +231,7 @@ func (h *handler) serveDetail(w http.ResponseWriter, r *http.Request, id string)
 		page.Host = model.TraceHost(&trace)
 	}
 	page.Trace = &trace
+	page.Related = view.Related(trace, page.Snapshot.Log)
 	page.Rows = view.Rows(trace)
 	page.Segments = view.Timeline(trace)
 	page.Memory = view.TraceMemory(trace, page.Rows)

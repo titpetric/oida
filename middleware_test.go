@@ -203,7 +203,10 @@ func TestMiddlewareServesHijack(t *testing.T) {
 		t.Fatalf("the upgrade did not come back: %q", answer)
 	}
 
-	traces := tracer.Traces()
+	// The handler closes the hijacked connection before the middleware
+	// completes the trace, so the answer arriving says nothing about the
+	// recording having happened.
+	traces := recorded(t, tracer, 1)
 	if len(traces) != 1 {
 		t.Fatalf("recorded %d traces, want 1", len(traces))
 	}
