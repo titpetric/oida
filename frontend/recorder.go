@@ -21,6 +21,11 @@ func (nopRecorder) StartTrace(ctx context.Context, name string) (context.Context
 // Finish implements model.Recorder.
 func (nopRecorder) Finish(*model.Trace) {}
 
+// Record implements model.Recorder and never records.
+func (nopRecorder) Record(context.Context, model.Transaction) (model.Collected, error) {
+	return model.Collected{}, model.ErrDisabled
+}
+
 // Snapshot implements model.Recorder.
 func (nopRecorder) Snapshot() model.Snapshot { return model.Snapshot{} }
 

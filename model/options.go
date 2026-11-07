@@ -55,6 +55,28 @@ type Options struct {
 	// this behind a trusted proxy.
 	TrustRequestID bool `yaml:"trust_request_id"`
 
+	// TrustTraceContext joins the W3C trace a caller propagated in the
+	// traceparent header, so a request records under the caller's trace with
+	// the caller's span as its parent. Only enable this behind a trusted
+	// proxy: the header names the trace every reader of the dashboard can
+	// then find the request under.
+	TrustTraceContext bool `yaml:"trust_trace_context"`
+
+	// TraceParent is the W3C trace context this process was started inside,
+	// which every trace it opens joins. New reads it from TRACEPARENT, the
+	// variable a parent process sets for the command it runs.
+	TraceParent string `yaml:"trace_parent"`
+
+	// TraceState is the tracestate carried beside TraceParent, passed on
+	// untouched. New reads it from TRACESTATE.
+	TraceState string `yaml:"trace_state"`
+
+	// Collect records the transactions a client posts to {Path}/collect,
+	// which is what the browser library records through. It is the one route
+	// of the front end that writes, so it is off until a deployment turns it
+	// on.
+	Collect bool `yaml:"collect"`
+
 	// IgnorePaths lists request paths that are never traced. Entries ending in
 	// "/*" match by prefix.
 	IgnorePaths []string `yaml:"ignore_paths"`
@@ -240,7 +262,25 @@ func (o Options) Validate() error {
 			return invalidOption("allowed_networks", fmt.Sprintf("%q is not a CIDR prefix", network))
 		}
 	}
+	if _, err := o.Parent(); err != nil {
+		return invalidOption("trace_parent", "must be a W3C traceparent header")
+	}
 	return nil
+}
+
+// Parent returns the trace context the process was started inside, the zero
+// value when TraceParent is empty, and ErrInvalidTraceParent when it does not
+// parse.
+func (o Options) Parent() (TraceContext, error) {
+	if o.TraceParent == "" {
+		return TraceContext{}, nil
+	}
+	parent, err := ParseTraceParent(o.TraceParent)
+	if err != nil {
+		return TraceContext{}, err
+	}
+	parent.State = CleanTraceState(o.TraceState)
+	return parent, nil
 }
 
 // Authorized reports whether r may access the debug front end. The front end

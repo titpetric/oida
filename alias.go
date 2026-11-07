@@ -37,6 +37,7 @@ const (
 	KindTemplate = model.KindTemplate
 	KindCache    = model.KindCache
 	KindQueue    = model.KindQueue
+	KindBrowser  = model.KindBrowser
 )
 
 // Well known attribute keys. The set is open; these are the ones the front end

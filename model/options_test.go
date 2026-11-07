@@ -32,6 +32,33 @@ func TestOptionsDebugSpanMinDuration(t *testing.T) {
 	}
 }
 
+func TestOptions_Parent(t *testing.T) {
+	opts := NewOptions("test")
+	if parent, err := opts.Parent(); err != nil || parent.Valid() {
+		t.Fatalf("a process started outside a trace reports %+v, %v", parent, err)
+	}
+
+	opts.TraceParent, opts.TraceState = exampleParent, " rojo=1 ,bad"
+	parent, err := opts.Parent()
+	if err != nil {
+		t.Fatalf("parent: %v", err)
+	}
+	if parent.TraceID != exampleTraceID || parent.SpanID != exampleSpanID || parent.State != "rojo=1" {
+		t.Fatalf("the process joined %+v", parent)
+	}
+	if err := opts.Validate(); err != nil {
+		t.Fatalf("a valid traceparent failed validation: %v", err)
+	}
+
+	opts.TraceParent = "nonsense"
+	if _, err := opts.Parent(); !errors.Is(err, ErrInvalidTraceParent) {
+		t.Fatalf("parent returned %v, want ErrInvalidTraceParent", err)
+	}
+	if err := opts.Validate(); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("Validate = %v, want ErrInvalidOptions", err)
+	}
+}
+
 func TestOptionsAuthorized(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/debug/oida", nil)
 

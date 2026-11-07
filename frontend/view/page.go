@@ -132,6 +132,11 @@ type Page struct {
 	Rows     []SpanRow
 	Segments []Segment
 
+	// Related are the other transactions of the same W3C trace, oldest
+	// first: the browser action above a request, the request above the run it
+	// started. A trace nothing else joined leaves it empty.
+	Related []model.Trace
+
 	// Memory is the memory the detail view trace reported, read once because
 	// every row of the span table draws against it.
 	Memory MemoryBudget

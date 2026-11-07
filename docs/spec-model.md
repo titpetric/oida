@@ -15,6 +15,7 @@ const (
 	KindTemplate Kind = "template"
 	KindCache    Kind = "cache"
 	KindQueue    Kind = "queue"
+	KindBrowser  Kind = "browser"
 )
 ```
 
@@ -46,8 +47,14 @@ Span IDs start at 1 within each trace. `ParentID` is zero for a root span. For a
 
 ```go
 type Trace struct {
-	ID        string        `json:"id"`
-	Name      string        `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+
+	TraceID      string `json:"trace_id,omitempty"`
+	SpanID       string `json:"span_id,omitempty"`
+	ParentSpanID string `json:"parent_span_id,omitempty"`
+	TraceState   string `json:"tracestate,omitempty"`
+
 	Service   string        `json:"service,omitempty"`
 	State     State         `json:"state"`
 	StartedAt time.Time     `json:"started_at"`
@@ -69,6 +76,8 @@ type Trace struct {
 ```
 
 For HTTP traces, `Name` is the method and routed pattern when available, such as `GET /users/{id}`. Background traces use the name passed to `StartTrace` or `Observe`. `InFlight` is true when the trace was still running when read.
+
+`ID` names the transaction and is the `Request-Id` header. `TraceID`, `SpanID`, `ParentSpanID` and `TraceState` are the W3C trace context: the trace several transactions share, this one's own span, the span that called it, and the vendor state travelling with them. A transaction nobody called takes the hex form of its own ULID as `TraceID` and names no parent. See [the tracing guide](guide-tracing.md).
 
 ### Attributes
 

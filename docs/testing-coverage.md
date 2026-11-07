@@ -12,13 +12,13 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 
 | Status | Package       | Coverage | Cognitive | Lines |
 |--------|---------------|----------|-----------|-------|
-| ✅     | .             | 83.94%   | 73        | 476   |
+| ✅     | .             | 85.42%   | 83        | 540   |
 | ❌     | cmd/oida      | 0.00%    | 32        | 257   |
-| ✅     | frontend      | 88.50%   | 73        | 384   |
-| ❌     | frontend/view | 71.16%   | 3989      | 6824  |
-| ✅     | internal      | 86.35%   | 177       | 593   |
+| ✅     | frontend      | 88.89%   | 79        | 426   |
+| ❌     | frontend/view | 69.67%   | 4238      | 7110  |
+| ✅     | internal      | 87.06%   | 191       | 648   |
 | ✅     | internal/ring | 84.21%   | 18        | 65    |
-| ✅     | model         | 90.62%   | 366       | 1649  |
+| ✅     | model         | 91.04%   | 461       | 2005  |
 | ❌     | storage       | 76.09%   | 75        | 297   |
 | ✅     | tests         | 95.91%   | 7         | 117   |
 
@@ -27,10 +27,13 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | Status | Package       | Function                   | Coverage | Cognitive |
 |--------|---------------|----------------------------|----------|-----------|
 | ✅     | .             | Do                         | 100.00%  | 0         |
+| ✅     |               | Environ                    | 100.00%  | 0         |
+| ✅     |               | Inject                     | 100.00%  | 0         |
 | ✅     |               | Mount                      | 100.00%  | 2         |
 | ✅     |               | New                        | 85.71%   | 5         |
 | ✅     |               | NewAuth                    | 100.00%  | 0         |
 | ✅     |               | NewOptions                 | 100.00%  | 0         |
+| ✅     |               | Propagate                  | 100.00%  | 1         |
 | ✅     |               | RecordError                | 100.00%  | 0         |
 | ✅     |               | RouterFunc.Handle          | 100.00%  | 0         |
 | ✅     |               | SpanFromContext            | 100.00%  | 0         |
@@ -40,32 +43,38 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | StartSpan                  | 100.00%  | 0         |
 | ✅     |               | TraceFromContext           | 100.00%  | 0         |
 | ✅     |               | TraceID                    | 100.00%  | 0         |
+| ✅     |               | TraceParent                | 100.00%  | 0         |
+| ✅     |               | Tracer.Collect             | 100.00%  | 0         |
 | ✅     |               | Tracer.Enabled             | 100.00%  | 1         |
 | ✅     |               | Tracer.Finish              | 93.33%   | 9         |
 | ✅     |               | Tracer.Middleware          | 84.62%   | 7         |
 | ✅     |               | Tracer.Observe             | 100.00%  | 1         |
 | ✅     |               | Tracer.Options             | 85.71%   | 1         |
+| ✅     |               | Tracer.Record              | 78.57%   | 5         |
 | ✅     |               | Tracer.Reset               | 80.00%   | 2         |
 | ✅     |               | Tracer.ServeHTTP           | 50.00%   | 1         |
 | ✅     |               | Tracer.Snapshot            | 92.31%   | 18        |
-| ✅     |               | Tracer.StartTrace          | 93.33%   | 3         |
+| ✅     |               | Tracer.StartTrace          | 96.15%   | 3         |
 | ✅     |               | Tracer.Subscribe           | 66.67%   | 1         |
 | ✅     |               | Tracer.Trace               | 30.77%   | 4         |
 | ✅     |               | Tracer.Traces              | 57.14%   | 2         |
 | ✅     |               | Tracer.begin               | 100.00%  | 1         |
+| ✅     |               | Tracer.count               | 94.44%   | 4         |
 | ✅     |               | Tracer.countUnsampled      | 77.78%   | 2         |
 | ✅     |               | Tracer.finalize            | 100.00%  | 3         |
-| ✅     |               | Tracer.serve               | 96.49%   | 3         |
+| ✅     |               | Tracer.serve               | 97.01%   | 3         |
 | ✅     |               | Tracer.serveHTTP           | 100.00%  | 1         |
 | ✅     |               | WithTrace                  | 100.00%  | 0         |
 | ✅     | frontend      | Handler                    | 100.00%  | 1         |
+| ✅     |               | attribute                  | 75.00%   | 1         |
 | ✅     |               | backTarget                 | 100.00%  | 2         |
 | ✅     |               | drain                      | 100.00%  | 6         |
 | ✅     |               | handler.ServeHTTP          | 50.00%   | 1         |
 | ✅     |               | handler.relative           | 100.00%  | 1         |
 | ✅     |               | handler.render             | 66.67%   | 1         |
 | ✅     |               | handler.serveAsset         | 100.00%  | 1         |
-| ✅     |               | handler.serveDetail        | 89.66%   | 4         |
+| ✅     |               | handler.serveCollect       | 100.00%  | 5         |
+| ✅     |               | handler.serveDetail        | 90.32%   | 4         |
 | ✅     |               | handler.serveEvents        | 89.33%   | 20        |
 | ✅     |               | handler.serveHTTP          | 100.00%  | 13        |
 | ✅     |               | handler.serveHosts         | 90.91%   | 1         |
@@ -81,6 +90,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | writeJSON                  | 100.00%  | 0         |
 | ✅     |               | writeSSE                   | 80.00%   | 3         |
 | ✅     | frontend/view | Assets                     | 100.00%  | 0         |
+| ✅     |               | Caller                     | 100.00%  | 4         |
 | ✅     |               | Detail                     | 100.00%  | 0         |
 | ✅     |               | Filter                     | 100.00%  | 15        |
 | ✅     |               | Hosts                      | 100.00%  | 0         |
@@ -135,6 +145,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Page.URL                   | 96.15%   | 21        |
 | ✅     |               | Page.WaveSpans             | 83.33%   | 3         |
 | ✅     |               | Page.WaveTrace             | 100.00%  | 2         |
+| ✅     |               | Related                    | 90.91%   | 6         |
 | ❌     |               | Rows                       | 62.50%   | 23        |
 | ✅     |               | SelectField.IsSelected     | 100.00%  | 0         |
 | ✅     |               | SelectField.Selected       | 50.00%   | 4         |
@@ -157,7 +168,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | contains                   | 100.00%  | 1         |
 | ✅     |               | countText                  | 66.67%   | 1         |
 | ✅     |               | cssPercent                 | 40.00%   | 1         |
-| ❌     |               | detail                     | 58.67%   | 312       |
+| ❌     |               | detail                     | 58.77%   | 316       |
 | ✅     |               | durationText               | 100.00%  | 1         |
 | ✅     |               | hasSpanDetail              | 100.00%  | 1         |
 | ✅     |               | hostDot                    | 100.00%  | 1         |
@@ -217,6 +228,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | timeText                   | 66.67%   | 1         |
 | ❌     |               | timelineFoot               | 67.44%   | 35        |
 | ❌     |               | timelineLegend             | 65.67%   | 58        |
+| ❌     |               | traceChain                 | 26.32%   | 227       |
 | ✅     |               | traceDot                   | 80.00%   | 4         |
 | ❌     |               | traceFacts                 | 66.78%   | 285       |
 | ❌     |               | traceLink                  | 69.77%   | 50        |
@@ -226,7 +238,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | truncate                   | 40.00%   | 2         |
 | ✅     |               | uptimeText                 | 21.43%   | 5         |
 | ❌     |               | waves                      | 64.52%   | 20        |
-| ❌     |               | writeDetailText            | 74.47%   | 17        |
+| ❌     |               | writeDetailText            | 74.14%   | 24        |
 | ✅     |               | writeHeaderText            | 88.89%   | 1         |
 | ✅     |               | writeHostsText             | 100.00%  | 1         |
 | ✅     |               | writeLogsText              | 88.89%   | 8         |
@@ -238,12 +250,13 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Broker.Subscribe           | 100.00%  | 1         |
 | ✅     |               | ClockNow                   | 100.00%  | 1         |
 | ✅     |               | IgnoredPath                | 100.00%  | 11        |
+| ✅     |               | InjectTraceContext         | 100.00%  | 3         |
 | ✅     |               | InvalidOption              | 100.00%  | 0         |
 | ❌     |               | MemoryLimit                | 78.95%   | 21        |
 | ✅     |               | NewBroker                  | 100.00%  | 0         |
 | ✅     |               | NewRateSampler             | 85.71%   | 3         |
 | ✅     |               | NewResponseWriter          | 100.00%  | 0         |
-| ❌     |               | OptionsFromEnv             | 74.42%   | 26        |
+| ❌     |               | OptionsFromEnv             | 74.00%   | 28        |
 | ✅     |               | RateSampler.Sample         | 100.00%  | 1         |
 | ✅     |               | RemoteAddr                 | 93.33%   | 10        |
 | ✅     |               | RequestID                  | 57.14%   | 4         |
@@ -256,6 +269,8 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | RoutePattern               | 71.43%   | 4         |
 | ✅     |               | SamplerFor                 | 100.00%  | 1         |
 | ✅     |               | SymbolName                 | 100.00%  | 1         |
+| ✅     |               | TraceContextEnviron        | 100.00%  | 2         |
+| ✅     |               | TraceContextFor            | 100.00%  | 2         |
 | ✅     |               | TraceOptionsFor            | 100.00%  | 0         |
 | ✅     |               | authFromEnv                | 90.91%   | 5         |
 | ✅     |               | envBool                    | 87.50%   | 3         |
@@ -263,6 +278,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | envDurationField           | 100.00%  | 4         |
 | ✅     |               | envInt                     | 100.00%  | 3         |
 | ✅     |               | envValue                   | 100.00%  | 0         |
+| ✅     |               | firstEnv                   | 100.00%  | 3         |
 | ✅     |               | forwardedChain             | 100.00%  | 22        |
 | ✅     |               | hostOnly                   | 71.43%   | 3         |
 | ✅     |               | parseForwardedAddr         | 90.91%   | 3         |
@@ -270,6 +286,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | splitList                  | 100.00%  | 3         |
 | ✅     |               | storageFromEnv             | 90.48%   | 18        |
 | ✅     |               | storageMemoryFromEnv       | 85.71%   | 2         |
+| ✅     |               | traceContextFromEnv        | 100.00%  | 2         |
 | ✅     |               | trustedAddr                | 100.00%  | 3         |
 | ✅     | internal/ring | New                        | 66.67%   | 1         |
 | ✅     |               | Ring.Cap                   | 66.67%   | 1         |
@@ -288,18 +305,25 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Auth.loadUsersFile         | 91.67%   | 8         |
 | ✅     |               | Auth.now                   | 100.00%  | 2         |
 | ✅     |               | Auth.sign                  | 100.00%  | 0         |
+| ✅     |               | CleanTraceState            | 100.00%  | 7         |
+| ✅     |               | Collect                    | 100.00%  | 4         |
+| ✅     |               | Collection.Validate        | 100.00%  | 1         |
 | ✅     |               | Do                         | 100.00%  | 0         |
+| ✅     |               | IDFromTraceID              | 88.89%   | 5         |
 | ✅     |               | IsBytes                    | 100.00%  | 0         |
-| ✅     |               | Kind.Color                 | 66.67%   | 1         |
+| ✅     |               | Kind.Color                 | 60.00%   | 1         |
 | ✅     |               | Kind.String                | 66.67%   | 1         |
 | ✅     |               | LogEntry.clone             | 100.00%  | 1         |
 | ✅     |               | NewAuth                    | 96.15%   | 14        |
-| ✅     |               | NewID                      | 93.75%   | 8         |
+| ✅     |               | NewCollected               | 100.00%  | 0         |
+| ✅     |               | NewID                      | 85.71%   | 1         |
 | ✅     |               | NewOptions                 | 100.00%  | 0         |
 | ✅     |               | NewTrace                   | 100.00%  | 0         |
 | ✅     |               | Options.Authorized         | 100.00%  | 1         |
-| ❌     |               | Options.Validate           | 66.67%   | 12        |
+| ✅     |               | Options.Parent             | 100.00%  | 2         |
+| ❌     |               | Options.Validate           | 70.00%   | 13        |
 | ✅     |               | Options.WithDefaults       | 100.00%  | 15        |
+| ✅     |               | ParseTraceParent           | 88.89%   | 11        |
 | ✅     |               | ReadMemory                 | 100.00%  | 1         |
 | ✅     |               | Span.Context               | 66.67%   | 1         |
 | ✅     |               | Span.Elapsed               | 100.00%  | 2         |
@@ -324,6 +348,8 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Span.peek                  | 100.00%  | 1         |
 | ✅     |               | Span.unlock                | 100.00%  | 2         |
 | ✅     |               | SpanFromContext            | 100.00%  | 0         |
+| ✅     |               | SpanIDFor                  | 100.00%  | 4         |
+| ✅     |               | SpanIDHex                  | 100.00%  | 3         |
 | ✅     |               | Spans.Find                 | 100.00%  | 4         |
 | ✅     |               | Start                      | 100.00%  | 0         |
 | ✅     |               | StartDebug                 | 100.00%  | 0         |
@@ -335,7 +361,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Statistics                 | 90.91%   | 17        |
 | ✅     |               | Trace.Attribute            | 100.00%  | 1         |
 | ✅     |               | Trace.Clone                | 100.00%  | 0         |
-| ✅     |               | Trace.CloneInto            | 96.10%   | 19        |
+| ✅     |               | Trace.CloneInto            | 96.10%   | 20        |
 | ✅     |               | Trace.Current              | 100.00%  | 1         |
 | ✅     |               | Trace.Durations            | 90.91%   | 5         |
 | ✅     |               | Trace.Elapsed              | 100.00%  | 2         |
@@ -346,6 +372,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Trace.HasKind              | 100.00%  | 5         |
 | ✅     |               | Trace.Info                 | 100.00%  | 1         |
 | ✅     |               | Trace.Kinds                | 85.71%   | 6         |
+| ✅     |               | Trace.Parent               | 100.00%  | 1         |
 | ✅     |               | Trace.RecordError          | 100.00%  | 2         |
 | ✅     |               | Trace.RecordMemory         | 90.91%   | 1         |
 | ✅     |               | Trace.Release              | 100.00%  | 2         |
@@ -354,8 +381,10 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Trace.SetAttributes        | 71.43%   | 3         |
 | ✅     |               | Trace.SetHTTPInfo          | 80.00%   | 3         |
 | ✅     |               | Trace.SetName              | 80.00%   | 2         |
+| ✅     |               | Trace.SetParent            | 100.00%  | 2         |
 | ✅     |               | Trace.SetResponse          | 81.82%   | 3         |
 | ✅     |               | Trace.SetState             | 90.91%   | 3         |
+| ✅     |               | Trace.SpanContext          | 100.00%  | 3         |
 | ✅     |               | Trace.SpanCount            | 80.00%   | 1         |
 | ✅     |               | Trace.StartSpan            | 100.00%  | 2         |
 | ✅     |               | Trace.StateTimes           | 75.00%   | 2         |
@@ -371,23 +400,42 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Trace.raw                  | 100.00%  | 1         |
 | ✅     |               | Trace.time                 | 90.00%   | 6         |
 | ✅     |               | Trace.unlock               | 100.00%  | 2         |
+| ✅     |               | TraceContext.Sampled       | 100.00%  | 0         |
+| ✅     |               | TraceContext.TraceParent   | 100.00%  | 1         |
+| ✅     |               | TraceContext.Valid         | 100.00%  | 1         |
+| ✅     |               | TraceContext.WithSpan      | 100.00%  | 0         |
 | ✅     |               | TraceFromContext           | 85.71%   | 4         |
 | ✅     |               | TraceHost                  | 100.00%  | 2         |
 | ✅     |               | TraceID                    | 100.00%  | 1         |
+| ✅     |               | TraceIDHex                 | 100.00%  | 2         |
 | ✅     |               | TraceOptions.now           | 100.00%  | 1         |
-| ✅     |               | ValidID                    | 90.91%   | 9         |
+| ✅     |               | TraceParentOf              | 100.00%  | 0         |
+| ✅     |               | Transaction.Trace          | 100.00%  | 4         |
+| ❌     |               | Transaction.Validate       | 80.00%   | 12        |
+| ✅     |               | Transaction.depth          | 100.00%  | 1         |
+| ✅     |               | Transaction.spans          | 90.91%   | 4         |
+| ✅     |               | ValidID                    | 100.00%  | 9         |
+| ✅     |               | ValidSpanID                | 100.00%  | 1         |
+| ✅     |               | ValidTraceID               | 100.00%  | 1         |
 | ✅     |               | WithTrace                  | 100.00%  | 0         |
+| ✅     |               | capped                     | 25.00%   | 4         |
 | ✅     |               | clampFloat                 | 80.00%   | 1         |
 | ✅     |               | clampUint                  | 100.00%  | 1         |
 | ✅     |               | decodeSegment              | 75.00%   | 1         |
 | ✅     |               | delta                      | 100.00%  | 1         |
 | ✅     |               | encodeSegment              | 100.00%  | 0         |
 | ✅     |               | firstKind                  | 100.00%  | 3         |
+| ✅     |               | firstString                | 100.00%  | 3         |
 | ✅     |               | formatLogText              | 81.82%   | 4         |
-| ✅     |               | groupKey                   | 80.00%   | 2         |
+| ✅     |               | groupKey                   | 100.00%  | 2         |
+| ✅     |               | hexOnly                    | 100.00%  | 6         |
+| ✅     |               | hexValue                   | 66.67%   | 1         |
 | ✅     |               | hostStatistics             | 97.62%   | 19        |
+| ✅     |               | idBytes                    | 100.00%  | 8         |
+| ✅     |               | idString                   | 100.00%  | 7         |
 | ✅     |               | invalidOption              | 100.00%  | 0         |
 | ✅     |               | logAttributes              | 100.00%  | 6         |
+| ✅     |               | milliseconds               | 100.00%  | 1         |
 | ❌     |               | pauseTotalNs               | 76.92%   | 8         |
 | ✅     |               | peerAddr                   | 100.00%  | 2         |
 | ✅     |               | readMemCounters            | 100.00%  | 0         |

@@ -133,6 +133,11 @@ func (t *Tracer) StartTrace(ctx context.Context, name string) (context.Context, 
 	// The caller owns this trace, so its box returns to the pool when the
 	// collector finds it unreachable rather than at Finish.
 	trace.ReleaseOnCollect()
+	// A process started inside a trace records its own work under it, which
+	// is how a run nests below the command that started it. Validate proved
+	// the header parses.
+	parent, _ := t.opts.Parent()
+	trace.SetParent(parent)
 	trace.SetState(StateProcessing)
 	ctx, _ = trace.StartSpan(WithTrace(ctx, trace), name, KindInternal)
 	return ctx, trace, nil
@@ -160,7 +165,7 @@ func (t *Tracer) Observe(ctx context.Context, name string, fn func(context.Conte
 
 // serve records one request into the tracer and hands it to next.
 func (t *Tracer) serve(opts Options, next http.Handler, w http.ResponseWriter, r *http.Request) {
-	id := internal.RequestID(r, opts)
+	parent, id := internal.TraceContextFor(r, opts)
 	if id == "" {
 		next.ServeHTTP(w, r)
 		return
@@ -178,12 +183,14 @@ func (t *Tracer) serve(opts Options, next http.Handler, w http.ResponseWriter, r
 		RemoteAddress: internal.RemoteAddr(r),
 		UserAgent:     r.UserAgent(),
 	})
+	trace.SetParent(parent)
 	trace.SetState(StateReading)
 
 	// The root span alone carries the trace into the request context;
 	// TraceFromContext resolves through it.
 	ctx, span := trace.StartSpan(r.Context(), name, KindHTTP)
 	r = r.WithContext(ctx)
+	internal.InjectTraceContext(trace.SpanContext(span.ID), w.Header())
 
 	writer := internal.NewResponseWriter(w, trace)
 
