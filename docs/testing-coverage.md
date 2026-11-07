@@ -15,10 +15,10 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     | .             | 85.42%   | 83        | 540   |
 | ❌     | cmd/oida      | 0.00%    | 32        | 257   |
 | ✅     | frontend      | 88.89%   | 79        | 426   |
-| ❌     | frontend/view | 69.66%   | 4231      | 7094  |
+| ❌     | frontend/view | 69.67%   | 4238      | 7110  |
 | ✅     | internal      | 87.06%   | 191       | 648   |
 | ✅     | internal/ring | 84.21%   | 18        | 65    |
-| ✅     | model         | 91.04%   | 460       | 2003  |
+| ✅     | model         | 91.04%   | 461       | 2005  |
 | ❌     | storage       | 76.09%   | 75        | 297   |
 | ✅     | tests         | 95.91%   | 7         | 117   |
 
@@ -238,7 +238,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | truncate                   | 40.00%   | 2         |
 | ✅     |               | uptimeText                 | 21.43%   | 5         |
 | ❌     |               | waves                      | 64.52%   | 20        |
-| ❌     |               | writeDetailText            | 74.47%   | 17        |
+| ❌     |               | writeDetailText            | 74.14%   | 24        |
 | ✅     |               | writeHeaderText            | 88.89%   | 1         |
 | ✅     |               | writeHostsText             | 100.00%  | 1         |
 | ✅     |               | writeLogsText              | 88.89%   | 8         |
@@ -361,7 +361,7 @@ Low cognitive complexity means there are few conditional branches to cover. Test
 | ✅     |               | Statistics                 | 90.91%   | 17        |
 | ✅     |               | Trace.Attribute            | 100.00%  | 1         |
 | ✅     |               | Trace.Clone                | 100.00%  | 0         |
-| ✅     |               | Trace.CloneInto            | 96.10%   | 19        |
+| ✅     |               | Trace.CloneInto            | 96.10%   | 20        |
 | ✅     |               | Trace.Current              | 100.00%  | 1         |
 | ✅     |               | Trace.Durations            | 90.91%   | 5         |
 | ✅     |               | Trace.Elapsed              | 100.00%  | 2         |
