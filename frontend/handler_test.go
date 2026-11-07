@@ -480,7 +480,7 @@ func TestHandlerRoutes(t *testing.T) {
 
 	for _, route := range []string{
 		"", "/", "/traces", "/live", "/stats",
-		"/assets/oida.css", "/assets/oida.js", "/assets/input-select.svg",
+		"/assets/oida.css", "/assets/oida.js", "/assets/oida-trace.js", "/assets/input-select.svg",
 	} {
 		if code := request(t, handler, oida.DefaultPath+route, nil).Code; code != http.StatusOK {
 			t.Errorf("%q returned %d", route, code)
