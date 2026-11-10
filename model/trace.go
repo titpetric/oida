@@ -33,6 +33,11 @@ type Trace struct {
 	// untouched.
 	TraceState string `json:"tracestate,omitempty"`
 
+	// SessionID is the ULID of the session the trace belongs to: every
+	// transaction one browser produced in one visit, whatever trace it ran in.
+	// Empty means no session.
+	SessionID string `json:"session_id,omitempty"`
+
 	Service   string        `json:"service,omitempty"`
 	State     State         `json:"state"`
 	StartedAt time.Time     `json:"started_at"`

@@ -53,3 +53,24 @@ func TestCaller(t *testing.T) {
 		t.Fatal("a caller the log does not hold was reported")
 	}
 }
+
+func TestFilterBySession(t *testing.T) {
+	const a, b = "01ARZ3NDEKTSV4RRFFQ69G5FAV", "01BX5ZZKBKACTAV9WEVGEMMVRZ"
+	traces := []model.Trace{
+		{ID: "1", Name: "root a", SessionID: a},
+		{ID: "2", Name: "child a", SessionID: a, ParentSpanID: "00f067aa0ba902b7"},
+		{ID: "3", Name: "root b", SessionID: b},
+		{ID: "4", Name: "no session"},
+	}
+
+	if got := Filter(traces, Page{Session: a}); len(got) != 2 {
+		t.Errorf("session filter kept %d, want 2", len(got))
+	}
+	roots := Filter(traces, Page{Roots: true})
+	if len(roots) != 2 || roots[0].ID != "1" || roots[1].ID != "3" {
+		t.Errorf("roots kept %+v, want the two parentless session transactions", roots)
+	}
+	if got := Filter(traces, Page{Roots: true, Session: a}); len(got) != 1 || got[0].ID != "1" {
+		t.Errorf("roots of one session kept %+v", got)
+	}
+}

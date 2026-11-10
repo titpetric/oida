@@ -29,6 +29,10 @@ func NewPage(opts model.Options, snapshot model.Snapshot, name View, r *http.Req
 		page.Kind = model.Kind(kind)
 	}
 	page.Host = strings.TrimSpace(r.URL.Query().Get("host"))
+	if id := strings.TrimSpace(r.URL.Query().Get("session")); model.ValidSessionID(id) {
+		page.Session = id
+	}
+	page.Roots = r.URL.Query().Get("roots") == "session"
 	page.RequestHost = r.Host
 	page.Sort = requestedSort(r)
 	page.Ascending = r.URL.Query().Get("order") == "asc"
@@ -111,6 +115,12 @@ type Page struct {
 	Query    string
 	Kind     model.Kind
 
+	// Session keeps the transactions of one session, matched exactly. Roots
+	// keeps the transactions that carry a session and nest under nothing: the
+	// first request of each visit, the transactions of a session view.
+	Session string
+	Roots   bool
+
 	// Host is the domain filter, empty for every host. RequestHost is the
 	// domain this dashboard was reached on, which is the sensible default
 	// label when no filter is set.
@@ -192,6 +202,12 @@ func (p Page) URL(view View) string {
 		if p.Status != "" && p.Status != "all" {
 			query.Set("status", p.Status)
 		}
+		if p.Session != "" {
+			query.Set("session", p.Session)
+		}
+		if p.Roots {
+			query.Set("roots", "session")
+		}
 		if p.Sort != "" && p.Sort != SortAge {
 			query.Set("sort", string(p.Sort))
 		}
@@ -262,7 +278,7 @@ func (p Page) Hosts() []model.HostStat {
 // Fields returns the filter bar controls in display order. The domain is not
 // among them: it is chosen once in the masthead and every view inherits it.
 func (p Page) Fields() []SelectField {
-	return []SelectField{p.KindField(), p.StatusField(), p.RowsField()}
+	return []SelectField{p.KindField(), p.StatusField(), p.RootsField(), p.RowsField()}
 }
 
 // KindField filters the list by the span kinds a trace recorded.
@@ -290,6 +306,25 @@ func (p Page) StatusField() SelectField {
 		Options: []SelectOption{
 			{Value: "all", Label: "every status"},
 			{Value: "error", Label: "failed only"},
+		},
+	}
+}
+
+// RootsField narrows the list to the transactions that open a session: the
+// ones that carry a session and nest under nothing.
+func (p Page) RootsField() SelectField {
+	value := ""
+	if p.Roots {
+		value = "session"
+	}
+	return SelectField{
+		ID:    "oida-roots",
+		Name:  "roots",
+		Label: "Transactions",
+		Value: value,
+		Options: []SelectOption{
+			{Value: "", Label: "every transaction"},
+			{Value: "session", Label: "session roots"},
 		},
 	}
 }
@@ -501,4 +536,18 @@ func (p Page) Ticks() []AxisTick {
 // LoginPath is where the sign in form lives and submits.
 func (p Page) LoginPath() string {
 	return p.Path + "/login"
+}
+
+// SessionURL returns the list of the transactions of one session.
+func (p Page) SessionURL(id string) string {
+	return p.TracesPath() + "?" + url.Values{"session": {id}}.Encode()
+}
+
+// shortSession returns the tail of a session ULID, the random part, which is
+// what tells two sessions apart in a column.
+func shortSession(id string) string {
+	if len(id) > 8 {
+		return id[len(id)-8:]
+	}
+	return id
 }

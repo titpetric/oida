@@ -62,21 +62,22 @@ With `Options.TrustTraceContext` on, the request records under the same trace wi
 
 A cross-origin call is not named: the other server would have to allow the header in its CORS configuration, which is not this library's to arrange. The collect route itself is never traced.
 
-## How the trace starts
+## Sessions
 
-Three sources, in order:
+The library keeps one session per browser: a ULID in `localStorage` under `oida.session`, shared by every tab of the origin, renewed once nothing has happened for 30 minutes (`data-session-idle`, in seconds, `0` for never). If storage is off, the session lives as long as the page.
 
-1. A `traceparent` meta tag the server rendered into the page, which is how a pageload nests under the request that served it. This is the mechanism OpenTelemetry's document-load instrumentation and Sentry's browser tracing both use.
+The 128 bits of the ULID are the trace of the session, so the session is the `traceparent` of everything the page does:
 
-   ```html
-   <meta name="traceparent" content="00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01">
-   ```
+```
+GET /inventory          traceparent: 00-<session as hex>-<span>-01   tracestate: oida=<ULID>
+GET /inventory#home     traceparent: 00-<session as hex>-<span>-01   tracestate: oida=<ULID>
+```
 
-   Write it from the handler with `oida.TraceParent(ctx)`.
+Every event is a transaction of its own with a span of its own, posted to the collect route with `session_id`: the pageload, each click, submit and dialog, and each change of address that makes no request, `hashchange`, `popstate` and `history.pushState`/`replaceState`. A single page app that moves without a server request is recorded by the browser. A pageload and a route change nest under nothing; a click nests under its pageload.
 
-2. The handoff a click left in `sessionStorage`, so the pageload that follows a link nests under the click that opened it, and both pages are one trace.
+Same-origin calls carry the session's `traceparent` and a `tracestate` member `oida=<ULID>`. With `Options.TrustTraceContext` a service records its request under the session, so the back-end calls join the same trace and `session_id` is set on them too. The server's own `traceparent` meta tag is not adopted, since that request ran before the browser knew the session: the pageload links it in its `served` attribute.
 
-3. A trace of this page's own, 128 random bits.
+In the dashboard the list filters with `?session=<ULID>`, and the Transactions filter `session roots` lists the transactions that carry a session and nest under nothing.
 
 ## Settings
 
@@ -85,12 +86,13 @@ Three sources, in order:
 | `data-collect` | the script's own path        | Where transactions are posted                           |
 | `data-service` | the recorder's `ServiceName` | What the transactions are attributed to                 |
 | `data-idle`    | `1000`                       | Milliseconds of quiet before an action settles          |
+| `data-session-idle` | `1800`                  | Seconds of quiet before the session is renewed, `0` never |
 | `data-sample`  | `100`                        | Percentage of page views recorded, decided once on load |
 
 ## The API
 
 ```js
-window.oidaTrace.trace;           // the trace identifier this page shares
+window.oidaTrace.session();       // the session ULID, and the trace of every call
 window.oidaTrace.traceparent();   // the header a call made now should carry
 window.oidaTrace.action(event, element);
 window.oidaTrace.settle();

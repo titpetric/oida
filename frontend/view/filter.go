@@ -6,7 +6,7 @@ import (
 
 // Filter applies the list filters of a page.
 func Filter(traces []model.Trace, page Page) []model.Trace {
-	if page.Query == "" && page.Kind == "" && page.Host == "" &&
+	if page.Query == "" && page.Kind == "" && page.Host == "" && page.Session == "" && !page.Roots &&
 		(page.Status == "" || page.Status == "all") {
 		return traces
 	}
@@ -14,6 +14,12 @@ func Filter(traces []model.Trace, page Page) []model.Trace {
 	out := make([]model.Trace, 0, len(traces))
 	for _, trace := range traces {
 		if !matches(trace, page.Query) {
+			continue
+		}
+		if page.Session != "" && trace.SessionID != page.Session {
+			continue
+		}
+		if page.Roots && (trace.SessionID == "" || trace.ParentSpanID != "") {
 			continue
 		}
 		if page.Kind != "" && !trace.HasKind(page.Kind) {

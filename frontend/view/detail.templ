@@ -104,6 +104,12 @@ templ traceChain(page Page) {
 						<dt>Span</dt>
 						<dd><code>{ page.Trace.SpanID }</code></dd>
 					</div>
+					if page.Trace.SessionID != "" {
+						<div>
+							<dt>Session</dt>
+							<dd><a href={ templ.SafeURL(page.SessionURL(page.Trace.SessionID)) }><code>{ page.Trace.SessionID }</code></a></dd>
+						</div>
+					}
 					if page.Trace.ParentSpanID != "" {
 						<div>
 							<dt>Called by</dt>
