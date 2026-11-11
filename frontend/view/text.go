@@ -115,6 +115,22 @@ func writeDetailText(w io.Writer, page Page) {
 	}
 	fmt.Fprintln(w)
 
+	if trace.TraceID != "" {
+		fmt.Fprintln(w, "Trace:")
+		fmt.Fprintf(w, "%-20s %s\n", "trace", trace.TraceID)
+		fmt.Fprintf(w, "%-20s %s\n", "span", trace.SpanID)
+		if trace.ParentSpanID != "" {
+			fmt.Fprintf(w, "%-20s %s\n", "called by", trace.ParentSpanID)
+		}
+		if trace.TraceState != "" {
+			fmt.Fprintf(w, "%-20s %s\n", "vendor state", trace.TraceState)
+		}
+		for _, related := range page.Related {
+			fmt.Fprintf(w, "%-20s %s · %s · %s\n", "with", serviceLabel(related), preciseText(related.Duration), related.Name)
+		}
+		fmt.Fprintln(w)
+	}
+
 	if len(trace.Attributes) > 0 {
 		fmt.Fprintln(w, "Transaction:")
 		for _, key := range sortedKeys(trace.Attributes) {

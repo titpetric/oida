@@ -47,6 +47,8 @@ Pass the context down, and the next `oida.Start` records a child span under this
 
 - HTTP requests and background jobs
 - Nested spans with kinds, attributes, errors, and source locations
+- W3C Trace Context across a process boundary: `traceparent` on the wire, `TRACEPARENT` for a child process
+- A browser library recording a pageload, every user action and the way a page went, in one file of plain JavaScript
 - Bounded in-memory retention, or disk documents that outlive the process, chosen in code or from the environment
 - Rate sampling and custom sampling rules
 - Live activity, retained traces, route statistics, and trace details

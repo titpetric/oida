@@ -61,6 +61,70 @@ func TestMiddlewareRecordsRequest(t *testing.T) {
 	}
 }
 
+func TestMiddlewareEmitsTraceContext(t *testing.T) {
+	handler, tracer := newTestServer(t, nil)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/users/42", nil))
+
+	context, err := model.ParseTraceParent(response.Header().Get(model.TraceParentHeader))
+	if err != nil {
+		t.Fatalf("the response carries no traceparent: %v", err)
+	}
+	trace := tracer.Traces()[0]
+	if context.TraceID != model.TraceIDHex(trace.ID) || context.TraceID != trace.TraceID {
+		t.Fatalf("the header names %q, want the trace's own %q", context.TraceID, trace.TraceID)
+	}
+	if context.SpanID != trace.SpanID || !context.Sampled() {
+		t.Fatalf("the header names span %q, want the root span sampled", context.SpanID)
+	}
+	if trace.ParentSpanID != "" {
+		t.Fatalf("a request nobody called recorded parent %q", trace.ParentSpanID)
+	}
+}
+
+func TestMiddlewareJoinsTheCallersTrace(t *testing.T) {
+	handler, tracer := newTestServer(t, func(o *Options) { o.TrustTraceContext = true })
+
+	request := httptest.NewRequest(http.MethodGet, "/users/42", nil)
+	request.Header.Set(model.TraceParentHeader, exampleParent)
+	request.Header.Set(model.TraceStateHeader, "rojo=1")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	trace := tracer.Traces()[0]
+	if trace.TraceID != exampleTraceID || trace.ParentSpanID != exampleSpanID {
+		t.Fatalf("the request recorded under %q below %q", trace.TraceID, trace.ParentSpanID)
+	}
+	if trace.TraceState != "rojo=1" {
+		t.Fatalf("the tracestate came through as %q", trace.TraceState)
+	}
+	// The transaction keeps an identifier of its own: a W3C trace spans many
+	// of them, and the dashboard still lists this one on its own row.
+	if !model.ValidID(trace.ID) || trace.ID == exampleTraceID {
+		t.Fatalf("the transaction was recorded under %q", trace.ID)
+	}
+	context, err := model.ParseTraceParent(response.Header().Get(model.TraceParentHeader))
+	if err != nil || context.TraceID != exampleTraceID {
+		t.Fatalf("the response names %+v, %v", context, err)
+	}
+	if got := response.Header().Get(model.TraceStateHeader); got != "rojo=1" {
+		t.Fatalf("the response carries tracestate %q", got)
+	}
+}
+
+func TestMiddlewareIgnoresAnUntrustedTraceContext(t *testing.T) {
+	handler, tracer := newTestServer(t, nil)
+
+	request := httptest.NewRequest(http.MethodGet, "/users/42", nil)
+	request.Header.Set(model.TraceParentHeader, exampleParent)
+	handler.ServeHTTP(httptest.NewRecorder(), request)
+
+	if trace := tracer.Traces()[0]; trace.TraceID == exampleTraceID || trace.ParentSpanID != "" {
+		t.Fatalf("an untrusted header was joined: %q below %q", trace.TraceID, trace.ParentSpanID)
+	}
+}
+
 func TestMiddlewareIgnoresConfiguredPaths(t *testing.T) {
 	handler, tracer := newTestServer(t, nil)
 
@@ -139,7 +203,10 @@ func TestMiddlewareServesHijack(t *testing.T) {
 		t.Fatalf("the upgrade did not come back: %q", answer)
 	}
 
-	traces := tracer.Traces()
+	// The handler closes the hijacked connection before the middleware
+	// completes the trace, so the answer arriving says nothing about the
+	// recording having happened.
+	traces := recorded(t, tracer, 1)
 	if len(traces) != 1 {
 		t.Fatalf("recorded %d traces, want 1", len(traces))
 	}

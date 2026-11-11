@@ -7,6 +7,10 @@ services:
     environment:
       OIDA_ADDR: ":8080"
       OIDA_ENABLED: "true"
+      # The demo serves the browser library, so it reads what a page posts and
+      # joins the trace a page propagates.
+      OIDA_COLLECT: "true"
+      OIDA_TRUST_TRACE_CONTEXT: "true"
       # OIDA_SERVICE_NAME: ""                                        # the name passed to NewOptions
       # OIDA_PATH: "/debug/oida"
       # OIDA_RING_BUFFER_SIZE: "200"                                 # completed traces retained
@@ -15,6 +19,8 @@ services:
       # OIDA_SAMPLE_RATE: "100"                                      # out of [0,100] clamps
       # OIDA_TRACK_MEMORY_USE: "true"
       # OIDA_TRUST_REQUEST_ID: "false"                               # only behind a trusted proxy
+      # TRACEPARENT: ""                                              # the trace this process was started inside
+      # TRACESTATE: ""                                               # the vendor state beside it
       # OIDA_REFRESH_INTERVAL: "5"                                   # live view fallback, seconds
       # OIDA_LIVE_STREAM: "true"
       # OIDA_CAPTURE_LOGS: "true"

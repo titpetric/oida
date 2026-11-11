@@ -13,8 +13,26 @@ import (
 // Trace is one recorded unit of work: an HTTP request, a background job, a cron
 // tick or a startup step. Every method is safe to call on a nil trace.
 type Trace struct {
-	ID        string        `json:"id"`
-	Name      string        `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+
+	// TraceID is the 32 hex digit W3C trace identifier every transaction of
+	// one trace shares, this one's own hex form unless a caller propagated
+	// another.
+	TraceID string `json:"trace_id,omitempty"`
+
+	// SpanID is the 16 hex digit identifier of the transaction's own span
+	// inside the trace, which a caller names to nest work below it.
+	SpanID string `json:"span_id,omitempty"`
+
+	// ParentSpanID is the 16 hex digit span identifier of the caller that
+	// propagated the trace, empty on a trace nobody called.
+	ParentSpanID string `json:"parent_span_id,omitempty"`
+
+	// TraceState is the tracestate a caller propagated, carried through
+	// untouched.
+	TraceState string `json:"tracestate,omitempty"`
+
 	Service   string        `json:"service,omitempty"`
 	State     State         `json:"state"`
 	StartedAt time.Time     `json:"started_at"`
@@ -91,6 +109,8 @@ func NewTrace(id, name string, opts TraceOptions) *Trace {
 	trace := &box.trace
 	*trace = Trace{
 		ID:        id,
+		TraceID:   TraceIDHex(id),
+		SpanID:    SpanIDFor(id, rootSpan),
 		Name:      name,
 		Service:   opts.Service,
 		State:     StateStarting,
@@ -474,7 +494,9 @@ func (t *Trace) CloneInto(dst *Trace) {
 		copied.Spans = spans
 		copied.spanBlock = block
 	}
-	if copied.Duration == 0 {
+	// A finished trace knows its duration, a posted transaction of no
+	// duration included; only a running one reads one off the clock.
+	if copied.Duration == 0 && !t.finished {
 		copied.Duration = t.peek().Sub(t.StartedAt)
 	}
 	if n := len(t.Logs); n > 0 {

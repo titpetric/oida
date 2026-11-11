@@ -22,6 +22,7 @@ const (
 	KindTemplate Kind = "template"
 	KindCache    Kind = "cache"
 	KindQueue    Kind = "queue"
+	KindBrowser  Kind = "browser"
 )
 
 // Color returns the stable UI color of the kind. This is a categorical scale,
@@ -47,6 +48,8 @@ func (k Kind) Color() string {
 		return "#12dcdc"
 	case KindQueue:
 		return "#b06bff"
+	case KindBrowser:
+		return "#a0e82e"
 	default:
 		return "#ffd93b"
 	}

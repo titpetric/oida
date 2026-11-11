@@ -117,6 +117,8 @@ func (h *handler) serveHTTP(w http.ResponseWriter, r *http.Request) error {
 		h.serveEvents(w, r)
 	case route == "/stats":
 		h.serveStats(w, r)
+	case route == model.CollectRoute:
+		h.serveCollect(w, r)
 	case strings.HasPrefix(route, view.AssetPrefix):
 		h.serveAsset(w, r, route)
 	default:
@@ -229,6 +231,7 @@ func (h *handler) serveDetail(w http.ResponseWriter, r *http.Request, id string)
 		page.Host = model.TraceHost(&trace)
 	}
 	page.Trace = &trace
+	page.Related = view.Related(trace, page.Snapshot.Log)
 	page.Rows = view.Rows(trace)
 	page.Segments = view.Timeline(trace)
 	page.Memory = view.TraceMemory(trace, page.Rows)

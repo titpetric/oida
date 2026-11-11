@@ -31,6 +31,14 @@ Field: `Options.TrackMemoryUse`<br>Default: `true`<br>Meaning: Read the runtime 
 
 Field: `Options.TrustRequestID`<br>Default: `false`<br>Meaning: Reuse a client-supplied `Request-Id` header instead of generating one. Only enable behind a trusted proxy.
 
+Field: `Options.TrustTraceContext`<br>Default: `false`<br>Meaning: Join the W3C trace a caller propagated in the `traceparent` header, recording the request under that trace with the caller's span as its parent. Only enable behind a trusted proxy: the header decides which trace a reader of the dashboard finds the request under. The response carries `traceparent` either way.
+
+Field: `Options.TraceParent`<br>Default: empty, read from `TRACEPARENT`<br>Meaning: The trace context this process was started inside, which every trace it opens joins. It is how a run nests under the command that started it. An unparseable value fails `New`.
+
+Field: `Options.TraceState`<br>Default: empty, read from `TRACESTATE`<br>Meaning: The vendor state carried beside `TraceParent`, passed on untouched.
+
+Field: `Options.Collect`<br>Default: `false`<br>Meaning: Record the transactions a client posts to `{Path}/collect`, which is what [the browser library](guide-browser.md) records through. It is the one route of the front end that writes, so it answers 404 until a deployment turns it on.
+
 Field: `Options.IgnorePaths`<br>Default: `/healthz`, `/readyz`, `/metrics`, `/favicon.ico`<br>Meaning: Exact paths and `/prefix/*` patterns never traced.
 
 Field: `Options.RefreshInterval`<br>Default: `5`<br>Meaning: Fallback refresh of the live view, in seconds, used when the browser cannot stream. 0 disables it.
@@ -331,6 +339,8 @@ oida:
 
 A variable set to nothing is a variable unset. Values are trimmed before they are read, so an empty string, whitespace, and a list of separators with no entries all leave the option at the default in the table below rather than at the zero value. That is what a compose file writes for a setting left alone. A value that is set to something is strict: anything that does not parse fails `New` instead of falling back.
 
+`TRACEPARENT` and `TRACESTATE` carry no `OIDA_` prefix because a parent process does not know which library its child was built with: the bare pair is the convention the OpenTelemetry tooling settled on, and `oida.Environ` writes it. `OIDA_TRACEPARENT` and `OIDA_TRACESTATE` are read first where a deployment needs to address oida alone.
+
 | Variable                       | Option                 | When unset                               |
 |--------------------------------|------------------------|------------------------------------------|
 | `OIDA_SERVICE_NAME`            | `ServiceName`          | the name passed to `NewOptions`          |
@@ -343,6 +353,10 @@ A variable set to nothing is a variable unset. Values are trimmed before they ar
 | `OIDA_SAMPLE_RATE`             | `SampleRate`           | `100`; out of `[0,100]` clamps           |
 | `OIDA_TRACK_MEMORY_USE`        | `TrackMemoryUse`       | `true`                                   |
 | `OIDA_TRUST_REQUEST_ID`        | `TrustRequestID`       | `false`                                  |
+| `OIDA_TRUST_TRACE_CONTEXT`     | `TrustTraceContext`    | `false`                                  |
+| `OIDA_COLLECT`                 | `Collect`              | `false`: the collect route answers 404   |
+| `TRACEPARENT`                  | `TraceParent`          | none: a trace opens its own              |
+| `TRACESTATE`                   | `TraceState`           | none                                     |
 | `OIDA_REFRESH_INTERVAL`        | `RefreshInterval`      | `5`                                      |
 | `OIDA_LIVE_STREAM`             | `LiveStream`           | `true`                                   |
 | `OIDA_CAPTURE_LOGS`            | `CaptureLogs`          | `true`                                   |

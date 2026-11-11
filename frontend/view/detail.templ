@@ -75,11 +75,80 @@ templ detail(page Page) {
 				</p>
 			}
 			@traceLogs(page)
+			@traceChain(page)
 			if page.Memory.Spans {
 				@memoryGraph(page)
 			}
 			@traceFacts(*page.Trace, page.Memory)
 		}
+	}
+}
+
+// traceChain renders the other transactions of the same W3C trace: the click
+// above the request, the request above the run it started. The caller is
+// marked, and so is this transaction's place in the chain.
+templ traceChain(page Page) {
+	if page.Trace.TraceID != "" {
+		<div class="section-peek">
+			<h2>Trace <b>{ strconv.Itoa(len(page.Related) + 1) }</b></h2>
+			@sectionToggle("chain", "the transactions of this trace")
+		</div>
+		<div class="detail-fold">
+			<div class="detail-clip">
+				<dl class="detail">
+					<div>
+						<dt>Trace</dt>
+						<dd><code>{ page.Trace.TraceID }</code></dd>
+					</div>
+					<div>
+						<dt>Span</dt>
+						<dd><code>{ page.Trace.SpanID }</code></dd>
+					</div>
+					if page.Trace.ParentSpanID != "" {
+						<div>
+							<dt>Called by</dt>
+							<dd>
+								if caller, ok := Caller(*page.Trace, page.Related); ok {
+									<a href={ templ.SafeURL(page.TraceURL(caller.ID)) }>{ caller.Name }</a>
+								} else {
+									<code>{ page.Trace.ParentSpanID }</code>
+								}
+							</dd>
+						</div>
+					}
+					if page.Trace.TraceState != "" {
+						<div>
+							<dt>Vendor state</dt>
+							<dd><code>{ page.Trace.TraceState }</code></dd>
+						</div>
+					}
+				</dl>
+				if len(page.Related) > 0 {
+					<div class="scroll">
+						<table>
+							<thead>
+								<tr>
+									<th>Service</th>
+									<th class="num c-medium">Duration</th>
+									<th class="flex">Transaction</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, related := range page.Related {
+									<tr>
+										<td>{ serviceLabel(related) }</td>
+										<td class="num c-medium">{ preciseText(related.Duration) }</td>
+										<td class="flex"><a href={ templ.SafeURL(page.TraceURL(related.ID)) }>{ related.Name }</a></td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				} else {
+					<p class="note">No other process recorded into this trace.</p>
+				}
+			</div>
+		</div>
 	}
 }
 

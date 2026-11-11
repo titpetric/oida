@@ -199,6 +199,15 @@ func attributeValue(attributes model.Attributes, key string) string {
 	return attributeText(attributes[key])
 }
 
+// serviceLabel names the process a transaction was recorded in, falling back
+// to the host it ran against.
+func serviceLabel(trace model.Trace) string {
+	if trace.Service != "" {
+		return trace.Service
+	}
+	return model.TraceHost(&trace)
+}
+
 // attributeLabel renders an attribute key as a row label: "memory_limit" reads
 // as "Memory limit". Unknown keys read the same way.
 func attributeLabel(key string) string {

@@ -16,6 +16,10 @@ type Recorder interface {
 	// Finish completes a trace and retains it.
 	Finish(t *Trace)
 
+	// Record retains a transaction a client measured and posted, and returns
+	// the trace context naming it.
+	Record(ctx context.Context, tx Transaction) (Collected, error)
+
 	// Snapshot returns a race free copy of the recorded state.
 	Snapshot() Snapshot
 
