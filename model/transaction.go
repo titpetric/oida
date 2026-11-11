@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -17,6 +18,11 @@ const (
 	// transaction dated last year would sort below every recorded trace
 	// forever.
 	maxClockSkew = 24 * time.Hour
+
+	// maxClientMillis bounds every millisecond figure a client posts. A
+	// float64 past this converts to a negative time.Duration, which is the
+	// value Validate refuses outright.
+	maxClientMillis = float64(math.MaxInt64 / int64(time.Millisecond))
 )
 
 // Transaction is one unit of work a client recorded and posted: a browser
@@ -108,8 +114,8 @@ func (tx Transaction) Validate() error {
 		return fmt.Errorf("%w: a transaction needs a name", ErrInvalidTransaction)
 	case len(tx.Name) > maxTransactionName:
 		return fmt.Errorf("%w: the name runs past %d bytes", ErrInvalidTransaction, maxTransactionName)
-	case tx.Duration < 0 || tx.StartedAt < 0:
-		return fmt.Errorf("%w: the times must not be negative", ErrInvalidTransaction)
+	case !millis(tx.StartedAt) || !millis(tx.Duration):
+		return fmt.Errorf("%w: the times must be between 0 and %g milliseconds", ErrInvalidTransaction, maxClientMillis)
 	case len(tx.Spans) > maxTransactionSpans:
 		return fmt.Errorf("%w: %d spans is past the %d one transaction may carry", ErrInvalidTransaction, len(tx.Spans), maxTransactionSpans)
 	case tx.TraceID != "" && !ValidTraceID(tx.TraceID):
@@ -125,8 +131,8 @@ func (tx Transaction) Validate() error {
 		switch {
 		case span.Name == "" || len(span.Name) > maxTransactionName:
 			return fmt.Errorf("%w: span %d needs a name of at most %d bytes", ErrInvalidTransaction, i+1, maxTransactionName)
-		case span.Duration < 0 || span.Start < 0:
-			return fmt.Errorf("%w: the times of span %d must not be negative", ErrInvalidTransaction, i+1)
+		case !millis(span.Start) || !millis(span.Duration):
+			return fmt.Errorf("%w: the times of span %d must be between 0 and %g milliseconds", ErrInvalidTransaction, i+1, maxClientMillis)
 		case span.Parent < 0 || span.Parent > i:
 			return fmt.Errorf("%w: span %d nests under %d, which is not a span before it", ErrInvalidTransaction, i+1, span.Parent)
 		}
@@ -211,6 +217,12 @@ func (tx Transaction) depth(i int) int {
 		depth++
 	}
 	return depth
+}
+
+// millis reports whether a client millisecond figure converts to a Duration.
+// A NaN compares false against every bound, and so fails here.
+func millis(value float64) bool {
+	return value >= 0 && value <= maxClientMillis
 }
 
 // milliseconds returns a client duration as a Duration, clamped at zero.

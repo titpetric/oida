@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -53,6 +54,16 @@ func TestTransaction_Validate(t *testing.T) {
 		"a bad trace":      func(tx *Transaction) { tx.TraceID = "nope" },
 		"a bad parent":     func(tx *Transaction) { tx.ParentID = "nope" },
 		"too many spans":   func(tx *Transaction) { tx.Spans = make([]TransactionSpan, maxTransactionSpans+1) },
+
+		// A float64 past what a Duration holds converts to a negative one,
+		// and NaN compares false against both bounds.
+		"a time past a Duration":      func(tx *Transaction) { tx.Duration = 1e300 },
+		"a start past a Duration":     func(tx *Transaction) { tx.StartedAt = 1e300 },
+		"a time that is not a number": func(tx *Transaction) { tx.Duration = math.NaN() },
+		"a span time past a Duration": func(tx *Transaction) { tx.Spans[0].Duration = 1e300 },
+		"a span start that is no number": func(tx *Transaction) {
+			tx.Spans[0].Start = math.NaN()
+		},
 	}
 	for name, break_ := range cases {
 		t.Run(name, func(t *testing.T) {
