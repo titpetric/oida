@@ -131,18 +131,6 @@
     return "00-" + trace + "-" + span + "-01";
   }
 
-  // parse reads a traceparent, null for one this version cannot use.
-  function parse(value) {
-    var f = String(value || "").trim().split("-");
-    if (f.length < 4 || f[0] !== "00" || f[1].length !== 32 || f[2].length !== 16) {
-      return null;
-    }
-    if (!/^[0-9a-f]+$/.test(f[1] + f[2]) || /^0+$/.test(f[1]) || /^0+$/.test(f[2])) {
-      return null;
-    }
-    return { trace: f[1], span: f[2] };
-  }
-
   function meta(name) {
     var tag = document.querySelector('meta[name="' + name + '"]');
     return tag ? tag.getAttribute("content") : "";
