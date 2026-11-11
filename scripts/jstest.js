@@ -88,6 +88,7 @@ function world(options) {
   const window_listeners = {};
   const observers = [];
   const storage = new Map();
+  const local = new Map(Object.entries(options.local || {}));
   let counter = 0;
   let clock = 100;
 
@@ -196,6 +197,18 @@ function world(options) {
       setItem: (key, value) => storage.set(key, value),
       removeItem: (key) => storage.delete(key),
     },
+    localStorage: {
+      getItem: (key) => (local.has(key) ? local.get(key) : null),
+      setItem: (key, value) => local.set(key, value),
+      removeItem: (key) => local.delete(key),
+    },
+    history: {
+      pushState(state, title, url) {
+        const next = new URL(url, sandbox.location.href);
+        Object.assign(sandbox.location, { href: next.href, pathname: next.pathname, search: next.search, hash: next.hash });
+      },
+      replaceState() {},
+    },
     MutationObserver: class MutationObserver {
       constructor(fn) {
         this.fn = fn;
@@ -229,12 +242,6 @@ function world(options) {
   sandbox.window.window = sandbox.window;
   sandbox.Headers = global.Headers;
 
-  // The handoff is read as the library loads, so a page the browser arrived
-  // at by a click has it in storage before that.
-  if (options.handoff) {
-    storage.set("oida.handoff", options.handoff);
-  }
-
   vm.runInNewContext(fs.readFileSync(library, "utf8"), sandbox, { filename: "oida-trace.js" });
 
   return {
@@ -243,6 +250,7 @@ function world(options) {
     beacons,
     calls,
     storage,
+    local,
     // fire dispatches an event at the document or the window.
     fire(target, type, event) {
       const listeners = (target === "window" ? window_listeners : document_listeners)[type] || [];
@@ -298,9 +306,67 @@ const served = world({ meta: { traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736
 served.fire("window", "load");
 served.tick();
 const servedTx = served.posted[0].transactions[0];
-check("a traceparent meta tag names the trace", servedTx.trace_id === "4bf92f3577b34da6a3ce929d0e0e4736", servedTx.trace_id);
-check("the pageload nests under the request that served it", servedTx.parent_id === "00f067aa0ba902b7", servedTx.parent_id);
-check("the tracestate comes through", servedTx.tracestate === "rojo=1", servedTx.tracestate);
+check("a traceparent meta tag does not replace the session's trace", /^[0-9a-f]{32}$/.test(servedTx.trace_id) && servedTx.trace_id !== "4bf92f3577b34da6a3ce929d0e0e4736", servedTx.trace_id);
+check("the pageload links the request that served it", servedTx.attributes.served === "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", servedTx.attributes.served);
+check("the pageload nests under nothing", servedTx.parent_id === undefined, servedTx.parent_id);
+check("the tracestate keeps the server's members beside the session", servedTx.tracestate === "oida=" + servedTx.session_id + ",rojo=1", servedTx.tracestate);
+
+// ------------------------------------------------------------- the session
+const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+const first = world({});
+first.fire("window", "load");
+first.tick();
+const firstTx = first.posted[0].transactions[0];
+check("a pageload mints a ULID session", ULID.test(firstTx.session_id || ""), firstTx.session_id);
+check("the session is kept in localStorage", (JSON.parse(first.local.get("oida.session") || "{}")).id === firstTx.session_id, first.local.get("oida.session"));
+check("the trace of the pageload is a 32 hex trace", /^[0-9a-f]{32}$/.test(firstTx.trace_id), firstTx.trace_id);
+check("the page names its session", first.sandbox.window.oidaTrace.session() === firstTx.session_id);
+const tp = first.sandbox.window.oidaTrace.traceparent();
+check("traceparent carries the session as its trace", tp.split("-")[1] === firstTx.trace_id, tp);
+
+const known = world({ local: { "oida.session": JSON.stringify({ id: "01ARZ3NDEKTSV4RRFFQ69G5FAV", seen: Date.now() }) } });
+known.fire("window", "load");
+known.tick();
+check("the trace of a session is its ULID in hex, as the Go side decodes it", known.posted[0].transactions[0].trace_id === "01563e3ab5d3d6764c61efb99302bd5b", known.posted[0].transactions[0].trace_id);
+
+const second = world({ local: { "oida.session": first.local.get("oida.session") } });
+second.fire("window", "load");
+second.tick();
+const secondTx = second.posted[0].transactions[0];
+check("a second pageload joins the same session", secondTx.session_id === firstTx.session_id, secondTx.session_id);
+check("and the same trace", secondTx.trace_id === firstTx.trace_id, secondTx.trace_id);
+check("with a span of its own", secondTx.span_id !== firstTx.span_id);
+
+const stale = world({ local: { "oida.session": JSON.stringify({ id: JSON.parse(first.local.get("oida.session")).id, seen: Date.now() - 31 * 60 * 1000 }) } });
+stale.fire("window", "load");
+stale.tick();
+const staleTx = stale.posted[0].transactions[0];
+check("a session idle past the window is replaced", ULID.test(staleTx.session_id) && staleTx.session_id !== firstTx.session_id, staleTx.session_id);
+
+const never = world({ attributes: { "data-session-idle": "0" }, local: { "oida.session": JSON.stringify({ id: JSON.parse(first.local.get("oida.session")).id, seen: 1 }) } });
+never.fire("window", "load");
+never.tick();
+check("an idle window of 0 never expires it", never.posted[0].transactions[0].session_id === firstTx.session_id);
+
+// the tracestate and the trace follow the session, on a call and on a route
+const routing = world({});
+routing.fire("window", "load");
+routing.tick();
+const routed = routing.posted[0].transactions[0];
+Object.assign(routing.sandbox.location, { href: "https://task.cdn.si/runs?page=2#home", hash: "#home" });
+routing.fire("window", "hashchange");
+const hashTx = routing.posted[1].transactions[0];
+check("a fragment change posts a transaction", hashTx.name === "route /runs?page=2#home", hashTx.name);
+check("it is in the session", hashTx.session_id === routed.session_id);
+check("it is under the session's trace", hashTx.trace_id === routed.trace_id);
+check("it nests under nothing", hashTx.parent_id === undefined, hashTx.parent_id);
+check("it names the event and where it came from", hashTx.attributes.event === "hashchange" && hashTx.attributes.from === "https://task.cdn.si/runs?page=2", JSON.stringify(hashTx.attributes));
+routing.sandbox.window.history.pushState({}, "", "/inventory");
+const pushTx = routing.posted[2].transactions[0];
+check("pushState posts a transaction", pushTx.attributes.event === "pushState" && pushTx.name === "route /inventory", pushTx.name);
+check("it is in the same session", pushTx.session_id === routed.session_id && pushTx.trace_id === routed.trace_id);
+routing.fire("window", "popstate");
+check("a popstate to the same address is no new transaction", routing.posted.length === 3, routing.posted.length);
 
 // -------------------------------------------------------------- the action
 const click = world({});
@@ -317,7 +383,8 @@ click.tick();
 const actionTx = (click.posted[1] || { transactions: [] }).transactions[0] || {};
 check("a click posts its own transaction", click.posted.length === 2, JSON.stringify(click.posted.length));
 check("the action is named by the element and the event", actionTx.name === "button event=click", actionTx.name);
-check("it shares the page's trace", actionTx.trace_id === pageTx.trace_id || /^[0-9a-f]{32}$/.test(actionTx.trace_id));
+check("it shares the page's trace", actionTx.trace_id === click.posted[0].transactions[0].trace_id, actionTx.trace_id);
+check("it is in the page's session", ULID.test(actionTx.session_id || "") && actionTx.session_id === click.posted[0].transactions[0].session_id, actionTx.session_id);
 check("it nests under the pageload", actionTx.parent_id === click.posted[0].transactions[0].span_id, actionTx.parent_id);
 check("the span it named is the one its calls carry", inflight === "00-" + actionTx.trace_id + "-" + actionTx.span_id + "-01", inflight);
 check("it records the event", (actionTx.attributes || {}).event === "click");
@@ -337,7 +404,7 @@ inner.tick();
 const linkTx = inner.posted[1].transactions[0];
 check("a click inside a link names the link", linkTx.name === "a event=click", linkTx.name);
 check("it records the href", linkTx.attributes.href === "/runs/42", linkTx.attributes.href);
-check("the link is handed to the next pageload", (inner.storage.get("oida.handoff") || "").indexOf("/runs/42") > 0, inner.storage.get("oida.handoff"));
+check("a link click leaves no handoff behind", !inner.storage.has("oida.handoff"));
 
 // -------------------------------------------------------------- the calls
 const fetching = world({});
@@ -382,19 +449,9 @@ pending.then(() => {
   check("the page is flushed with a beacon", going.beacons.length === 1, JSON.stringify(going.beacons.length));
   check("the close says the page went hidden", (closeTx.attributes || {}).event === "hidden", (closeTx.attributes || {}).event);
   check("it says how long the page was up", (closeTx.attributes || {}).visible_ms === 1300, (closeTx.attributes || {}).visible_ms);
-  check("it names the link the user opened", (closeTx.attributes || {}).to === "/runs/42", (closeTx.attributes || {}).to);
-  check("it names the traceparent the next pageload will join", /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/.test((closeTx.attributes || {})["to.traceparent"] || ""));
   check("the open action was settled first", going.beacons[0].body.transactions.some((entry) => entry.name === "a event=click"));
 
-  // ------------------------------------------------- the pageload it causes
-  const handed = JSON.parse(going.storage.get("oida.handoff") || "{}");
-  const arrived = world({ handoff: going.storage.get("oida.handoff") });
-  arrived.fire("window", "load");
-  arrived.tick();
-  const arrivedTx = arrived.posted[0].transactions[0];
-  check("the next pageload stays in the same trace", arrivedTx.trace_id === handed.trace, arrivedTx.trace_id);
-  check("it nests under the click that opened it", arrivedTx.parent_id === handed.span, arrivedTx.parent_id);
-  check("it names where it came from", arrivedTx.attributes.from === "/runs/42", arrivedTx.attributes.from);
+  check("the close is in the session", closeTx.session_id === going.sandbox.window.oidaTrace.session());
 
   if (printing) {
     console.log(JSON.stringify({ pageload: pageTx, click: actionTx }, null, 2));

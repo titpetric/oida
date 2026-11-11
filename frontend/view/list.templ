@@ -15,6 +15,9 @@ templ list(page Page) {
 				// so submitting a filter does not widen back to every host.
 				<input type="hidden" name="host" value={ page.Host }/>
 			}
+			if page.Session != "" {
+				<input type="hidden" name="session" value={ page.Session }/>
+			}
 			<span class="field grow">
 				<label for="oida-filter">Search</label>
 				<input type="search" name="q" id="oida-filter" value={ page.Query } autocomplete="off"/>
@@ -49,6 +52,7 @@ templ list(page Page) {
 							@sortLink(page, SortAllocated, "Allocated")
 						</th>
 						<th class="dim c-wide">Remote</th>
+						<th class="c-wide">Session</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -57,9 +61,9 @@ templ list(page Page) {
 					}
 					if len(page.Snapshot.Log) == 0 {
 						<tr>
-							<td class="empty" colspan="10">
+							<td class="empty" colspan="11">
 								<b>No traces</b>
-								if page.Query != "" || page.Kind != "" || page.Status == "error" {
+								if page.Query != "" || page.Kind != "" || page.Status == "error" || page.Session != "" || page.Roots {
 									Nothing matches this filter.
 									<a href={ templ.SafeURL(page.TracesPath()) }>Clear it</a>
 									to see everything recorded.
@@ -122,5 +126,10 @@ templ traceRow(trace model.Trace, page Page) {
 		</td>
 		<td class="num c-medium">{ bytesText(trace.Memory.AllocatedBytes) }</td>
 		<td class="dim c-wide">{ remoteText(trace) }</td>
+		<td class="c-wide">
+			if trace.SessionID != "" {
+				<a href={ templ.SafeURL(page.SessionURL(trace.SessionID)) } title={ trace.SessionID }>{ shortSession(trace.SessionID) }</a>
+			}
+		</td>
 	</tr>
 }

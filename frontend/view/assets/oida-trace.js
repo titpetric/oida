@@ -14,8 +14,13 @@
   var idle = Number(script.getAttribute("data-idle")) || 1000;
   var sample = Number(script.getAttribute("data-sample") || "100");
 
-  // handoff is where a click leaves the link it opened, for the next pageload.
-  var handoff = "oida.handoff";
+  // The session is a ULID kept in localStorage, shared by every tab of the
+  // origin, and renewed once nothing has happened for the idle window.
+  var storageKey = "oida.session";
+  var sessionIdle = Number(script.getAttribute("data-session-idle"));
+  if (isNaN(sessionIdle) || script.getAttribute("data-session-idle") === null) {
+    sessionIdle = 1800;
+  }
 
   if (sample < 100 && Math.random() * 100 >= sample) {
     return;
@@ -38,20 +43,92 @@
     return out;
   }
 
-  function traceparent(span) {
-    return "00-" + trace + "-" + span + "-01";
+  var crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+  // ulid returns a 26 character ULID: 48 bits of the clock, 80 random.
+  function ulid() {
+    var data = new Uint8Array(16);
+    var now = Date.now();
+    for (var i = 5; i >= 0; i--) {
+      data[i] = now % 256;
+      now = Math.floor(now / 256);
+    }
+    var random = new Uint8Array(10);
+    if (window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(random);
+    } else {
+      for (var r = 0; r < 10; r++) {
+        random[r] = Math.floor(Math.random() * 256);
+      }
+    }
+    data.set(random, 6);
+    var out = "";
+    for (var n = 0; n < 26; n++) {
+      var value = 0;
+      for (var bit = 0; bit < 5; bit++) {
+        var at = n * 5 + bit - 2;
+        value = (value << 1) | (at >= 0 && at < 128 ? (data[Math.floor(at / 8)] >> (7 - (at % 8))) & 1 : 0);
+      }
+      out += crockford.charAt(value);
+    }
+    return out;
   }
 
-  // parse reads a traceparent, null for one this version cannot use.
-  function parse(value) {
-    var f = String(value || "").trim().split("-");
-    if (f.length < 4 || f[0] !== "00" || f[1].length !== 32 || f[2].length !== 16) {
-      return null;
+  // traceOf returns the 32 hex digits a ULID encodes, so the trace of a
+  // session is the session.
+  function traceOf(id) {
+    var bits = "";
+    for (var n = 0; n < 26; n++) {
+      var value = crockford.indexOf(id.charAt(n));
+      bits += (value + 32).toString(2).slice(1);
     }
-    if (!/^[0-9a-f]+$/.test(f[1] + f[2]) || /^0+$/.test(f[1]) || /^0+$/.test(f[2])) {
-      return null;
+    bits = bits.slice(2);
+    var out = "";
+    for (var i = 0; i < 128; i += 4) {
+      out += parseInt(bits.slice(i, i + 4), 2).toString(16);
     }
-    return { trace: f[1], span: f[2] };
+    return out;
+  }
+
+  // sessionID returns the live session, minting one when there is none or
+  // the last activity is older than the idle window, and stamps the activity.
+  var memory = null;
+  function sessionID() {
+    var now = Date.now();
+    var kept = memory;
+    try {
+      var value = window.localStorage.getItem(storageKey);
+      kept = value ? JSON.parse(value) : kept;
+    } catch (err) {
+      // Storage that is off: the session lives as long as this page.
+    }
+    if (!kept || !/^[0-9A-HJKMNP-TV-Z]{26}$/.test(kept.id || "") || (sessionIdle > 0 && now - kept.seen > sessionIdle * 1000)) {
+      kept = { id: ulid(), seen: now };
+    }
+    kept.seen = now;
+    memory = kept;
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(kept));
+    } catch (err) {
+      // Private mode or a quota.
+    }
+    return kept.id;
+  }
+
+  // renew makes the trace, the session and the tracestate follow the live
+  // session, so every transaction and every call names the one it is in.
+  function renew() {
+    var id = sessionID();
+    if (id !== session) {
+      session = id;
+      trace = traceOf(id);
+      state = "oida=" + id + (extra ? "," + extra : "");
+    }
+  }
+
+  function traceparent(span) {
+    renew();
+    return "00-" + trace + "-" + span + "-01";
   }
 
   function meta(name) {
@@ -59,33 +136,15 @@
     return tag ? tag.getAttribute("content") : "";
   }
 
-  // stored reads the handoff and clears it, null when there is none.
-  function stored() {
-    try {
-      var value = window.sessionStorage.getItem(handoff);
-      window.sessionStorage.removeItem(handoff);
-      return value ? JSON.parse(value) : null;
-    } catch (err) {
-      return null;
-    }
-  }
-
-  // store leaves the handoff for the page the browser goes to next.
-  function store(span, href) {
-    try {
-      window.sessionStorage.setItem(handoff, JSON.stringify({ trace: trace, span: span, tracestate: state, href: href }));
-    } catch (err) {
-      // Private mode or a quota: the next pageload opens a trace of its own.
-    }
-  }
-
-  // A traceparent meta tag names the request that served this page, which is
-  // how a pageload nests under it; failing that the link a click handed over,
-  // failing that a trace of this page's own.
-  var served = parse(meta("traceparent"));
-  var handed = stored();
-  var trace = served ? served.trace : handed && handed.trace ? handed.trace : hex(16);
-  var state = served ? meta("tracestate") : handed ? handed.tracestate || "" : "";
+  // The server request that served this page is named by a traceparent meta
+  // tag. It lives in a trace of its own, so the pageload links to it by
+  // attribute and carries the session's trace.
+  var served = meta("traceparent");
+  var extra = served ? meta("tracestate") : "";
+  var session = "";
+  var trace = "";
+  var state = "";
+  renew();
   var pageSpan = hex(8);
   var post = typeof window.fetch === "function" ? window.fetch.bind(window) : null;
   var queue = [];
@@ -98,11 +157,13 @@
   }
 
   function transaction(name, span, parent, attributes) {
+    renew();
     return {
+      session_id: session,
       trace_id: trace,
       span_id: span,
       parent_id: parent || undefined,
-      tracestate: state || undefined,
+      tracestate: state,
       service: service || undefined,
       name: name,
       kind: "browser",
@@ -120,10 +181,10 @@
   function pageload() {
     var nav = (performance.getEntriesByType && performance.getEntriesByType("navigation")[0]) || null;
     var attributes = { event: "pageload", url: location.href, title: document.title, referrer: document.referrer };
-    if (handed && handed.href) {
-      attributes["from"] = handed.href;
+    if (served) {
+      attributes["served"] = served;
     }
-    var tx = transaction("pageload " + location.pathname, pageSpan, served ? served.span : handed ? handed.span : "", attributes);
+    var tx = transaction("pageload " + location.pathname, pageSpan, "", attributes);
     if (!nav) {
       tx.duration_ms = round(performance.now());
       return tx;
@@ -312,16 +373,12 @@
     if (typeof Headers === "function") {
       next.headers = new Headers(given);
       next.headers.set("traceparent", traceparent(span));
-      if (state) {
-        next.headers.set("tracestate", state);
-      }
+      next.headers.set("tracestate", state);
       return next;
     }
     next.headers = Object.assign({}, given);
     next.headers["traceparent"] = traceparent(span);
-    if (state) {
-      next.headers["tracestate"] = state;
-    }
+    next.headers["tracestate"] = state;
     return next;
   }
 
@@ -366,9 +423,7 @@
         call.span = current();
         call.begin = performance.now();
         this.setRequestHeader("traceparent", traceparent(call.span));
-        if (state) {
-          this.setRequestHeader("tracestate", state);
-        }
+        this.setRequestHeader("tracestate", state);
         this.addEventListener("loadend", function () {
           record(call.method + " " + call.url.pathname, call.span, call.begin, { status: this.status });
         });
@@ -377,14 +432,35 @@
     };
   }
 
-  // navigating reports whether a link takes the browser off this page.
-  function navigating(href) {
-    return !!href && href.indexOf("#") !== 0 && href.indexOf("javascript:") !== 0;
+  // route records a change of address the browser made without a request: a
+  // fragment or a history entry of a single page app. It is a transaction of
+  // the session, posted like any other, since no server will see it.
+  var last = location.href;
+  function route(event) {
+    if (location.href === last) {
+      return;
+    }
+    settle();
+    var from = last;
+    last = location.href;
+    var tx = transaction("route " + location.pathname + location.search + location.hash, hex(8), "", {
+      event: event,
+      url: location.href,
+      from: from,
+      title: document.title,
+    });
+    tx.http.uri = location.pathname + location.search + location.hash;
+    queue.push(tx);
+    flush(false);
   }
 
   window.oidaTrace = {
-    // trace is the identifier every transaction of this page shares.
-    trace: trace,
+    // session is the ULID every transaction of this visit is grouped by; its
+    // 128 bits are the trace of every traceparent the page sends.
+    session: function () {
+      renew();
+      return session;
+    },
 
     // recorded is the last receipt: what the recorder made of each transaction.
     recorded: null,
@@ -412,6 +488,26 @@
 
   patch();
 
+  // A single page app moves without asking the server: the fragment, and the
+  // history API behind its pretty links.
+  window.addEventListener("hashchange", function () {
+    route("hashchange");
+  });
+  window.addEventListener("popstate", function () {
+    route("popstate");
+  });
+  ["pushState", "replaceState"].forEach(function (name) {
+    var native = window.history && window.history[name];
+    if (!native) {
+      return;
+    }
+    window.history[name] = function () {
+      var result = native.apply(this, arguments);
+      route(name);
+      return result;
+    };
+  });
+
   // One delegated listener per event, in the capture phase, so neither a
   // handler that stops propagation nor an event that does not bubble can hide
   // an action.
@@ -419,11 +515,7 @@
     "click",
     function (event) {
       var element = actionable(event.target);
-      var action = start("click", element);
-      var href = element && element.getAttribute ? element.getAttribute("href") : "";
-      if (navigating(href)) {
-        store(action.span, href);
-      }
+      start("click", element);
     },
     true,
   );
@@ -431,8 +523,7 @@
   document.addEventListener(
     "submit",
     function (event) {
-      var form = event.target;
-      store(start("submit", form).span, (form && form.getAttribute && form.getAttribute("action")) || location.pathname);
+      start("submit", event.target);
     },
     true,
   );
@@ -475,12 +566,6 @@
       url: location.href,
       visible_ms: round(performance.now()),
     });
-    var handing = stored();
-    if (handing) {
-      tx.attributes["to"] = handing.href;
-      tx.attributes["to.traceparent"] = traceparent(handing.span);
-      store(handing.span, handing.href);
-    }
     queue.push(tx);
     flush(true);
   }

@@ -158,6 +158,7 @@ func (t *Trace) SetParent(c TraceContext) {
 	t.lock()
 	defer t.unlock()
 	t.TraceID, t.ParentSpanID, t.TraceState = c.TraceID, c.SpanID, CleanTraceState(c.State)
+	t.SessionID = SessionFromState(t.TraceState)
 }
 
 // Parent returns the trace context the trace joined: its trace, the caller's

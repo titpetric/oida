@@ -45,6 +45,10 @@ type Transaction struct {
 	// TraceState is the tracestate the client carried, kept untouched.
 	TraceState string `json:"tracestate,omitempty"`
 
+	// SessionID is the ULID of the session the work was part of. An ID that
+	// is no ULID is dropped and the transaction is kept.
+	SessionID string `json:"session_id,omitempty"`
+
 	// Name is what the transaction measured, which the dashboard lists it
 	// under.
 	Name string `json:"name"`
@@ -159,6 +163,7 @@ func (tx Transaction) Trace(id string, opts TraceOptions) *Trace {
 		SpanID:       firstString(tx.SpanID, SpanIDFor(id, rootSpan)),
 		ParentSpanID: tx.ParentID,
 		TraceState:   CleanTraceState(tx.TraceState),
+		SessionID:    tx.session(),
 		Name:         tx.Name,
 		Service:      firstString(tx.Service, opts.Service),
 		State:        StateProcessing,
@@ -257,4 +262,13 @@ func firstString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// session returns the session the transaction names, from its own field or,
+// failing that, from the tracestate it carried.
+func (tx Transaction) session() string {
+	if ValidSessionID(tx.SessionID) {
+		return tx.SessionID
+	}
+	return SessionFromState(tx.TraceState)
 }

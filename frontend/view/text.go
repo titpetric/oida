@@ -122,6 +122,9 @@ func writeDetailText(w io.Writer, page Page) {
 		if trace.ParentSpanID != "" {
 			fmt.Fprintf(w, "%-20s %s\n", "called by", trace.ParentSpanID)
 		}
+		if trace.SessionID != "" {
+			fmt.Fprintf(w, "%-20s %s\n", "session", trace.SessionID)
+		}
 		if trace.TraceState != "" {
 			fmt.Fprintf(w, "%-20s %s\n", "vendor state", trace.TraceState)
 		}
